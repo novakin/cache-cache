@@ -662,15 +662,18 @@
       let status = null;
       let buttonContent = null;
       let buttonLabel = null;
-      let buttonMinWidth = '';
+      let buttonWidth = '';
+      let buttonMaxWidth = '';
       if (form !== settings) {
         const name = operationName(form, button);
         const label = name ? `${name}: ${state.dataset.pending}` : state.dataset.pending;
         if (button?.tagName === 'BUTTON') {
           buttonContent = [...button.childNodes];
           buttonLabel = button.getAttribute('aria-label');
-          buttonMinWidth = button.style.minWidth;
-          button.style.minWidth = `min(100%, ${Math.ceil(button.getBoundingClientRect().width)}px)`;
+          buttonWidth = button.style.width;
+          buttonMaxWidth = button.style.maxWidth;
+          button.style.width = `${button.getBoundingClientRect().width}px`;
+          button.style.maxWidth = '100%';
           button.setAttribute('aria-label', label);
           button.classList.add('noobrocket-operation-pending');
           status = document.createElement('span');
@@ -695,7 +698,8 @@
         if (buttonContent) {
           button.replaceChildren(...buttonContent);
           button.classList.remove('noobrocket-operation-pending');
-          button.style.minWidth = buttonMinWidth;
+          button.style.width = buttonWidth;
+          button.style.maxWidth = buttonMaxWidth;
           if (buttonLabel === null) button.removeAttribute('aria-label');
           else button.setAttribute('aria-label', buttonLabel);
         }

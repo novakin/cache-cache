@@ -18,7 +18,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><div
 <div id="noobrocket-cnames-list"><div id="saved-cdn-row"><input name="noobrocket_settings[cdn_cnames][0]" aria-label="CDN CNAME" value="cdn.example.com"><select name="noobrocket_settings[cdn_zone][0]" aria-label="Files to serve from this CDN"><option value="all">All files</option></select></div></div>
 </div><div id="cloudflare" class="noobrocket-Page"><h1>Cloudflare</h1><input id="cloudflare_api_key" type="hidden" name="noobrocket_settings[cloudflare_api_key]" value="synthetic-saved-key"><label for="cloudflare_api_key_mask">Global API key</label><input id="cloudflare_api_key_mask" type="password" name="noobrocket_settings[cloudflare_api_key_mask]" value=""><input id="cloudflare_zone_id_mask" name="noobrocket_settings[cloudflare_zone_id_mask]" value=""></div></form>
 <form id="noobrocket-database-cleanup" action="/cleanup" method="post"><input name="action" value="noobrocket_database_cleanup" type="hidden"><input id="noobrocket-cleanup-confirmed" name="confirmed" value="1" type="checkbox" required hidden><div data-noobrocket-cleanup-scope></div></form>
-<form id="diagnostic" action="/operation" method="post"><input name="action" value="check_cache" type="hidden"><button name="scope" value="homepage">Check cache</button></form>
+<form id="diagnostic" action="/operation" method="post" style="display:inline-flex"><input name="action" value="check_cache" type="hidden"><button name="scope" value="homepage">Check cache</button></form>
 <button type="button" class="noobrocket-asset-create" data-asset-type="script" data-asset-handle="theme-navigation" data-asset-page="12">Create rule</button>
 <form id="noobrocket-rule-editor" action="/asset" method="post"><select name="rule[type]"><option value="style">CSS</option><option value="script">JavaScript</option></select><input name="rule[handle]" required><select id="noobrocket-rule-scope" name="rule[scope]"><option value="post">One page</option><option value="post_type">Post type</option><option value="template">Template</option><option value="everywhere">Everywhere</option></select><input id="noobrocket-rule-expert" name="rule_expert" value="1" type="checkbox"><div data-asset-raw><input id="noobrocket-rule-value" name="rule[value]"></div><div data-asset-scope="post"><select id="noobrocket-rule-page" name="rule_page"><option value="">Choose page</option><option value="12">Contact</option></select></div><div data-asset-scope="post_type"><select id="noobrocket-rule-post-type" name="rule_post_type"><option value="page">Pages</option></select></div><div data-asset-scope="template"><select id="noobrocket-rule-template" name="rule_template"><option value="default">Default</option></select></div><div data-asset-scope="everywhere">All pages</div><input name="rule[exceptions]"><button>Add rule</button></form>
 <div id="saved-private-draft">Private draft: contact-form on Contact</div><div id="published-rules">Published: theme-navigation on Contact</div>
@@ -208,6 +208,7 @@ try {
   await fresh();
   holdNextResponse = true;
   const operationsBeforePending = posts.length;
+  const originalActionWidth = await page.locator('#diagnostic button').evaluate(button => button.getBoundingClientRect().width);
   const responseReceived = page.waitForURL(origin + '/operation').catch(error => error);
   const postReceived = new Promise(resolve => { posted = resolve; });
   const pending = await page.evaluate(() => {
@@ -216,7 +217,7 @@ try {
     return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
       const button = form.querySelector('button');
       const feedback = {
-        busy: form.getAttribute('aria-busy'), label: button.textContent,
+        busy: form.getAttribute('aria-busy'), label: button.textContent, width: button.getBoundingClientRect().width,
         accessibleLabel: button.getAttribute('aria-label'), role: button.querySelector('span')?.getAttribute('role'),
         pendingButtons: form.querySelectorAll('button.noobrocket-operation-pending').length,
         pendingToasts: document.querySelectorAll('.noobrocket-toasts .noobrocket-operation-pending').length,
@@ -229,6 +230,7 @@ try {
   await postReceived;
   check(pending.busy === 'true' && pending.pendingButtons === 1 && pending.label === 'Working…' && pending.pendingToasts === 0, 'delayed native operation keeps progress inside its button without a duplicate toast');
   check(pending.accessibleLabel === 'Check cache: Working…' && pending.role === 'status', 'busy button retains its action context and status semantics');
+  check(Math.abs(pending.width - originalActionWidth) < 1, 'busy action preserves width inside a shrink-to-fit parent');
   check(pending.stillBusy && posts.length === operationsBeforePending + 1 && posts.at(-1).path === '/operation', 'button-owned progress preserves guards and repeat submission sends no second request');
   check(new URLSearchParams(requestBody).get('scope') === 'homepage' && new URLSearchParams(requestBody).get('action') === 'check_cache', 'pending feedback preserves native submitter name and value');
   releaseResponse();
@@ -262,14 +264,16 @@ try {
     button.replaceChildren(original);
     button.setAttribute('aria-label', 'Check homepage cache');
     button.style.minWidth = '150px';
+    button.style.width = '180px';
+    button.style.maxWidth = '240px';
     window.addEventListener('submit', event => event.preventDefault(), { once: true });
     form.requestSubmit(button);
     const pendingLabel = button.getAttribute('aria-label');
     return new Promise(resolve => setTimeout(() => {
-      resolve({ sameChild: button.firstChild === original, label: button.getAttribute('aria-label'), pendingLabel, minWidth: button.style.minWidth, pending: button.classList.contains('noobrocket-operation-pending') });
+      resolve({ sameChild: button.firstChild === original, label: button.getAttribute('aria-label'), pendingLabel, minWidth: button.style.minWidth, width: button.style.width, maxWidth: button.style.maxWidth, pending: button.classList.contains('noobrocket-operation-pending') });
     }, 0));
   });
-  check(restoredButton.sameChild && restoredButton.label === 'Check homepage cache' && restoredButton.pendingLabel === 'Check homepage cache: Working…' && restoredButton.minWidth === '150px' && !restoredButton.pending, 'canceled action preserves contextual accessible name and restores original child nodes and sizing');
+  check(restoredButton.sameChild && restoredButton.label === 'Check homepage cache' && restoredButton.pendingLabel === 'Check homepage cache: Working…' && restoredButton.minWidth === '150px' && restoredButton.width === '180px' && restoredButton.maxWidth === '240px' && !restoredButton.pending, 'canceled action preserves contextual accessible name and restores original child nodes and sizing');
   await fresh();
   const restoredPage = await page.evaluate(() => {
     const form = document.querySelector('#diagnostic');
