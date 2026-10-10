@@ -113,7 +113,7 @@ if ( method_exists( $table, 'add_status_locked_modified_index' ) ) {
 	$upgrade = new CacheTable();
 	$upgrade->maybe_upgrade();
 	$check( $upgrade->index_exists( 'status_locked_modified' ), 'native old schema receives index' );
-	$check( 20261009 === (int) get_option( 'nbr_noobrocket_cache_version' ), 'native successful upgrade records version' );
+	$check( 20261010 === (int) get_option( 'nbr_noobrocket_cache_version' ), 'native successful upgrade records version' );
 	$check( $existing_rows === (int) $wpdb->get_var( "SELECT COUNT(*) FROM $name" ), 'upgrade preserves all existing rows' );
 	$check( true === $upgrade->add_status_locked_modified_index(), 'index migration is idempotent' );
 	$run( "ALTER TABLE $name DROP INDEX status_locked_modified" );

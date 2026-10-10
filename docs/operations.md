@@ -40,6 +40,8 @@ Local CSS uses a separate Node.js/Chromium command. A passed `--check` records e
 
 ## Recovery boundaries
 
+Preload discovery upgrades its table with a nullable fixed URL key and unique index. Existing row IDs, statuses, locks, access times and duplicates stay intact; no full-table data backfill runs. One-time DDL can wait for active database work and build the index; verify its duration on staging for unusually large queues. A failed or partial migration retains the prior version marker and refuses unprotected new discovery until the normal upgrade hook retries successfully. Existing rows remain readable. Code rollback can leave the additive column/index in place: older readers and `add_item()` callers omit the nullable key and remain compatible, but can again insert duplicates. Concurrent old-release requests are outside the new discovery guard. Completion still recovers those rows; do not delete the table as a recovery shortcut.
+
 | Operation | Restores | Does not restore |
 | --- | --- | --- |
 | Replace plugin with a prior verified beta | Plugin code and bundled assets | Deleted data, provider-side state or necessarily migrated schema. |

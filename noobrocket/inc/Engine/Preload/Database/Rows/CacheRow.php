@@ -20,6 +20,13 @@ class CacheRow extends Row {
 	public $url;
 
 	/**
+	 * Atomic discovery key; NULL for existing unkeyed rows.
+	 *
+	 * @var string|null
+	 */
+	public $url_hash;
+
+	/**
 	 * Status
 	 *
 	 * @var string

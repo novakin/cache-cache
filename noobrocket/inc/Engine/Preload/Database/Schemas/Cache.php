@@ -36,7 +36,16 @@ class Cache extends Schema {
 			'sortable'   => false,
 		],
 
-		// STATUS    column.
+		// Atomic discovery key. Existing rows may retain NULL.
+		[
+			'name'       => 'url_hash',
+			'type'       => 'char',
+			'length'     => '64',
+			'default'    => null,
+			'allow_null' => true,
+		],
+
+		// STATUS column.
 		[
 			'name'       => 'status',
 			'type'       => 'varchar',

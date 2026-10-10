@@ -137,54 +137,7 @@ class Cache extends AbstractQuery {
 			return false;
 		}
 
-		// check the database if those resources added before.
-		$rows = $this->query(
-			[
-				'url' => $url,
-			],
-			false
-		);
-
-		if ( count( $rows ) === 0 ) {
-			// Create this new row in DB.
-			$resource_id = $this->add_item(
-				[
-					'url'           => $url,
-					'status'        => key_exists( 'status', $resource ) ? $resource['status'] : 'pending',
-					'is_locked'     => key_exists( 'is_locked', $resource ) ? $resource['is_locked'] : false,
-					'last_accessed' => current_time( 'mysql', true ),
-				]
-			);
-
-			if ( ! empty( $resource_id ) ) {
-				return $resource_id;
-			}
-
-			$this->logger->error( "Cannot insert {$resource['url']} into {$this->table_name}" );
-
-			return false;
-		}
-
-		$db_row = array_pop( $rows );
-
-		$data = [
-			'url'       => $url,
-			'status'    => key_exists( 'status', $resource ) ? $resource['status'] : $db_row->status,
-			'is_locked' => key_exists( 'is_locked', $resource ) ? $resource['is_locked'] : $db_row->is_locked,
-			'modified'  => current_time( 'mysql', true ),
-		];
-
-		if ( key_exists( 'last_accessed', $resource ) && (bool) $resource['last_accessed'] ) {
-			$data['last_accessed'] = current_time( 'mysql', true );
-		}
-
-		// Update this row with the new content.
-		$this->update_item(
-			$db_row->id,
-			$data
-		);
-
-		return $db_row->id;
+		return $this->create_resource( $resource, $url, true );
 	}
 
 	/**
@@ -210,37 +163,88 @@ class Cache extends AbstractQuery {
 			*/
 		$url = apply_filters( 'noobrocket_preload_format_url', $resource['url'] );
 
-		$url = strtok( $url, '?' );
+		$url = untrailingslashit( strtok( $url, '?' ) );
 
-		// check the database if those resources added before.
-		$rows = $this->query(
-			[
-				'url' => untrailingslashit( $url ),
-			],
-			false
-		);
+		return $this->create_resource( $resource, $url, false );
+	}
 
-		if ( count( $rows ) > 0 ) {
+	/**
+	 * Discover a URL using the database unique key, or update its existing row.
+	 *
+	 * @param array  $resource Resource array.
+	 * @param string $url Normalized URL.
+	 * @param bool   $update Whether existing rows should be updated.
+	 * @return bool|int
+	 */
+	private function create_resource( array $resource, string $url, bool $update ) {
+		$rows = $this->get_rows_by_url( $url );
+
+		if ( ! $rows ) {
+			// A failed/partial schema upgrade must not admit unprotected inserts.
+			if ( (int) get_option( $this->table_name . '_version', 0 ) < 20261010 ) {
+				$this->logger->error( "Cannot discover preload URLs before upgrading {$this->table_name}" );
+				return false;
+			}
+
+			$db = $this->get_db();
+			if ( ! $db ) {
+				return false;
+			}
+
+			// Unique-key contention is ordinary discovery, not a WordPress error.
+			$previous_errors = $db->suppress_errors( true );
+			try {
+				$resource_id = $this->add_item(
+					[
+						'url'           => $url,
+						'url_hash'      => hash( 'sha256', $url ),
+						'status'        => key_exists( 'status', $resource ) ? $resource['status'] : 'pending',
+						'is_locked'     => key_exists( 'is_locked', $resource ) ? $resource['is_locked'] : false,
+						'last_accessed' => current_time( 'mysql', true ),
+					]
+				);
+			} finally {
+				$db->suppress_errors( $previous_errors );
+			}
+
+			if ( ! empty( $resource_id ) ) {
+				return $resource_id;
+			}
+
+			// Another request can win between lookup and insert. Re-read its URL;
+			// a digest collision or other failure must never update a different URL.
+			$rows = $this->get_rows_by_url( $url );
+			if ( ! $rows ) {
+				$this->logger->error( "Cannot insert {$resource['url']} into {$this->table_name}" );
+				return false;
+			}
+		}
+
+		if ( ! $update ) {
 			return false;
 		}
 
-		// Create this new row in DB.
-		$resource_id = $this->add_item(
-			[
-				'url'           => untrailingslashit( $url ),
-				'status'        => key_exists( 'status', $resource ) ? $resource['status'] : 'pending',
-				'is_locked'     => key_exists( 'is_locked', $resource ) ? $resource['is_locked'] : false,
-				'last_accessed' => current_time( 'mysql', true ),
-			]
-		);
-
-		if ( ! empty( $resource_id ) ) {
-			return $resource_id;
+		$db_row = array_pop( $rows );
+		$data   = [ 'modified' => current_time( 'mysql', true ) ];
+		foreach ( [ 'status', 'is_locked' ] as $field ) {
+			if ( key_exists( $field, $resource ) ) {
+				$data[ $field ] = $resource[ $field ];
+			}
+		}
+		if ( ! empty( $resource['last_accessed'] ) ) {
+			$data['last_accessed'] = current_time( 'mysql', true );
 		}
 
-		$this->logger->error( "Cannot insert {$resource['url']} into {$this->table_name}" );
+		// Omitted fields retain their stored values, rather than cached values.
+		if ( ! $this->update_item( $db_row->id, $data ) ) {
+			$matching = $this->query( array_merge( $data, [ 'id' => $db_row->id, 'count' => true ] ), false );
+			if ( 0 === (int) $matching ) {
+				$this->logger->error( "Cannot update {$resource['url']} in {$this->table_name}" );
+				return false;
+			}
+		}
 
-		return false;
+		return $db_row->id;
 	}
 
 	/**
@@ -252,15 +256,20 @@ class Cache extends AbstractQuery {
 	 */
 	public function get_rows_by_url( string $url ) {
 
-		$url = strtok( $url, '?' );
+		$url = untrailingslashit( strtok( $url, '?' ) );
 
 		$query = $this->query(
 			[
-				'url'    => untrailingslashit( $url ),
+				'url'    => $url,
 				'number' => 0,
 			],
 			false
 		);
+
+		// Default database collations fold case and accents; URL paths do not.
+		$query = array_values( array_filter( $query, static function ( $row ) use ( $url ) {
+			return is_object( $row ) && isset( $row->url ) && $row->url === $url;
+		} ) );
 
 		if ( empty( $query ) ) {
 			return false;
