@@ -31,6 +31,8 @@ Owners: [page.php](../noobrocket/views/settings/page.php), [navigation.php](../n
 
 Keep exclusions beside the feature they qualify. Hide optional detail through disclosures; do not hide warnings that determine whether a main action is safe or available. Validation opens ancestor disclosures and reveals the owning route before native focus. Nonempty or rejected Asset Manager exceptions remain exposed. Avoid placing Help or other interactive controls inside a disclosure summary.
 
+Keep a card introduction focused on its purpose. Put optional compatibility and fallback mechanics in the existing related disclosure, without repeating them above its controls. Next-page loading keeps its later-navigation purpose first, independent HTML preload and prerender choices next, and browser fallback details below; bandwidth cost stays visible beside prerendering. Emit native select labels before their controls so source and visual reading order agree.
+
 Operational descriptions span the full row beneath their labels. Reserve space for an end switch only beside the label. Informational helpers containing their own disclosure omit the legacy important icon; warning and failure indicators remain visible.
 
 Owners: [Page.php](../noobrocket/inc/Engine/Admin/Settings/Page.php) registers groups and copy; [Render.php](../noobrocket/inc/Engine/Admin/Settings/Render.php) owns shared field rendering; [checkbox.php](../noobrocket/views/settings/fields/checkbox.php), [select.php](../noobrocket/views/settings/fields/select.php) and [fields-container.php](../noobrocket/views/settings/sections/fields-container.php) own markup. [noobrocket-settings.js](../noobrocket/assets/js/noobrocket-settings.js) owns native page navigation and invalid-field reveal; keep its maintained minified artifact current when changing it.
@@ -68,7 +70,7 @@ Reuse existing semantic variables from `noobrocket-admin.css`: `--nbr-background
 
 Use the system UI family for interface text and the existing monospace family for code. Current desktop body text is 14px with approximately 1.55–1.6 line height; narrow-screen body text is 15px and input text is 16px. Reuse the 4/8/12/16/24px spacing scale. Bound explanations through placement and concise copy, without leaving arbitrary half-width text columns.
 
-Provide 44px targets for action controls, labels and disclosure summaries, even when their visible checkbox or switch is smaller. Keep visible focus, logical labels, readable disabled states and text contrast of at least 4.5:1. Focus must clear the sticky header, Save footer and toast tray. Respect reduced motion. Prevent page-level horizontal overflow; long inventories and comparisons may use named, keyboard-accessible local scroll regions.
+Provide 44px targets for action controls, labels and disclosure summaries, even when their visible checkbox or switch is smaller. Keep visible focus, logical labels, readable disabled states and text contrast of at least 4.5:1. Focus must clear the sticky header, Save footer and toast tray, including native tabbable inventory and comparison regions. Respect reduced motion. Prevent page-level horizontal overflow; long inventories and comparisons may use named, keyboard-accessible local scroll regions.
 
 All source messages use English gettext with the `noobrocket` domain. French belongs in PO/MO catalogs, including labels, errors and dynamic statuses. Verify French wrapping instead of adding hardcoded line breaks or language-specific source strings. Maintain catalogs through [update-translations.py](update-translations.py).
 

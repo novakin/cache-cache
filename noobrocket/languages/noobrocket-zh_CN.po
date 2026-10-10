@@ -10564,3 +10564,15 @@ msgid ""
 "Preload work is recorded as in progress. Check WordPress scheduled tasks if "
 "it does not advance."
 msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1003
+msgid ""
+"Prepare the next page in the visitor’s browser to improve later navigation."
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1056
+msgid ""
+"Prerendering takes priority where supported and falls back to HTML "
+"preloading. Enable link preloading on its own to preload HTML without "
+"prerendering. Browsers that support neither use normal navigation."
+msgstr ""

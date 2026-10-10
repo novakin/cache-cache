@@ -295,6 +295,47 @@ try {
       return node === document.activeElement && field.bottom <= footer.top && (!crossesTray || field.bottom <= tray.top) && !document.querySelector('#recovery-notice').hidden;
     }), `last setting clears both pending Save footer and tall persistent tray: ${context}`);
     await page.locator('#dashboard-field').fill('saved');
+    await page.locator('#dashboard .noobrocket-settings-card').evaluate(card => {
+      for (const [tag, id, name] of [['pre', 'recorded-value', 'Value after restore'], ['div', 'recorded-assets', 'Recorded asset results']]) {
+        const preceding = document.createElement('button');
+        preceding.type = 'button'; preceding.id = `${id}-before`; preceding.className = 'noobrocket-button'; preceding.textContent = `Review ${name}`;
+        const region = document.createElement(tag);
+        region.id = id; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', name);
+        region.className = 'noobrocket-history-value';
+        region.textContent = Array.from({ length: 48 }, (_, index) => `Recorded resource ${index + 1}: /wp-content/plugins/example/asset.css`).join('\n');
+        card.append(preceding, region);
+      }
+      const remainingContent = document.createElement('div');
+      remainingContent.style.height = '960px';
+      card.append(remainingContent);
+    });
+    for (const id of ['recorded-value', 'recorded-assets']) {
+      const region = page.locator(`#${id}`);
+      await page.locator(`#${id}-before`).focus();
+      await page.waitForTimeout(50);
+      const initiallyCovered = await region.evaluate(node => {
+        const rect = node.getBoundingClientRect();
+        const tray = document.querySelector('.noobrocket-toasts').getBoundingClientRect();
+        window.scrollBy({ top: rect.top - (tray.top - rect.height / 2), behavior: 'auto' });
+        const positioned = node.getBoundingClientRect();
+        return positioned.top < tray.top && positioned.bottom > tray.top && positioned.right > tray.left && positioned.left < tray.right;
+      });
+      check(initiallyCovered, `scroll-region fixture starts behind persistent feedback: ${id}, ${context}`);
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(50);
+      const focused = await region.evaluate(node => {
+        const rect = node.getBoundingClientRect();
+        const header = document.querySelector('.noobrocket-brand-bar').getBoundingClientRect();
+        const tray = document.querySelector('.noobrocket-toasts').getBoundingClientRect();
+        return { active: node === document.activeElement, clear: rect.top >= header.bottom && rect.bottom <= innerHeight && !(rect.right > tray.left && rect.left < tray.right && rect.bottom > tray.top && rect.top < tray.bottom), scrollTop: node.scrollTop, pageY: scrollY, scrollable: node.scrollHeight > node.clientHeight };
+      });
+      check(focused.active && focused.scrollable, `native Tab reaches the named scroll region: ${id}, ${context}`);
+      check(focused.clear, `focused scroll region clears the sticky header and persistent feedback: ${id}, ${context}`);
+      check(await page.locator('#recovery-notice').count() === 1, `revealing the scroll region preserves persistent feedback: ${id}, ${context}`);
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(100);
+      check(await region.evaluate((node, before) => node === document.activeElement && node.scrollTop > before.scrollTop && scrollY === before.pageY, focused), `keyboard scrolling stays inside the focused region: ${id}, ${context}`);
+    }
     await page.locator('#learn-more').focus();
     check(await page.locator('#learn-more').evaluate(node => node === document.activeElement && node.getClientRects().length > 0), `recovery link remains keyboard reachable: ${context}`);
     await page.locator('#recovery-notice .noobrocket-toast-dismiss').focus();

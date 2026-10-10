@@ -12405,3 +12405,21 @@ msgid ""
 msgstr ""
 "Le préchargement est enregistré comme en cours. Vérifiez les tâches "
 "planifiées de WordPress s’il ne progresse pas."
+
+#: inc/Engine/Admin/Settings/Page.php:1003
+msgid ""
+"Prepare the next page in the visitor’s browser to improve later navigation."
+msgstr ""
+"Préparez la page suivante dans le navigateur du visiteur pour accélérer ses "
+"prochaines navigations."
+
+#: inc/Engine/Admin/Settings/Page.php:1056
+msgid ""
+"Prerendering takes priority where supported and falls back to HTML "
+"preloading. Enable link preloading on its own to preload HTML without "
+"prerendering. Browsers that support neither use normal navigation."
+msgstr ""
+"Le prérendu est prioritaire lorsqu’il est pris en charge, avec le "
+"préchargement HTML en secours. Activez uniquement le préchargement des liens"
+" pour précharger le HTML sans prérendu. Les navigateurs qui ne prennent en "
+"charge aucune de ces fonctions conservent une navigation normale."

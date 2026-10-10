@@ -1000,7 +1000,7 @@ class Page extends Abstract_Render {
 				'preload_links_section' => [
 					'title'       => __( 'Next-page loading', 'noobrocket' ),
 					'type'        => 'fields_container',
-					'description' => __( 'Prepare the next page in the visitor’s browser. Prerendering takes priority where supported and falls back to HTML preloading. The separate preloading switch enables HTML preloading alone. These options improve later navigation.', 'noobrocket' ),
+					'description' => __( 'Prepare the next page in the visitor’s browser to improve later navigation.', 'noobrocket' ),
 					'help'        => [
 						'id'  => $preload_links['id'],
 						'url' => $preload_links['url'] . '#next-page',
@@ -1053,7 +1053,7 @@ class Page extends Abstract_Render {
 					'type'              => 'checkbox',
 					'label'             => __( 'Prerender public pages', 'noobrocket' ),
 					'description'       => __( 'Load resources and run JavaScript before navigation when a visitor hovers over or focuses a public link. Uses more bandwidth.', 'noobrocket' ),
-					'helper'            => '<details class="noobrocket-field-disclosure"><summary>' . esc_html__( 'Browser compatibility', 'noobrocket' ) . '</summary><p>' . esc_html__( 'Compatible browsers fall back to HTML preloading; others use normal navigation.', 'noobrocket' ) . '</p></details>',
+					'helper'            => '<details class="noobrocket-field-disclosure"><summary>' . esc_html__( 'Browser compatibility', 'noobrocket' ) . '</summary><p>' . esc_html__( 'Prerendering takes priority where supported and falls back to HTML preloading. Enable link preloading on its own to preload HTML without prerendering. Browsers that support neither use normal navigation.', 'noobrocket' ) . '</p></details>',
 					'container_class'   => [ 'noobrocket-isParent' ],
 					'section'           => 'preload_links_section',
 					'page'              => 'preload',
