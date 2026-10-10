@@ -1287,6 +1287,20 @@
       "minimum_php": "8.0"
     },
     {
+      "name": "wordpress-beacon-collector-limits",
+      "path": "tests/wordpress-beacon-collector-limits.php",
+      "purpose": "Actual preconnect/font collectors enforce filtered limits while preserving exclusions, normalized boundaries and row handling.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "In-memory queries and modeled WordPress calls; no site bootstrap, HTTP or source writes.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-performance-hint-boundary",
       "path": "tests/wordpress-performance-hint-boundary.php",
       "purpose": "Shared beacon admission must reject bad payloads before any feature decodes them.",
