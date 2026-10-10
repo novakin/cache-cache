@@ -1,0 +1,124 @@
+<?php
+/**
+ * Built-in CDN section template.
+ *
+ * Displays the page list for built-in CDN with add page functionality.
+ *
+ * @since 3.22
+ *
+ * @param array $data {
+ *     Section data.
+ *
+ *     @type string $id          Section identifier.
+ *     @type string $title       Section title.
+ *     @type string $description Section description.
+ *     @type string $class       Section classes.
+ *     @type string $help        Data to pass to beacon.
+ *     @type string $page        Page section identifier.
+ *     @type array  $status_indicator Data for the CDN status indicator partial.
+ *     @type array  $cta_data    Data for the CTA banner.
+ *     @type string $renewal_url    URL for renewing the license.
+ *     @type bool   $active_subscription Whether the user has an active subscription or not.
+ *     @type bool   $is_active    Whether HostedCDN Free is the currently applied CDN mode.
+ *     @type bool   $is_forced_off Whether the mode toggle must be disabled (subscription loading, expired/banned licence).
+ *     @type string $toggle_tooltip Tooltip shown on the mode toggle when $is_forced_off is true.
+ * }
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+$noobrocket_noobrocketcdn_free_active = $data['is_active'];
+?>
+
+<?php // noobrocket-cdn-active-indicator is kept in sync with JS (cdn-driver.js), which reads it off .noobrocket-optionHeader to find the previously-active mode on a failed switch — it no longer drives any visible styling on this header itself. ?>
+<div class="noobrocket-optionHeader noobrocket-optionHeader--cdn-driver <?php echo esc_attr( $data['class'] ); ?><?php echo $noobrocket_noobrocketcdn_free_active ? ' noobrocket-cdn-active-indicator' : ''; ?>">
+	<div class="noobrocket-optionHeader__title-group">
+		<h3 class="noobrocket-title2 noobrocket-title2--orange"><?php echo esc_html( $data['title'] ); ?></h3>
+		<span class="noobrocket-badge noobrocket-badge--grey"><?php esc_html_e( 'Free', 'noobrocket' ); ?></span>
+		<?php
+		$this->render_parts_with_data(
+			'cdn/cdn-mode-toggle',
+			[
+				'id'            => 'noobrocket-noobrocketcdn-free-toggle',
+				'cdn_mode'      => 'noobrocketcdn_free',
+				'checked'       => $noobrocket_noobrocketcdn_free_active,
+				'is_forced_off' => $data['is_forced_off'],
+				'label'         => __( 'Enable HostedCDN Free', 'noobrocket' ),
+				'tooltip'       => $data['toggle_tooltip'],
+			]
+		);
+		?>
+	</div>
+	<?php // Temporarily hidden for the next release; remove the `false &&` guard to restore the Upgrade to PRO button. ?>
+	<?php if ( false && ! empty( $data['upgrade_url'] ) ) : ?>
+		<button type="button" class="noobrocketcdn--upgrade_btn noobrocket-noobrocketcdn-open"<?php echo empty( $data['upgrade_url'] ) ? ' data-micromodal-trigger="noobrocket-noobrocketcdn-modal"' : ''; ?>>
+			<?php esc_html_e( 'Upgrade to PRO', 'noobrocket' ); ?>
+		</button>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $data['help'] ) ) : ?>
+	<a href="<?php echo esc_url( $data['help']['url'] ); ?>" data-beacon-id="<?php echo esc_attr( $data['help']['id'] ); ?>" data-nbr_track_button="Need Help" data-nbr_track_context="Settings" class="noobrocket-infoAction noobrocket-infoAction--help noobrocket-icon-help" target="_blank"><?php esc_html_e( 'Need Help?', 'noobrocket' ); ?></a>
+	<?php endif; ?>
+</div>
+
+<div class="<?php echo esc_attr( $data['class'] ); ?>">
+	<?php
+	/**
+	 * Fires before the HostedCDN free status indicator is displayed.
+	 *
+	 * @since 3.22
+	 * @param array $cta_data CTA banner data.
+	 */
+	do_action( 'noobrocket_cdn_free_before_status_indicator', $data['cta_data'] );
+	?>
+</div>
+
+<div class="noobrocket-cdn-built-in <?php echo esc_attr( $data['class'] ); ?>">
+	<?php
+	$this->render_parts_with_data( 'cdn/cdn-status-indicator', $data['status_indicator'] );
+	?>
+	<?php if ( ! $data['status_indicator']['no_status_indicator'] ) : ?>
+	<div class="noobrocket-cdn-built-in__separator"></div>
+	<?php endif; ?>
+
+	<?php
+	/**
+	 * Fires to render the built-in CDN page list table.
+	 *
+	 * @since 3.22
+	 */
+	do_action( 'noobrocket_cdn_free_page_list' );
+	?>
+
+	<div class="noobrocket-cdn-add-page" id="nbr_add_page_component">
+		<div class="noobrocket-cdn-add-page__input-wrap">
+			<input type="text" id="nbr_cdn_add_page_input" placeholder="<?php esc_attr_e( 'Enter a page URL to add to HostedCDN', 'noobrocket' ); ?>" />
+			<button type="button" class="noobrocket-cdn-add-page__homepage<?php echo $data['status_indicator']['pages_count'] > 0 ? ' noobrocket-isHidden' : ''; ?>">
+				<span class="noobrocket-cdn-add-page__icon"></span>
+				<?php esc_html_e( 'ADD HOMEPAGE', 'noobrocket' ); ?>
+			</button>
+		</div>
+		<div class="noobrocket-cdn-add-page__button-wrapper<?php echo ! empty( $data['limit_reached'] ) ? ' noobrocket-btn-with-tool-tip' : ''; ?>">
+			<button type="button" class="noobrocket-cdn-add-page__button"<?php echo ! empty( $data['limit_reached'] ) ? ' disabled="disabled"' : ''; ?>>
+				<span class="noobrocket-icon-plus"></span>
+				<?php esc_html_e( 'ADD PAGE', 'noobrocket' ); ?>
+			</button>
+			<div class="noobrocket-tooltip<?php echo empty( $data['limit_reached'] ) ? ' noobrocket-isHidden' : ''; ?>">
+				<div class="noobrocket-tooltip-content">
+					<?php esc_html_e( 'You have reached the limit of 3 free pages.', 'noobrocket' ); ?>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<?php
+	/**
+	 * Fires after the built-in CDN page list.
+	 *
+	 * Used to display the upsell banner.
+	 *
+	 * @since 3.22
+	 */
+	do_action( 'noobrocket_after_built_in_cdn_list' );
+	?>
+</div>

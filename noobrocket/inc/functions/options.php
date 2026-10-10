@@ -1,0 +1,514 @@
+<?php
+use NoobRocket\Admin\Options;
+use NoobRocket\Admin\Options_Data;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * A wrapper to easily get rocket option
+ *
+ * @since 3.0 Use the new options classes
+ * @since 1.3.0
+ *
+ * @param string $option  The option name.
+ * @param mixed  $default (default: false) The default value of option.
+ * @return mixed The option value
+ */
+function get_noobrocket_option( $option, $default = false ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$options_api = new Options( 'noobrocket_' );
+	$options     = new Options_Data( $options_api->get( 'settings', [] ) );
+
+	return $options->get( $option, $default );
+}
+
+/**
+ * Export settings into JSON.
+ *
+ * @return array
+ */
+function noobrocket_export_options() {
+	$site_name = get_noobrocket_parse_url( get_home_url() );
+	$site_name = $site_name['host'] . $site_name['path'];
+	$filename  = sprintf( 'noobrocket-settings-%s-%s-%s.json', $site_name, date( 'Y-m-d' ), uniqid() ); // phpcs:ignore WordPress.DateTime.RestrictedFunctions.date_date
+	return [ $filename, wp_json_encode( get_option( NOOBROCKET_SLUG ), JSON_PRETTY_PRINT ) ]; // do not use get_noobrocket_option() here.
+}
+
+/**
+ * Update a NoobRocket option.
+ *
+ * @since 3.0 Use the new options classes
+ * @since 2.7
+ *
+ * @param  string $key    The option name.
+ * @param  mixed  $value  The value of the option.
+ * @return void
+ */
+function update_noobrocket_option( $key, $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$options_api = new Options( 'noobrocket_' );
+	$options     = new Options_Data( $options_api->get( 'settings', [] ) );
+
+	$options->set( $key, $value );
+	$options_api->set( 'settings', $options->get_options() );
+}
+
+/**
+ * Check whether the plugin is active by checking the active_plugins list.
+ *
+ * @since 1.3.0
+ *
+ * @source wp-admin/includes/plugin.php
+ *
+ * @param string $plugin Plugin folder/main file.
+ *
+ * @return boolean true when plugin is active; else false.
+ */
+function noobrocket_is_plugin_active( $plugin ) {
+	return (
+		in_array( $plugin, (array) get_option( 'active_plugins', [] ), true )
+		||
+		noobrocket_is_plugin_active_for_network( $plugin )
+	);
+}
+
+/**
+ * Check whether the plugin is active for the entire network.
+ *
+ * @since 1.3.0
+ *
+ * @source wp-admin/includes/plugin.php
+ *
+ * @param string $plugin Plugin folder/main file.
+ *
+ * @return bool true if multisite and plugin is active for network; else, false.
+ */
+function noobrocket_is_plugin_active_for_network( $plugin ) {
+	if ( ! is_multisite() ) {
+		return false;
+	}
+
+	$plugins = get_site_option( 'active_sitewide_plugins' );
+	return isset( $plugins[ $plugin ] );
+}
+
+/**
+ * Is we need to exclude some specifics options on a post.
+ *
+ * @since 2.5
+ *
+ * @param  string $option  The option name (lazyload, css, js, cdn).
+ * @return bool            True if the option is deactivated
+ */
+function is_noobrocket_post_excluded_option( $option ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	global $post;
+
+	if ( ! is_object( $post ) ) {
+		return false;
+	}
+
+	if ( is_home() ) {
+		$post_id = get_queried_object_id();
+	}
+
+	if ( is_singular() && isset( $post ) ) {
+		$post_id = $post->ID;
+	}
+
+	return ( isset( $post_id ) ) ? get_post_meta( $post_id, '_noobrocket_exclude_' . $option, true ) : false;
+}
+
+/**
+ * Check if we need to cache the mobile version of the website (if available)
+ *
+ * @since 1.0
+ *
+ * @return bool True if option is activated
+ */
+function is_noobrocket_cache_mobile() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	return get_noobrocket_option( 'cache_mobile', false );
+}
+
+/**
+ * Check if we need to generate a different caching file for mobile (if available)
+ *
+ * @since 2.7
+ *
+ * @return bool True if option is activated and if mobile caching is enabled
+ */
+function is_noobrocket_generate_caching_mobile_files() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	return get_noobrocket_option( 'cache_mobile', false ) && get_noobrocket_option( 'do_caching_mobile_files', false );
+}
+
+/**
+ * Get the domain names to DNS prefetch from NoobRocket options
+ *
+ * @since 2.8.9
+ * @author Remy Perona
+ *
+ * return Array An array of domain names to DNS prefetch
+ */
+function noobrocket_get_dns_prefetch_domains() {
+	$domains = (array) get_noobrocket_option( 'dns_prefetch', [] );
+
+	/**
+	 * Filter list of domains to prefetch DNS
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array $domains List of domains to prefetch DNS
+	 */
+	return apply_filters( 'noobrocket_dns_prefetch', $domains );
+}
+
+/**
+ * Gets the parameters ignored during caching
+ *
+ * These parameters are ignored when checking the query string during caching to allow serving the default cache when they are present
+ *
+ * @since 3.4
+ *
+ * @return array
+ */
+function noobrocket_get_ignored_parameters() {
+	/**
+	 * Filters the ignored parameters
+	 *
+	 * @since 3.4
+	 *
+	 * @param array $params An array of ignored parameters as array keys.
+	 */
+	return apply_filters( 'noobrocket_cache_ignored_parameters', [] );
+}
+
+/**
+ * Get all uri we don't cache.
+ *
+ * @since 3.3.2 Exclude embedded URLs
+ * @since 2.6   Using json_get_url_prefix() to auto-exclude the WordPress REST API.
+ * @since 2.4.1 Auto-exclude WordPress REST API.
+ * @since 2.0
+ *
+ * @param bool $force Force the static uris to be reverted to null.
+ * @param bool $show_safe_content show sensitive uris.
+ * @return string A pipe separated list of rejected uri.
+ */
+function get_noobrocket_cache_reject_uri( $force = false, $show_safe_content = true ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	static $uris;
+	global $wp_rewrite;
+
+	if ( $force ) {
+		$uris = null;
+	}
+	if ( $uris ) {
+		return $uris;
+	}
+
+	$uris = (array) get_noobrocket_option( 'cache_reject_uri', [] );
+
+	$home_root         = noobrocket_get_home_dirname();
+	$home_root_escaped = preg_quote( $home_root, '/' ); // The site is not at the domain root, it's in a folder.
+	$home_root_len     = strlen( $home_root );
+
+	if ( '' !== $home_root && $uris ) {
+		foreach ( $uris as $i => $uri ) {
+			/**
+			 * Since these URIs can be regex patterns like `/homeroot(/.+)/`, we can't simply search for the string `/homeroot/` (nor `/homeroot`).
+			 * So this pattern searches for `/homeroot/` and `/homeroot(/`.
+			 */
+			if ( ! preg_match( '/' . $home_root_escaped . '\(?\//', $uri ) ) {
+				// Reject URIs located outside site's folder.
+				unset( $uris[ $i ] );
+				continue;
+			}
+
+			// Remove the home directory.
+			$uris[ $i ] = substr( $uri, $home_root_len );
+		}
+	}
+
+	// Exclude feeds.
+	$uris[] = '/(?:.+/)?' . $wp_rewrite->feed_base . '(?:/(?:.+/?)?)?$';
+
+	// Exclude embedded URLs.
+	$uris[] = '/(?:.+/)?embed/';
+
+	/**
+	 * Filter the rejected uri
+	 *
+	 * @since 2.1
+	 *
+	 * @param array $uris List of rejected uri
+	 * @param bool $show_safe_content show sensitive uris.
+	*/
+	$uris = apply_filters( 'noobrocket_cache_reject_uri', $uris, $show_safe_content );
+	$uris = array_filter( $uris );
+
+	if ( ! $uris ) {
+		return '';
+	}
+
+	$uris = array_map(
+			function ( $uri ) {
+				// Sanitize URIs and remove single quote from them to avoid syntax errors in .htaccess and php config file.
+				return str_replace( "'", '', esc_url_raw( $uri ) );
+			},
+		$uris
+		);
+
+	if ( '' !== $home_root ) {
+		foreach ( $uris as $i => $uri ) {
+			if ( preg_match( '/' . $home_root_escaped . '\(?\//', $uri ) ) {
+				// Remove the home directory from the new URIs.
+				$uris[ $i ] = substr( $uri, $home_root_len );
+			}
+		}
+	}
+
+	$uris = implode( '|', $uris );
+
+	if ( '' !== $home_root ) {
+		// Add the home directory back.
+		$uris = $home_root . '(' . $uris . ')';
+	}
+
+	return $uris;
+}
+
+/**
+ * Get all cookie names we don't cache.
+ *
+ * @since 2.0
+ *
+ * @return string A pipe separated list of rejected cookies.
+ */
+function get_noobrocket_cache_reject_cookies() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$logged_in_cookie = explode( COOKIEHASH, LOGGED_IN_COOKIE );
+	$logged_in_cookie = array_map( 'preg_quote', $logged_in_cookie );
+	$logged_in_cookie = implode( '.+', $logged_in_cookie );
+
+	$cookies   = get_noobrocket_option( 'cache_reject_cookies', [] );
+	$cookies[] = $logged_in_cookie;
+	$cookies[] = 'wp-postpass_';
+	$cookies[] = 'wptouch_switch_toggle';
+	$cookies[] = 'comment_author_';
+	$cookies[] = 'comment_author_email_';
+
+	/**
+	 * Filter the rejected cookies.
+	 *
+	 * @since 2.1
+	 *
+	 * @param array $cookies List of rejected cookies.
+	*/
+	$cookies = (array) apply_filters( 'noobrocket_cache_reject_cookies', $cookies );
+	$cookies = array_filter( $cookies );
+	$cookies = array_flip( array_flip( $cookies ) );
+
+	return implode( '|', $cookies );
+}
+
+/**
+ * Get list of mandatory cookies to be able to cache pages.
+ *
+ * @since 2.7
+ *
+ * @return string A pipe separated list of mandatory cookies.
+ */
+function get_noobrocket_cache_mandatory_cookies() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$cookies = [];
+
+	/**
+	 * Filter list of mandatory cookies.
+	 *
+	 * @since 2.7
+	 *
+	 * @param array $cookies List of mandatory cookies.
+	 */
+	$cookies = (array) apply_filters( 'noobrocket_cache_mandatory_cookies', $cookies );
+	$cookies = array_filter( $cookies );
+	$cookies = array_flip( array_flip( $cookies ) );
+
+	return implode( '|', $cookies );
+}
+
+/**
+ * Get list of dynamic cookies.
+ *
+ * @since 2.7
+ *
+ * @return array List of dynamic cookies.
+ */
+function get_noobrocket_cache_dynamic_cookies() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$cookies = [];
+
+	/**
+	 * Filter list of dynamic cookies.
+	 *
+	 * @since 2.7
+	 *
+	 * @param array $cookies List of dynamic cookies.
+	 */
+	$cookies = (array) apply_filters( 'noobrocket_cache_dynamic_cookies', $cookies );
+	$cookies = array_filter( $cookies );
+	$cookies = array_unique( $cookies );
+
+	return $cookies;
+}
+
+/**
+ * Get all User-Agent we don't allow to get cache files.
+ *
+ * @since 2.3.5
+ *
+ * @return string A pipe separated list of rejected User-Agent.
+ */
+function get_noobrocket_cache_reject_ua() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$ua   = get_noobrocket_option( 'cache_reject_ua', [] );
+	$ua[] = 'facebookexternalhit';
+	$ua[] = 'WhatsApp';
+
+	/**
+	 * Filter the rejected User-Agent
+	 *
+	 * @since 2.3.5
+	 *
+	 * @param array $ua List of rejected User-Agent.
+	*/
+	$ua = (array) apply_filters( 'noobrocket_cache_reject_ua', $ua );
+	$ua = array_filter( $ua );
+	$ua = array_flip( array_flip( $ua ) );
+	$ua = implode( '|', $ua );
+
+	return str_replace( [ ' ', '\\\\ ' ], '\\ ', $ua );
+}
+
+/**
+ * Get all query strings which can be cached.
+ *
+ * @since 2.3
+ *
+ * @return array List of query strings which can be cached.
+ */
+function get_noobrocket_cache_query_string() { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+	$query_strings = get_noobrocket_option( 'cache_query_strings', [] );
+
+	/**
+	 * Filter query strings which can be cached.
+	 *
+	 * @since 2.3
+	 *
+	 * @param array $query_strings List of query strings which can be cached.
+	*/
+	$query_strings = (array) apply_filters( 'noobrocket_cache_query_strings', $query_strings );
+	$query_strings = array_filter( $query_strings );
+	$query_strings = array_flip( array_flip( $query_strings ) );
+
+	return $query_strings;
+}
+
+/**
+ * Legacy local-feature gate retained for existing integrations.
+ *
+ * NoobRocket is free and requires no license key. This does not grant access to
+ * NoobRocket cloud services.
+ *
+ * @return bool Always true for local features.
+ */
+function noobrocket_valid_key() {
+	return true;
+}
+
+/**
+ * Legacy compatibility helper for the local-feature gate.
+ *
+ * @return bool Always true; no account validation or remote request is made.
+ */
+function noobrocket_check_key() {
+	return noobrocket_valid_key();
+}
+
+/**
+ * Is WP a MultiSite and a subfolder install?
+ *
+ * @since  3.1.1
+ * @author Grégory Viguier
+ *
+ * @return bool
+ */
+function noobrocket_is_subfolder_install() {
+	global $wpdb;
+	static $subfolder_install;
+
+	if ( isset( $subfolder_install ) ) {
+		return $subfolder_install;
+	}
+
+	if ( is_multisite() ) {
+		$subfolder_install = ! is_subdomain_install();
+	} elseif ( ! is_null( $wpdb->sitemeta ) ) {
+		$subfolder_install = ! $wpdb->get_var( "SELECT meta_value FROM $wpdb->sitemeta WHERE site_id = 1 AND meta_key = 'subdomain_install'" );  // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	} else {
+		$subfolder_install = false;
+	}
+
+	return $subfolder_install;
+}
+
+/**
+ * Get the name of the "home directory", in case the home URL is not at the domain's root.
+ * It can be seen like the `RewriteBase` from the .htaccess file, but without the trailing slash.
+ *
+ * @since  3.1.1
+ * @author Grégory Viguier
+ *
+ * @return string
+ */
+function noobrocket_get_home_dirname() {
+	static $home_root;
+
+	if ( isset( $home_root ) ) {
+		return $home_root;
+	}
+
+	$home_root = wp_parse_url( noobrocket_get_main_home_url() );
+
+	if ( ! empty( $home_root['path'] ) ) {
+		$home_root = '/' . trim( $home_root['path'], '/' );
+		$home_root = rtrim( $home_root, '/' );
+	} else {
+		$home_root = '';
+	}
+
+	return $home_root;
+}
+
+/**
+ * Get the URL of the site's root. It corresponds to the main site's home page URL.
+ *
+ * @since  3.1.1
+ * @author Grégory Viguier
+ *
+ * @return string
+ */
+function noobrocket_get_main_home_url() {
+	static $root_url;
+
+	if ( isset( $root_url ) ) {
+		return $root_url;
+	}
+
+	if ( ! is_multisite() || is_main_site() ) {
+		$root_url = noobrocket_get_home_url( '/' );
+		return $root_url;
+	}
+
+	$current_network = get_network();
+
+	if ( $current_network ) {
+		$root_url = set_url_scheme( 'https://' . $current_network->domain . $current_network->path );
+		$root_url = trailingslashit( $root_url );
+	} else {
+		$root_url = noobrocket_get_home_url( '/' );
+	}
+
+	return $root_url;
+}

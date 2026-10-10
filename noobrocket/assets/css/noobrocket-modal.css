@@ -1,0 +1,75 @@
+﻿.noobrocket-modal {
+	display: none;
+}
+
+.noobrocket-modal.is-open {
+	display: block;
+}
+
+.noobrocket-modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0,0,0,0.6);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 100;
+}
+
+.noobrocket-modal-container {
+	background-color: #fff;
+	padding: 30px;
+	max-width: 645px;
+	max-height: 100vh;
+	overflow-y: auto;
+	box-sizing: border-box;
+}
+
+.noobrocket-modal-header,
+.noobrocket-modal-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.noobrocket-modal-title {
+	font-size: 26px;
+	font-weight: 600;
+	line-height: 1.2;
+	margin: 0;
+}
+
+.noobrocket-modal-footer {
+	margin-top: 40px;
+}
+
+.noobrocket-modal-button {
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 8px 20px;
+	text-transform: uppercase;
+}
+
+.noobrocket-modal-cancel {
+	background: transparent;
+	border: 1px solid #000;
+}
+
+.noobrocket-modal-confirm {
+	background: #F56F46;
+	border: none;
+	box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+	color: #fff;
+	transition: box-shadow 500ms ease-in;
+}
+
+.noobrocket-modal-confirm:hover {
+	box-shadow: none;
+}
+
+.noobrocket-modal .noobrocket-sub-list {
+	padding-left: 25px;
+}

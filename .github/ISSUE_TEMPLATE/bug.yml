@@ -1,0 +1,29 @@
+name: Bug report
+description: Reproduce a concrete Cache-Cache beta defect.
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Include the affected page or caching path. Keep credentials, cookies and private exports out of the report.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include relevant saved settings and whether the request is anonymous, logged in, cold or cached.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Cache-Cache beta, WordPress, PHP, web server, browser and relevant integrations
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Safe evidence and acceptance
+      description: Relevant errors or screenshots, workarounds and what would demonstrate the fix.

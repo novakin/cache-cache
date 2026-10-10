@@ -1,0 +1,16 @@
+{
+  "name": "cache-cache-local-css-worker",
+  "version": "0.1.0-beta.2",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted Chromium CSS generation for Cache-Cache",
+  "license": "GPL-2.0-or-later",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node worker.mjs" },
+  "dependencies": {
+    "playwright-core": "1.64.0",
+    "postcss": "8.5.29",
+    "postcss-selector-parser": "7.1.6",
+    "postcss-value-parser": "4.2.0"
+  }
+}

@@ -1,83 +1,58 @@
-# Welcome to the WP Rocket GitHub Repository
+# Cache-Cache
 
-[![Unit/Integration tests](https://github.com/wp-media/wp-rocket/actions/workflows/test_wprocket_php8.yml/badge.svg)](https://github.com/wp-media/wp-rocket/actions/workflows/test_wprocket_php8.yml)
+Cache-Cache is a free, standalone WordPress page-cache and performance plugin derived from the WP Rocket `3.23.5.1` engine. It needs no vendor account, activation key, subscription or license validation. It is still **beta**: the existing local package is `cache-cache-0.1.0-beta.1.zip`; development source advances to `0.1.0-beta.2`. Stable `1.0.0` has not been released. Product and engine versions are independent.
 
-Feel free to browse the source and keep track of our plugin's progress. You can stay informed of our latest versions via our [blog](https://wp-rocket.me/blog/?utm_source=github&utm_medium=wp_rocket_profile) or via Twitter [@wp_rocket](https://twitter.com/wp_rocket).
+The maintained plugin lives in `noobrocket/`. The technical `NoobRocket` namespace, `noobrocket` directory/text domain, options, hooks and routes preserve installed settings and integrations. The WordPress panel displays **Cache-Cache** and uses the supplied brand assets. [Release rules](docs/releases.md) explain immutable packages, beta numbering and upstream intake.
 
-We aim to help make the web faster, one WordPress website at a time. That’s why we created *WP Rocket*. It's a caching plugin that simplifies the process and helps decrease a website’s load time.
+## Features and boundaries
 
-If you are not a developer, visit our [documentation](http://docs.wp-rocket.me/?utm_source=github&utm_medium=wp_rocket_profile).
+| Area | Available behavior |
+| --- | --- |
+| Page cache | Anonymous public-page disk caching, preload/purge, scheme/device variants, response privacy checks, complete file publication and optional PHP-enforced stale refresh. |
+| CSS and JavaScript | Minification, JavaScript defer/delay and optional same-server critical/used CSS generation with conservative original delivery on unavailable/failed results. |
+| Media and resources | Lazy loading, image dimensions, local fonts, opt-in native AVIF/WebP generation and `<picture>` delivery with original fallback. |
+| Navigation | Independent hover-based link preloading and opt-in intent-driven Speculation Rules prerendering with public-route exclusions. |
+| Site administration | Dependency-safe Asset Manager with private drafts/preview/publication, five-entry allowlisted settings history, reviewed JSON import/export, database cleanup and Heartbeat controls. |
+| Delivery and diagnostics | Custom CDN hostnames, saved Cloudflare/Sucuri actions, existing object-cache diagnostics, worker/queue recovery and optional manual PageSpeed lab checks. |
 
-## Documentation
+Hosted CSS, Rocket Insights, vendor account/licensing, telemetry, remote rollback and automatic vendor updates remain disabled. No update server is configured. Some inherited inactive classes remain; their presence does not enable a service. PageSpeed is an optional separate API using the user's own key; keys are excluded from history/export and never returned to the browser. [Enable the API](https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com) and [create a key](https://console.cloud.google.com/apis/credentials), then configure it in Overview. Restrict it to the API and applicable server outbound IP; these manual scores are Lighthouse lab results, not field data or proof of comparative speed.
 
-Need detailed setup instructions?
+Local CSS requires Node.js 22+, PHP CLI, Chromium and scheduling permission on the WordPress server/VPS; ordinary PHP-only hosting cannot run it. [Worker setup](noobrocket/local-css/README.md) is canonical. Modern image encoding depends on host GD/Imagick support. Opt-in browser preparation spends bandwidth/memory and executes scripts before navigation; exclude private/action routes and verify visit-dependent scripts. Configurable native document rules/eagerness are not implemented.
 
-We are very proud of WP Rocket’s knowledge base.
-We have [documentation](http://docs.wp-rocket.me/?utm_source=github&utm_medium=wp_rocket_profile) in English and French.
+## Install a beta
 
-You can also check out our [changelog](https://wp-rocket.me/changelog/?utm_source=github&utm_medium=wp_rocket_profile).
+Declared requirements are **WordPress 5.8+** and **PHP 7.4+**. Check the [current verification record](docs/workflow-acceptance.md) for actually executed environments; the declared floor alone is not a passed matrix.
 
-## Composer installation
+1. Back up the site and test on an owned staging copy.
+2. Deactivate other page-cache plugins, including WP Rocket. WordPress has one `advanced-cache.php` slot; Cache-Cache refuses another owner's drop-in.
+3. Upload the existing Cache-Cache beta ZIP through **Plugins → Add New → Upload Plugin**, then activate it.
+4. Open **Settings → Cache-Cache**, choose optimizations and save. Configure optional server/worker dependencies before enabling their modes.
 
-You can use composer to install the plugin as a dependency:
+The package retains `noobrocket/noobrocket.php` to replace the installed plugin rather than create a second copy. Settings are stored in `noobrocket_settings`; default config/cache roots are `wp-content/noobrocket-config/` and `wp-content/cache/noobrocket/`. WP Rocket settings are not automatically imported. Integrations using upstream PHP classes or `rocket_*` hooks need adaptation to the preserved `NoobRocket`/`noobrocket_*` interface.
 
+Deactivate before switching cache plugins. Deactivation preserves settings; uninstall removes owned settings/tables/cache and is destructive. History does not reverse database cleanup. [Operations and recovery](docs/operations.md) distinguishes code rollback, settings restore and database recovery, including PHP delivery requirements for stale refresh.
+
+## Contributor guides
+
+| Guide | Owns |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Shared engineering/agent contract. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Issue, branch, proof, current PR acceptance and review process. |
+| [Development](docs/development.md) | Clean checkout setup, commands, generated output and optional roles. |
+| [Architecture](docs/architecture.md) and [source inventory](docs/source-inventory.md) | Actual owners, persistent contracts, maintained inputs and open findings. |
+| [Tests](tests/README.md) and [fixture catalog](tests/catalog.json) | Executable verification, prerequisites, mutation scope and limits. |
+| [Design guidelines](tools/DESIGN_GUIDELINES.md) | Sole UI/design contract. |
+| [Operations](docs/operations.md), [worker guide](noobrocket/local-css/README.md), [packaged help](noobrocket/docs/index.html) | Operator diagnosis/recovery, worker setup and user settings help. |
+| [Releases](docs/releases.md), [benchmarks](tools/BENCHMARKS.md), [workflow acceptance](docs/workflow-acceptance.md) | Beta/upstream process, performance evidence and current process proof. |
+| [Historical evidence](docs/history/README.md) | Dated audits/receipts separated from current guidance. |
+
+Start checks from the repository root:
+
+```sh
+python -m pip install -r tools/requirements.txt
+npm ci --prefix tools
+python tools/check.py docs
+python tools/check.py fast
 ```
-composer require wp-media/wp-rocket
-```
 
-To be able to validate your license and use the plugin, you will also have to manually define 2 constants in your wp-config.php file:
-
-- `WP_ROCKET_EMAIL` which is the email for your WP Rocket account
-- `WP_ROCKET_KEY` which is your API Key
-
-## Gulp Tasks
-
-| Command                         |                                               Description                                               |
-|---------------------------------|:-------------------------------------------------------------------------------------------------------:|
-| **CSS Tasks**                   |                                                                                                         |
-| `gulp build:saas:unmin`         |                      Builds Full admin CSS, the unminified version (wpr-admin.css)                      |
-| `gulp build:saas:min`           |                     Builds Full admin CSS, the minified version (wpr-admin.min.css)                     |
-| `gulp build:sass:all`           | Builds all admin CSS files (wpr-admin.css, wpr-admin.min.css, wpr-admin-rtl.css, wpr-admin-rtl.min.css) |
-| `gulp sass:watch`               |           Watches all admin CSS files mentioned above and builds them again with any change.            |
-| **JS Tasks**                    |                                                                                                         |
-| `gulp build:js:app:unmin`       |                     Builds admin app js file, the unminified version (wpr-admin.js)                     |
-| `gulp build:js:app:min`         |                    Builds admin app js file, the minified version (wpr-admin.min.js)                    |
-| `gulp build:js:lazyloadcss:min` |                 Builds lazyload CSS js file, the minified version (lazyload-css.min.js)                 |
-| `gulp build:js:all`             |  Builds all js files mentioned above (wpr-admin.js, wpr-admin.min.js, lazyload-css.min.js, wpr-beacon)  |
-| `gulp build:js:beacon`          |                   Builds beacon script (wpr-beacon.min.js, source file, and map file)                   |
-| `gulp js:watch`                 |                   Watches all js files changes and build them again with any change.                    |
-
-
-## Support
-
-Need help with something? Open a [ticket](https://wp-rocket.me/support/?utm_source=github&utm_medium=wp_rocket_profile) and we will be happy to help you out!
-
-## Bugs
-
-If you find an issue in WP Rocket, please let us know [here](https://github.com/wp-media/wp-rocket/issues).
-Be advised, this point of contact is to be used to report bugs and not to receive support. 
-Check out our [support page](https://wp-rocket.me/support/?utm_source=github&utm_medium=wp_rocket_profile) if you need to submit a ticket. 
-
-## Security Policy  
-  
-### Reporting Security Bugs  
-  
-You can report any security bugs found in the source code of the site-reviews plugin through the [Patchstack Vulnerability Disclosure Program](https://patchstack.com/database/vdp/wp-rocket). The Patchstack team will assist you with verification, CVE assignment and take care of notifying the developers of this plugin.
-
-## Contributions
-
-Feel free to check out our [GitHub issues](https://github.com/wp-media/wp-rocket/issues) if you would like to request a feature. We always look forward to feedback and suggestions from the community to help us improve our plugins!
-
-## Want to know more about our WordPress plugins? 
-
-Visit [wp-media.me](https://wp-media.me/?utm_source=github&utm_medium=wp_rocket_profile). 
-
-We also make other plugins that help speed up WordPress websites. Check out:
-
-* [Imagify](https://imagify.io): it's a great WordPress plugin to optimize your images and speed up your website.
-
-## Special thanks
-
-Thank you BrowserStack for your support and helping us do cross-browser testing easily!
-
-[![BrowserStack](https://raw.githubusercontent.com/wp-media/wp-rocket/trunk/bin/browserstack.png)](https://browserstack.com)
+Bundled runtime dependencies are checked in. Do not run Composer install/update over them; [development](docs/development.md) explains ownership and reconstruction limits. Native/lifecycle fixtures use marked disposable sites, never a contributor's existing preview. Prior audit scores and local Lighthouse results do not establish that Cache-Cache is faster than WP Rocket.

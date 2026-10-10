@@ -1,0 +1,90 @@
+<?php
+namespace NoobRocket\Engine\Optimization\Minify\JS;
+
+use NoobRocket\Dependencies\Minify\JS as MinifyJS;
+use NoobRocket\Engine\Optimization\AssetsLocalCache;
+use NoobRocket\Engine\Optimization\DeferJS\DeferJS;
+use NoobRocket\Engine\Optimization\DynamicLists\DynamicLists;
+use NoobRocket\Engine\Optimization\Minify\AbstractMinifySubscriber;
+
+/**
+ * Minify/Combine JS subscriber
+ *
+ * @since 3.1
+ */
+class Subscriber extends AbstractMinifySubscriber {
+	/**
+	 * Return an array of events that this subscriber wants to listen to.
+	 *
+	 * @since  3.1
+	 *
+	 * @return array
+	 */
+	public static function get_subscribed_events() {
+		$events = [
+			'noobrocket_js_url' => [
+				[ 'fix_ssl_minify' ],
+				[ 'i18n_multidomain_url' ],
+			],
+			'noobrocket_buffer' => [ 'process', 22 ],
+		];
+
+		return $events;
+	}
+
+	/**
+	 * Processes the HTML to Minify/Combine JS.
+	 *
+	 * @since 3.1
+	 *
+	 * @param string $html HTML content.
+	 * @return string
+	 */
+	public function process( $html ) {
+		if ( ! $this->is_allowed() ) {
+			return $html;
+		}
+
+		$assets_local_cache = new AssetsLocalCache( noobrocket_get_constant( 'NOOBROCKET_MINIFY_CACHE_PATH' ), $this->filesystem );
+		$container          = apply_filters( 'noobrocket_container', null );
+		$dynamic_lists      = $container->get( 'dynamic_lists' );
+
+		if ( $this->options->get( 'minify_js' ) && $this->options->get( 'minify_concatenate_js' ) ) {
+			$this->set_processor_type( new Combine( $this->options, new MinifyJS(), $assets_local_cache, $container->get( 'defer_js' ), $dynamic_lists ) );
+		} elseif ( $this->options->get( 'minify_js' ) && ! $this->options->get( 'minify_concatenate_js' ) ) {
+			$this->set_processor_type( new Minify( $this->options, $assets_local_cache, $dynamic_lists ) );
+		}
+
+		return $this->processor->optimize( $html );
+	}
+
+	/**
+	 * Checks if is allowed to Minify/Combine JS.
+	 *
+	 * @since 3.1
+	 *
+	 * @return bool
+	 */
+	protected function is_allowed() {
+		if ( noobrocket_get_constant( 'DONOTNOOBROCKETOPTIMIZE' ) ) {
+			return false;
+		}
+
+		if ( ! (bool) $this->options->get( 'minify_js', 0 ) ) {
+			return false;
+		}
+
+		return ! is_noobrocket_post_excluded_option( 'minify_js' );
+	}
+
+	/**
+	 * Returns an array of CDN zones for JS files.
+	 *
+	 * @since 3.1
+	 *
+	 * @return array
+	 */
+	public function get_zones() {
+		return [ 'all', 'css_and_js', 'js' ];
+	}
+}

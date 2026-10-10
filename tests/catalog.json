@@ -1,0 +1,1575 @@
+{
+  "schema": 1,
+  "notes": [
+    "Fixture names are explicit; helpers are never discovered as executable tests.",
+    "Modeled proofs do not replace native database or HTTP verification.",
+    "Minimum/current compatibility is proved by selected native scenarios, not inferred for every fixture.",
+    "Browser fixtures use maintained plugin bytes; direct fixture calls may retain workstation convenience fallbacks."
+  ],
+  "fixtures": [
+    {
+      "name": "acceptance:activate",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress activate acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "activate"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:boot",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress boot acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "boot"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:hooks",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress hooks acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "hooks"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:settings",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress settings acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "settings"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:import",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress import acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "import"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:render",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress render acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "render"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:cdn",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress cdn acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "cdn"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:minify-purge",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress minify-purge acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "minify-purge"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:release-update",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress release-update acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "release-update"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:health",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress health acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "health"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:abilities",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress abilities acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "abilities"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:branding",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress branding acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "branding"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:veto",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress veto acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "veto"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:deactivate",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress deactivate acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "deactivate"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:uninstall",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress uninstall acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "uninstall"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:collision",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress collision acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "collision"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:restore",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native WordPress restore acceptance assertions.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Lifecycle/settings/cache changes in marked site only. Deactivate/uninstall/collision/restore require explicit scenario order.",
+      "args": [
+        "{wordpress}",
+        "restore"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "tooling-checks",
+      "path": "tests/tooling-checks.py",
+      "purpose": "Negative controls for missing prerequisites, fixture discovery, syntax regression, archive traversal and owned runtime files.",
+      "profile": "fast",
+      "environment": "tooling-isolated",
+      "prerequisites": [
+        "python",
+        "php",
+        "node"
+      ],
+      "mutation": "Owned temporary directories and malformed inputs only.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "asset-preview-links-browser",
+      "path": "tests/asset-preview-links-browser.mjs",
+      "purpose": "Native preview navigation proof using synthetic forms and a local endpoint; no WordPress writes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "benchmark",
+      "path": "tests/benchmark.mjs",
+      "purpose": "Validate configuration, cache-hit evidence, timing aggregation and before/after comparison using owned loopback pages.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}",
+        "{root}/noobrocket/local-css/package.json"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "cdn-settings-browser",
+      "path": "tests/cdn-settings-browser.mjs",
+      "purpose": "Native CDN-row regression proof using maintained PHP, CSS and settings handlers. No WordPress state or operations.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "wordpress-core",
+        "php"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}",
+        "{php}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "delay-csp-browser",
+      "path": "tests/delay-csp-browser.mjs",
+      "purpose": "delay-csp-browser regression assertions.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "php"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{php}",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "linux-multisite",
+      "path": "tests/linux-multisite.php",
+      "purpose": "Dedicated network proof. The runner owns and discards its entire site/database.",
+      "profile": "server",
+      "environment": "native-linux-mariadb",
+      "prerequisites": [
+        "linux",
+        "mariadb",
+        "apache",
+        "nginx",
+        "php-fpm",
+        "owned-server-proof"
+      ],
+      "mutation": "Owned temporary installation/database only; run via tools/linux-production-proof.sh.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "linux-production",
+      "path": "tests/linux-production.php",
+      "purpose": "Dedicated Linux/MariaDB/Apache/Nginx fixture. Never run on existing data.",
+      "profile": "server",
+      "environment": "native-linux-mariadb",
+      "prerequisites": [
+        "linux",
+        "mariadb",
+        "apache",
+        "nginx",
+        "php-fpm",
+        "owned-server-proof"
+      ],
+      "mutation": "Owned temporary installation/database only; run via tools/linux-production-proof.sh.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "local-css-generator",
+      "path": "tests/local-css-generator.mjs",
+      "purpose": "Verify actual used and critical CSS extraction: imported styles, order, exclusions, media and dependency retention.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{root}/noobrocket/local-css/generator.mjs",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "local-css-interactions",
+      "path": "tests/local-css-interactions.mjs",
+      "purpose": "Verify interactive Chromium CSS collection, animation and interaction states with bounded owned pages.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{root}/noobrocket/local-css/generator.mjs",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "minify-boundaries-browser",
+      "path": "tests/minify-boundaries-browser.mjs",
+      "purpose": "Execute native generated scripts and retained module imports; localhost interception only, no WordPress.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "php"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{php}",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "picture-delivery-browser",
+      "path": "tests/picture-delivery-browser.mjs",
+      "purpose": "Render native generated picture markup in Chromium and verify original/modern format selection with owned HTTP responses.",
+      "profile": "browser",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Native image fixture creates owned derivatives and disposable exported HTML; serial site access.",
+      "args": [
+        "{wordpress}",
+        "{php}",
+        "{chromium}"
+      ],
+      "default": false,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "preload-links-browser",
+      "path": "tests/preload-links-browser.mjs",
+      "purpose": "Verify link intent, exclusions and real browser prerender activation on owned loopback pages.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "second-audit-catalog-browser",
+      "path": "tests/second-audit-catalog-browser.mjs",
+      "purpose": "Native regression checks on isolated settings fixtures; no WordPress state or operations.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "wordpress-core",
+        "php"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}",
+        "{php}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "settings-appearance-browser",
+      "path": "tests/settings-appearance-browser.mjs",
+      "purpose": "Appearance and owned notices before first paint; native fallbacks. Synthetic browser only; no WordPress writes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "settings-controls-browser",
+      "path": "tests/settings-controls-browser.mjs",
+      "purpose": "Actual WordPress/forms + packaged legacy/admin CSS; isolated browser, no WordPress requests.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "wordpress-core"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "settings-notices-browser",
+      "path": "tests/settings-notices-browser.mjs",
+      "purpose": "Native notice ownership, shared toast semantics and interaction. Synthetic state only; no WordPress.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "settings-transactions-browser",
+      "path": "tests/settings-transactions-browser.mjs",
+      "purpose": "Native-browser transaction proof on synthetic forms. No WordPress or live operations.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-asset-preview-links",
+      "path": "tests/wordpress-asset-preview-links.php",
+      "purpose": "Signed Asset Manager navigation; no WordPress bootstrap, database or network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-assets-browser",
+      "path": "tests/wordpress-assets-browser.php",
+      "purpose": "Prepare/restore a signed browser fixture; only the marked disposable local site is allowed.",
+      "profile": "wordpress",
+      "environment": "native-helper",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Installed MU HTTP guard or explicit browser setup/cleanup; must be called by an owning scenario.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-assets-second-pass",
+      "path": "tests/wordpress-assets-second-pass.php",
+      "purpose": "Isolated asset/history regressions. No WordPress bootstrap, database or network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-assets-ux",
+      "path": "tests/wordpress-assets-ux.php",
+      "purpose": "Read-only Asset Manager/history rendering and form normalization on the marked local site.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-assets",
+      "path": "tests/wordpress-assets.php",
+      "purpose": "Native asset rules, dependency safety and settings history on the marked disposable site.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-bloat-object-cache",
+      "path": "tests/wordpress-bloat-object-cache.php",
+      "purpose": "Standalone frontend bloat and existing object-cache contract checks; no site writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-atomic",
+      "path": "tests/wordpress-cache-atomic.php",
+      "purpose": "Concurrent executable policy readers/writer in one owned temporary directory.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-config",
+      "path": "tests/wordpress-cache-config.php",
+      "purpose": "Cache configuration fixtures. Does not load or change a WordPress installation.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-headers",
+      "path": "tests/wordpress-cache-headers.php",
+      "purpose": "Native HTTP response-header gate; isolated loopback PHP server, no WordPress site.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-http",
+      "path": "tests/wordpress-cache-http.php",
+      "purpose": "Real HTTP cache delivery checks. Requires the disposable site server on port 8765.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "loopback-http-8765"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "timeout": 600,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-cache-lifecycle",
+      "path": "tests/wordpress-cache-lifecycle.php",
+      "purpose": "Native deactivation entry and real policy files; WordPress state stays modeled and no site is booted.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-ownership",
+      "path": "tests/wordpress-cache-ownership.php",
+      "purpose": "Standalone activation/deactivation ownership proof; no WordPress site writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-policy",
+      "path": "tests/wordpress-cache-policy.php",
+      "purpose": "Cache privacy, executable publication and host ownership; owned temporary files only.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-write",
+      "path": "tests/wordpress-cache-write.php",
+      "purpose": "Standalone cache publication proof; real processes and temporary files, no WordPress site writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cdn-validation",
+      "path": "tests/wordpress-cdn-validation.php",
+      "purpose": "Standalone proof of native CDN settings validation. No WordPress bootstrap, database, or network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cloudflare-settings-notices",
+      "path": "tests/wordpress-cloudflare-settings-notices.php",
+      "purpose": "Native Cloudflare settings-notice proof. No WordPress state, provider calls, or network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-dashboard-state",
+      "path": "tests/wordpress-dashboard-state.php",
+      "purpose": "Isolated native template status/ownership proof; no WordPress bootstrap or writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-database-cleanup",
+      "path": "tests/wordpress-database-cleanup.php",
+      "purpose": "Isolated current-site scope, resumable cleanup and explicit-action contracts.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-database-lifecycle",
+      "path": "tests/wordpress-database-lifecycle.php",
+      "purpose": "Native deactivation/event/queue lifecycle with modeled multisite storage; no WordPress bootstrap.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-diagnostics",
+      "path": "tests/wordpress-diagnostics.php",
+      "purpose": "Diagnostics security, recovery and workload checks on a disposable install.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-external-contracts",
+      "path": "tests/wordpress-external-contracts.php",
+      "purpose": "Third-party protocol regression checks; all HTTP responses are local fixtures.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-history-lock",
+      "path": "tests/wordpress-history-lock.php",
+      "purpose": "Native Rules/Snapshots ownership and recovery. Mocked WordPress hooks/options only.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-http-audit",
+      "path": "tests/wordpress-http-audit.php",
+      "purpose": "Test fixture only. Install as a must-use plugin in a disposable WordPress site.",
+      "profile": "wordpress",
+      "environment": "native-helper",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Installed MU HTTP guard or explicit browser setup/cleanup; must be called by an owning scenario.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-link-prerender",
+      "path": "tests/wordpress-link-prerender.php",
+      "purpose": "Standalone link-preparation proof. Reads core files; no WordPress bootstrap, database or network.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-local-css-fonts",
+      "path": "tests/wordpress-local-css-fonts.php",
+      "purpose": "Real local CSS/native font ownership and delivery regression.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-local-css-http",
+      "path": "tests/wordpress-local-css-http.php",
+      "purpose": "Real HTTP -> Chromium worker -> PHP bridge -> public CSS/cache delivery proof.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "loopback-http-8765",
+        "chromium",
+        "node22",
+        "worker-dependencies"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}",
+        "{chromium}",
+        "{node}"
+      ],
+      "default": false,
+      "timeout": 600,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-local-css-retries",
+      "path": "tests/wordpress-local-css-retries.php",
+      "purpose": "Isolated native job-state/fingerprint/publication contracts, with owned temporary CSS files.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-local-css-settings",
+      "path": "tests/wordpress-local-css-settings.php",
+      "purpose": "Read-only local CSS settings checks against a disposable WordPress install.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-local-css-worker",
+      "path": "tests/wordpress-local-css-worker.php",
+      "purpose": "Worker leases, status and operator queue controls on the marked disposable site.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-local-css",
+      "path": "tests/wordpress-local-css.php",
+      "purpose": "Real WordPress local CSS jobs/rendering/invalidation without a browser worker.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-minify-boundaries",
+      "path": "tests/wordpress-minify-boundaries.php",
+      "purpose": "Native minification/combining with owned temporary files and mocked remote bytes; no site bootstrap.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-optimizer-resources",
+      "path": "tests/wordpress-optimizer-resources.php",
+      "purpose": "Isolated native resource-fallback/CSP/beacon regressions; no WordPress bootstrap or HTTP.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-overview-css-scope",
+      "path": "tests/wordpress-overview-css-scope.php",
+      "purpose": "Native CSS diagnostic/retry scope over an in-memory database; no WordPress bootstrap or writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-overview-images",
+      "path": "tests/wordpress-overview-images.php",
+      "purpose": "Modern-image overview: truthful saved queue/encoder evidence, without loading a site.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-overview-supporting",
+      "path": "tests/wordpress-overview-supporting.php",
+      "purpose": "Isolated supporting Overview card contracts; no WordPress state or HTTP access.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-overview",
+      "path": "tests/wordpress-overview.php",
+      "purpose": "Standalone Overview evidence, locale and native probe contracts. No WordPress site is loaded.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-pagespeed",
+      "path": "tests/wordpress-pagespeed.php",
+      "purpose": "PageSpeed request, credential and result contracts on a marked disposable WordPress site.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-performance-hint-boundary",
+      "path": "tests/wordpress-performance-hint-boundary.php",
+      "purpose": "Shared beacon admission must reject bad payloads before any feature decodes them.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-picture-delivery",
+      "path": "tests/wordpress-picture-delivery.php",
+      "purpose": "Native image delivery checks with temporary local derivatives and unchanged settings.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-picture-generator",
+      "path": "tests/wordpress-picture-generator.php",
+      "purpose": "Standalone native-editor/queue contracts and real filesystem publication/ownership checks.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-plugin-deactivation",
+      "path": "tests/wordpress-plugin-deactivation.php",
+      "purpose": "Native endpoint authorization, with recording operations and no WordPress bootstrap.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-preload-outcomes",
+      "path": "tests/wordpress-preload-outcomes.php",
+      "purpose": "Preload outcomes, staged refresh and exact discovery; native owners with in-memory boundaries.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-preload-sql",
+      "path": "tests/wordpress-preload-sql.php",
+      "purpose": "Real WordPress/BerlinDB SQL plans on a marked disposable MariaDB installation.",
+      "profile": "server",
+      "environment": "native-linux-mariadb",
+      "prerequisites": [
+        "linux",
+        "mariadb",
+        "apache",
+        "nginx",
+        "php-fpm",
+        "owned-server-proof"
+      ],
+      "mutation": "Owned temporary installation/database only; run via tools/linux-production-proof.sh.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-preload",
+      "path": "tests/wordpress-preload.php",
+      "purpose": "Preload cache-hit fixtures. Reads WordPress classes; never loads the site or its database.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-private-draft-persistence",
+      "path": "tests/wordpress-private-draft-persistence.php",
+      "purpose": "Private metadata refusal and exact history differences; no WordPress/database/network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-provider-boundaries",
+      "path": "tests/wordpress-provider-boundaries.php",
+      "purpose": "Native provider boundaries. All HTTP, options, credentials and logs are disposable fixtures.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-requirements",
+      "path": "tests/wordpress-requirements.php",
+      "purpose": "Standalone requirements failure proof; no WordPress site or network writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-reviewed-state",
+      "path": "tests/wordpress-reviewed-state.php",
+      "purpose": "Review conflicts and post-commit history with the isolated native asset fixture.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-settings-domain-api",
+      "path": "tests/wordpress-settings-domain-api.php",
+      "purpose": "In-memory native domain/API proof. No WordPress bootstrap, database or external HTTP.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-settings-import",
+      "path": "tests/wordpress-settings-import.php",
+      "purpose": "Standalone import transaction proof. No WordPress bootstrap, database, or network.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-settings-preload",
+      "path": "tests/wordpress-settings-preload.php",
+      "purpose": "Settings-facing preload hooks use the native queue without HTTP, sleep or shared-site state.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Reads native WordPress classes; modeled database; owned temporary files only.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-stale-refresh",
+      "path": "tests/wordpress-stale-refresh.php",
+      "purpose": "Bounded stale cache, native preload and early HTTP delivery proof.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "loopback-http-8765"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "timeout": 600,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-taxonomy-cache",
+      "path": "tests/wordpress-taxonomy-cache.php",
+      "purpose": "Real taxonomy relationship invalidation with disposable posts/terms/cache files.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    },
+    {
+      "name": "wordpress-uninstall-network",
+      "path": "tests/wordpress-uninstall-network.php",
+      "purpose": "Standalone uninstall isolation checks; mocked WordPress primitives, no site writes.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-webp-cache",
+      "path": "tests/wordpress-webp-cache.php",
+      "purpose": "WebP conversion-to-cache regression checks with temporary files and unchanged settings.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Changes disposable settings/database/cron or fixture content; runs serially; site must be discarded.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "8.0"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+	"name": "noobrocket/noobrocket",
+	"description": "Cache-Cache: free local performance optimization for WordPress",
+	"keywords": [
+		"wordpress",
+		"cache",
+		"minification",
+		"lazyload"
+	],
+	"license": "GPL-2.0-or-later",
+	"authors": [
+		{
+			"name": "Cache-Cache contributors"
+		}
+	],
+	"type": "wordpress-plugin",
+	"config": {
+		"autoloader-suffix": "NoobRocket",
+		"sort-packages": true,
+		"preferred-install": {
+			"wp-media/phpunit": "source"
+		},
+		"process-timeout": 0,
+		"allow-plugins": {
+			"mnsami/composer-custom-directory-installer": true,
+			"dealerdirect/phpcodesniffer-composer-installer": true,
+			"phpstan/extension-installer": true
+		}
+	},
+	"repositories": [
+		{
+			"type": "composer",
+			"url": "https://wpackagist.org"
+		}
+	],
+	"require": {
+		"php": ">=7.4",
+		"cloudflare/cf-ip-rewrite": "^1.0",
+		"voku/simple_html_dom": "^4.8",
+		"wp-media/apply-filters-typed": "^1.0",
+		"wp-media/mcp-oauth": "1.1.1",
+		"wp-media/plugin-family": "1.0.8",
+		"wp-media/wp-mixpanel": "^1.4.4"
+	},
+	"require-dev": {
+		"php": "^7.4 || ^8",
+		"berlindb/core": "2.0.2",
+		"brain/monkey": "^2.0",
+		"dealerdirect/phpcodesniffer-composer-installer": "^0.7.0",
+		"league/container": "^4.2",
+		"mnsami/composer-custom-directory-installer": "^2.0",
+		"mobiledetect/mobiledetectlib": "^3.74",
+		"php-stubs/wordpress-tests-stubs": "^6.8",
+		"php-stubs/wp-cli-stubs": "^2.12",
+		"phpcompatibility/phpcompatibility-wp": "^2.0",
+		"phpstan/extension-installer": "^1.4",
+		"phpstan/phpstan-mockery": "^2.0",
+		"phpstan/phpstan-phpunit": "^2.0",
+		"phpunit/phpunit": "^7.5 || ^8 || ^9",
+		"psr/container": "1.1.1",
+		"woocommerce/action-scheduler": "4.1.0",
+		"szepeviktor/phpstan-wordpress": "^2.0",
+		"wp-coding-standards/wpcs": "^3",
+		"wp-media/background-processing": "^1.3",
+		"wp-media/monolog": "^0.0",
+		"wp-media/phpunit": "^3",
+		"wp-media/rocket-lazyload-common": "^3.0.22",
+		"wp-media/wp-imagify-partner": "^1.0",
+		"wpackagist-plugin/amp": "^1.1.4",
+		"wpackagist-plugin/cloudflare": "4.12.7",
+		"wpackagist-plugin/ewww-image-optimizer": "^8.4",
+		"wpackagist-plugin/hummingbird-performance": "2.0.1",
+		"wpackagist-plugin/jetpack": "9.3.2",
+		"wpackagist-plugin/pdf-embedder": "4.6.*",
+		"wpackagist-plugin/simple-custom-css": "^4.0.3",
+		"wpackagist-plugin/spinupwp": "^1.1",
+		"wpackagist-plugin/the-events-calendar": "6.5.0.1",
+		"wpackagist-plugin/woocommerce": "^8",
+		"wpackagist-plugin/wp-smushit": "^3"
+	},
+	"autoload": {
+		"classmap": [
+			"inc/classes",
+			"inc/vendors/classes",
+			"inc/deprecated"
+		],
+		"exclude-from-classmap": [
+			"inc/vendors/classes/class-noobrocket-mobile-detect.php",
+			"inc/classes/class-noobrocket-requirements-check.php"
+		],
+		"psr-4": {
+			"NoobRocket\\": "inc/"
+		}
+	},
+	"extra": {
+		"installer-paths": {
+			"./inc/Dependencies/ActionScheduler/": [
+				"woocommerce/action-scheduler"
+			],
+			"vendor/{$vendor}/{$name}/": [
+				"type:wordpress-plugin"
+			]
+		},
+		"plugin_domain": "noobrocket",
+		"imagify_partner": "noobrocket"
+	},
+	"scripts": {
+		"check:syntax": "python ../tools/check.py syntax",
+		"check:fast": "python ../tools/check.py fast",
+		"check:generated": "python ../tools/check.py generated",
+		"check:docs": "python ../tools/check.py docs"
+	}
+}

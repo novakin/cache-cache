@@ -1,3 +1,0 @@
-{
-	"redefinable-internals": ["glob", "filemtime", "gmdate"]
-}

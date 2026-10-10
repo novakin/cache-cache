@@ -1,29 +1,7 @@
-// directories
-.aiassistant export-ignore
-.claude export-ignore
-bin export-ignore
-src export-ignore
-tests export-ignore
+# Preserve imported distribution bytes across platform-specific Git settings.
+* -text
 
-// files
-AGENTS.md export-ignore
-.babelrc export-ignore
-.editorconfig export-ignore
-.gitattributes export-ignore
-.github export-ignore
-.gitignore export-ignore
-.travis.yml export-ignore
-.tx export-ignore
-
-composer.lock export-ignore
-CONTRIBUTING.md export-ignore
-gulpfile.js export-ignore
-LICENSE export-ignore
-package.json export-ignore
-package-lock.json export-ignore
-phpcs.xml export-ignore
-phpstan.neon.dist export-ignore
-phpunit.xml.dist export-ignore
-README.md export-ignore
-
-.github/workflows/*.lock.yml linguist-generated=true merge=ours
+# Generated text must match the same bytes on Windows and Linux.
+noobrocket/languages/*.po text eol=lf
+noobrocket/languages/*.pot text eol=lf
+noobrocket/assets/js/noobrocket-settings.min.js text eol=lf

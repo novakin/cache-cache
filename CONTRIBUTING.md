@@ -1,33 +1,28 @@
-## Contribute To WP Rocket
+# Contributing to Cache-Cache
 
-Community made patches, localisations, bug reports and contributions are always welcome to WP Rocket, and help us improve the product and stay as the most recommended one by the community.
+Read [AGENTS.md](AGENTS.md), [development setup](docs/development.md) and the [architecture map](docs/architecture.md). The same contract applies to human and agent changes. Cache-Cache remains beta; technical `noobrocket` identifiers preserve installed data.
 
-When contributing please ensure you follow the guidelines below so that we can keep on top of things.
+## Daily change process
 
-__Please Note:__ GitHub is for bug reports and contributions only - if you have a support question or a request for a customization don't post here, go to our [Support page](https://wp-rocket.me/support/) instead.
+1. Open a bounded issue: concrete trigger, current/expected behavior, reproduction and acceptance. Identify relevant data/cache/UI boundaries and excluded scope when useful.
+2. Inspect the base, worktree and index. Preserve unrelated changes. Create a task branch from the repository's current development branch; do not assume upstream `develop` is our release baseline.
+3. Trace the owner and invariant before editing. Implement the smallest coherent solution; update owning documentation and required generated output. Add meaningful regression proof where risk warrants it.
+4. Run relevant [check profiles](tests/README.md). Inspect the intentional diff, failure handling, compatibility and synchronous work. Keep detailed logs private and publish bounded sanitized evidence.
+5. Obtain fresh review for materially changed cache, security/data, lifecycle, settings concurrency or UI behavior. Optional agent review adds analysis; it does not establish distinct-person approval. Describe the solo-maintainer case accurately. Address concrete findings with evidence, without blanket thread resolution.
+6. Open a PR within authorized publication scope. Lead its description with resulting behavior; maintain one concise acceptance record rather than repeated agent narratives.
+7. Verify the final head integrated with the current base. Record the tested merge candidate and reviewed revision. Code/base updates invalidate affected proof; rerun only the affected checks unless broader risk requires the matrix.
+8. Merge only within authorization and actual repository gates. Keep partially satisfied issues open, or revise their acceptance explicitly. Release and site deployment remain separate decisions.
 
-## Getting Started
+## Current acceptance record
 
-* __Do not report potential security vulnerabilities here. Email them privately to our security team at [contact@wp-media.me](mailto:contact@wp-media.me)__
-* Before submitting a ticket, please be sure to replicate the behavior with no other plugins active and on a base theme like Twenty Seventeen.
-* Submit a ticket for your issue, assuming one does not already exist.
-  * Raise it on our [Issue Tracker](https://github.com/wp-media/wp-rocket/issues)
-  * Clearly describe the issue including steps to reproduce the bug.
-  * Make sure you fill in the earliest version that you know has the issue as well as the version of WordPress you're using.
+The [PR template](.github/pull_request_template.md) provides the shared record. Include head/base SHAs, tested integration candidate, reviewed revision, commands/results, environment and material limits. Do not represent skipped, unavailable or assigned QA as executed. One source revision can have several proof scopes; distinguish modeled PHP fixtures, native WordPress, browser checks and server execution.
 
-## Making Changes
+For a local merge candidate, use a separate checkout/worktree and test that candidate without modifying the contributor's branch or dirty worktree. Do not repeat the full matrix on both head and candidate without a reason. Review freshness follows the affected behavior, not a historical green badge.
 
-* Fork the repository on GitHub
-* Make the changes to your forked repository
-  * Ensure you stick to the [WordPress Coding Standards](https://codex.wordpress.org/WordPress_Coding_Standards)
-* When committing, reference your issue (if present) and include a note about the fix
-* If possible, and if applicable, please also add/update unit tests for your changes
-* Push the changes to your fork and submit a pull request to the 'master' branch of the WP Rocket repository
+## Scope and evidence
 
-## Code Documentation
+Keep issues and PRs small enough to review coherently. Shared invariants may require a wider change; arbitrary file-count limits must not force duplication. Preserve credentials, reference copies and private receipts outside Git. Do not include runtime databases, cache/config output, `node_modules` or historical ZIPs in source commits.
 
-* We ensure that every WP Rocket function is documented well and follows the standards set by phpDoc
-* Please make sure that every function is documented so that when we update our API Documentation things don't go awry!
-* Finally, please use tabs and not spaces. The tab indent size should be 4 for all WP Rocket code.
+Performance claims need controlled measurements of the changed path. Match settings, environment and cold/hit state; report samples and variability. See [benchmark protocol](tools/BENCHMARKS.md). Source review, syntax passes and screenshots do not prove site-speed gains.
 
-At this point you're waiting on us to merge your pull request. We'll review all pull requests, and make suggestions and changes if necessary.
+Use the [release guide](docs/releases.md) for beta packaging/upstream intake and the [operations guide](docs/operations.md) for rollout/recovery. Available checks are executable evidence; branch protection is a separate GitHub setting whose effective rules must be read back after configuration.
