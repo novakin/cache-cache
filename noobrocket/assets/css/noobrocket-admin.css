@@ -642,6 +642,7 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
   .noobrocket-app .noobrocket-title1 { font-size: 25px; scroll-margin-top: 128px; }
   .noobrocket-panel-heading { display: block; }
   .noobrocket-heading-actions { margin-top: 17px; }
+  .noobrocket-overview .noobrocket-heading-actions { flex-direction: column; align-items: stretch; }
   .noobrocket-heading-actions .noobrocket-button { flex: 1; padding-inline: 12px; }
   .noobrocket-overview-panels, .noobrocket-status-grid { grid-template-columns: minmax(0, 1fr); }
   .noobrocket-status-panel { padding: 19px; border: 0 !important; }
