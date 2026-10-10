@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "scope": "Reconstruct the released prefixed distribution, not unprefixed Composer/Mozart inputs. Vendor dependencies and Composer bootstrap are excluded.",
+  "source": {
+    "repository": "https://github.com/wp-media/wp-rocket",
+    "release": "v3.23.5.1",
+    "commit": "8e89a5917009777d51669c9f3e76cf8f85401a6b",
+    "trees": {
+      "inc/Dependencies": "ea5b6ead3ce4287d5911c706dcbf006a3733f758",
+      "inc/classes/dependencies": "2f9ec4c29f2b34dd460c779f82d7a74c40147883"
+    },
+    "files": 221
+  },
+  "output": {
+    "files": 219,
+    "sha256": "7193db7dc92b8c62e02ae3cce6be874e3e9219f48ff74fdc50c9ab83c82cfa04",
+    "hash_format": "SHA256 of sorted UTF-8 relative path + NUL + raw SHA256(file bytes) + LF for every file."
+  },
+  "omitted": [
+    "inc/Dependencies/ActionScheduler/README.md",
+    "inc/Dependencies/ActionScheduler/lib/cron-expression/README.md"
+  ],
+  "replacements": {
+    "https://wp-rocket.me/?utm_source=": "https://www.noobunbox.net/",
+    "WP_Rocket": "NoobRocket",
+    "RocketLazyload": "NoobRocketLazyload",
+    "WP_ROCKET": "NOOBROCKET",
+    "wp_rocket": "noobrocket",
+    "wp-rocket": "noobrocket",
+    "rocket_": "noobrocket_",
+    "WP Rocket": "NoobRocket",
+    "wp rocket": "NoobRocket",
+    "'rocket'": "'noobrocket'",
+    "rocket-lazyload": "noobrocket-lazyload",
+    "rocketLazyload": "noobrocketLazyload",
+    "wpr_": "nbr_"
+  },
+  "patches": [
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Table.php",
+      "reason": "Preserve the existing multisite creation fix: options tables do not exist yet during wp_initialize_site.",
+      "before": "\t\tif ( ! $this->is_global() ) {\n\t\t\t$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );\n\t\t}",
+      "after": "\t\tif ( ! $this->is_global() ) {\n\t\t\t// Site creation switches blogs before WordPress creates its options table.\n\t\t\tif ( doing_action( 'wp_initialize_site' ) && ! wp_is_site_initialized( $site_id ) ) {\n\t\t\t\t$this->db_version = false;\n\t\t\t} else {\n\t\t\t\t$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );\n\t\t\t}\n\t\t}"
+    }
+  ],
+  "locked_package_provenance": [
+    {
+      "name": "berlindb/core",
+      "version": "2.0.2",
+      "reference": "6a9383ab2dad726bf2d6dbda6687da848eda22ea",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/BerlinDB"
+    },
+    {
+      "name": "league/container",
+      "version": "4.2.5",
+      "reference": "d3cebb0ff4685ff61c749e54b27db49319e2ec00",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/League"
+    },
+    {
+      "name": "mobiledetect/mobiledetectlib",
+      "version": "3.74.4",
+      "reference": "e72098eba91e5f16278b17d42ca193ae71e4ae0a",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/Detection"
+    },
+    {
+      "name": "psr/container",
+      "version": "1.1.1",
+      "reference": "8622567409010282b7aeebe4bb841fe98b58dcaf",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/Psr/Container"
+    },
+    {
+      "name": "psr/log",
+      "version": "1.1.4",
+      "reference": "d49695b909c3b7628b6289db5479a1c204601f11",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/Psr/Log"
+    },
+    {
+      "name": "woocommerce/action-scheduler",
+      "version": "4.1.0",
+      "reference": "40a3df93a251590c58717b91b1049a13410e2ac4",
+      "license": [
+        "GPL-3.0-or-later"
+      ],
+      "owner": "inc/Dependencies/ActionScheduler"
+    },
+    {
+      "name": "wp-media/background-processing",
+      "version": "v1.3.2",
+      "reference": "78ec685233f83ebaf1578f99bbf43c25ea7073d8",
+      "license": [
+        "GPL-2.0+"
+      ],
+      "owner": "inc/classes/dependencies/wp-media/background-processing"
+    },
+    {
+      "name": "wp-media/monolog",
+      "version": "0.0.1",
+      "reference": "050fe27dc03f580a029a0858c2056dcf22704856",
+      "license": [
+        "MIT"
+      ],
+      "owner": "inc/Dependencies/Monolog"
+    },
+    {
+      "name": "wp-media/rocket-lazyload-common",
+      "version": "v3.0.22",
+      "reference": "228adb5daeae89d6c581c99c0fc9ff4b79b3ee53",
+      "license": [
+        "GPL-3.0-or-later"
+      ],
+      "owner": "inc/Dependencies/NoobRocketLazyload"
+    },
+    {
+      "name": "wp-media/plugin-family",
+      "version": "v1.0.8",
+      "reference": "b763b3338e19ca672c407213da4cd8739e9327c2",
+      "license": [
+        "GPL-3.0-or-later"
+      ],
+      "owner": "inc/Dependencies/WPMedia/PluginFamily"
+    }
+  ],
+  "release_source_only_owners": {
+    "inc/Dependencies/Minify": "Manual upstream vendor; raw package version is not established by the lock.",
+    "inc/Dependencies/PathConverter": "Manual upstream vendor; raw package version is not established by the lock.",
+    "inc/Dependencies/Psr/Cache": "No matching package in the lock; released Git blobs are the input pin.",
+    "inc/Dependencies/Psr/SimpleCache": "No matching package in the lock; released Git blobs are the input pin."
+  },
+  "limits": [
+    "Source commit pins the already-prefixed released dependency files, including manually vendored libraries. Lock records describe package provenance; they do not prove a raw Composer/Mozart reconstruction.",
+    "The ten unprefixed vendor packages and generated Composer bootstrap are not reconstructed by this tool. Their current lock and installed metadata remain shipped inputs.",
+    "The lock lists wp-media/wp-imagify-partner but no corresponding prefixed owner exists in this bundle.",
+    "Existing dependency license files and copyright/license headers remain included; only the two named readmes are omitted."
+  ]
+}

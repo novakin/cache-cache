@@ -18,6 +18,8 @@ python tools/check.py generated
 
 `--php PATH`, `--node PATH` and `--shell PATH` select executables; repeat `--fixture NAME` for focused fixtures in `fast`, `wordpress` or `browser`. Other profiles reject fixture selections. `PROFILE --list` prints that group's available names. Profiles fail on missing prerequisites/unknown selections; skipped or unavailable execution is not a pass. Output is bounded; keep detailed failure receipts private and sanitized summaries in acceptance records.
 
+The `php-dependency-reconstruction` fast fixture verifies the 219 pinned prefixed files, license inclusion and staging refusal without upstream Git history. Full reconstruction is a separate [development command](../docs/development.md): run it twice against the pinned release objects and compare exact output. No Composer install or runtime replacement occurs; neither fixture proves raw Composer/Mozart or unprefixed vendor reconstruction.
+
 | Profile | Scope | Important prerequisites/boundaries |
 | --- | --- | --- |
 | `docs` | Local documentation links and repository configuration | Python; historical private receipt references are not public setup requirements. |

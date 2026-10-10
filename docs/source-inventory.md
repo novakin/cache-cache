@@ -9,7 +9,7 @@ Date: 2026-10-10. Public product: Cache-Cache. Technical identifiers: `NoobRocke
 | `noobrocket/inc/`, `views/` | Maintained WordPress engine, feature owners and templates | Commit intentional source. Extend the responsible owner before adding structure. |
 | `noobrocket/assets/` | Maintained scripts/styles and served generated assets | Commit inputs and required generated outputs together. |
 | `noobrocket/languages/` | POT/PO message catalogs and compiled MO | English gettext keys in source; translations in catalogs. |
-| `noobrocket/vendor/`, `inc/Dependencies/`, `inc/classes/dependencies/` | Bundled runtime dependencies and prefixed distributions | Commit current runtime inputs. Dependency reconstruction is not yet a verified release pipeline. |
+| `noobrocket/vendor/`, `inc/Dependencies/`, `inc/classes/dependencies/` | Bundled runtime dependencies and prefixed distributions | Commit current runtime inputs. The [pinned recipe](../tools/php-dependencies/manifest.json) reconstructs 219 prefixed files from released Git blobs without replacing runtime bytes. Raw Composer/Mozart and `vendor/` reconstruction remain outside that proof. |
 | `noobrocket/local-css/` | Same-server Node/Chromium worker and pinned npm manifests | Commit source and lock file; install `node_modules` separately. |
 | `noobrocket/docs/` | Packaged user help | Ship with plugin; keep developer process guidance outside this directory. |
 | `tests/` | Maintained fixtures and explicit verification catalog | Commit tests/helpers; isolate mutation and generated evidence. |
@@ -17,6 +17,10 @@ Date: 2026-10-10. Public product: Cache-Cache. Technical identifiers: `NoobRocke
 | Root guides, `docs/`, `.github/` | Current contributor contract, operations, architecture and GitHub process | Commit current guidance and small workflows/templates. |
 
 The curated import excludes `.artifacts/`, `dist/`, installed `node_modules`, private captures, credentials, cache/config output and duplicate reference distributions. Local copies remain intact. The beta ZIP is a release artifact rather than a source-control input.
+
+The prefixed reconstruction reads 221 pinned release blobs, preserves all shipped license files/headers, omits two readmes and reproduces all 219 maintained files. One-pass namespace/branding substitutions preserve the existing import; the only behavior patch is BerlinDB's existing site-initialization guard. Two independent new staging directories matched every maintained byte. This proves released-source reconstruction, not recovery of the original Mozart build inputs.
+
+The separate unprefixed vendor audit downloaded source archives at all ten references in `vendor/composer/installed.json`: 422 of 427 shipped package files matched raw source. Eight packages were unchanged. The five differences are existing identity adaptations in MCP OAuth's `inc/Context.php` and `inc/Auth/ClaudeClientVerifier.php`, plus PluginFamily's `src/Controller/PluginFamily.php`, `src/Model/PluginFamily.php` and `src/Model/wp_media_plugins.php`. Thirteen generated Composer bootstrap files remain separate. No vendor files were replaced; a pinned Composer/bootstrap reconstruction and full raw-package prefixed build remain open work.
 
 `tools/prepare-github.py` creates a new checkout from upstream release `v3.23.5.1` and copies these inputs. It stages a reviewable migration; it does not commit or publish. The downloaded shallow checkout retains the release commit identity; the GitHub fork provides the existing upstream ancestry. Local history depth is not a claim that every historical blob was downloaded.
 
