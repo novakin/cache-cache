@@ -2059,7 +2059,15 @@ class Page extends Abstract_Render {
 
 		$this->options->set( 'cache_mobile', 1 );
 		$this->options->set( 'do_caching_mobile_files', 1 );
-		update_option( noobrocket_get_constant( 'NOOBROCKET_SLUG', 'noobrocket_settings' ), $this->options->get_options() );
+		$option_name = noobrocket_get_constant( 'NOOBROCKET_SLUG', 'noobrocket_settings' );
+		update_option( $option_name, $this->options->get_options() );
+
+		// The options snapshot is already changed; verify the native persisted values.
+		$saved = get_option( $option_name, [] );
+		if ( ! is_array( $saved ) || ! in_array( $saved['cache_mobile'] ?? 0, [ 1, '1' ], true ) || ! in_array( $saved['do_caching_mobile_files'] ?? 0, [ 1, '1' ], true ) ) {
+			wp_send_json_error();
+			return;
+		}
 
 		wp_send_json_success();
 	}
