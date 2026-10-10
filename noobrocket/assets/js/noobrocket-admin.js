@@ -499,7 +499,7 @@
     });
 
     const operationName = (owner, initiator) => owner?.dataset.noobrocketOperationName || initiator?.dataset.noobrocketOperationName
-      || initiator?.textContent.trim() || initiator?.value || '';
+      || initiator?.getAttribute('aria-label') || initiator?.textContent.trim() || initiator?.value || '';
     const reviewOperation = (event, operation) => {
       if (operationConfirmed || (!dirty && (!unfinished() || operation.form === editor))) return false;
       event.preventDefault();
@@ -658,22 +658,51 @@
       form.setAttribute('aria-busy', 'true');
       button?.setAttribute('aria-disabled', 'true');
       if (cancel) cancel.disabled = true;
-      // Save already owns its footer/button feedback; independent actions use the shared tray.
+      // Keep native submitter values intact; only a button's displayed content can change.
       let status = null;
+      let buttonContent = null;
+      let buttonLabel = null;
+      let buttonWidth = '';
+      let buttonMaxWidth = '';
       if (form !== settings) {
-        status = document.createElement('div');
-        status.className = 'noobrocket-operation-pending notice notice-info';
-        status.setAttribute('role', 'status');
-        const message = document.createElement('p');
         const name = operationName(form, button);
-        message.textContent = name ? `${name}: ${state.dataset.pending}` : state.dataset.pending;
-        status.append(message);
-        if (!renderToast(status)) (button?.parentElement || form).append(status);
+        const label = name ? `${name}: ${state.dataset.pending}` : state.dataset.pending;
+        if (button?.tagName === 'BUTTON') {
+          buttonContent = [...button.childNodes];
+          buttonLabel = button.getAttribute('aria-label');
+          buttonWidth = button.style.width;
+          buttonMaxWidth = button.style.maxWidth;
+          button.style.width = `${button.getBoundingClientRect().width}px`;
+          button.style.maxWidth = '100%';
+          button.setAttribute('aria-label', label);
+          button.classList.add('noobrocket-operation-pending');
+          status = document.createElement('span');
+          status.setAttribute('role', 'status');
+          status.textContent = state.dataset.pending;
+          button.replaceChildren(status);
+        } else {
+          // Enter submissions or input submitters retain contextual progress in the tray.
+          status = document.createElement('div');
+          status.className = 'noobrocket-operation-pending notice notice-info';
+          status.setAttribute('role', 'status');
+          const message = document.createElement('p');
+          message.textContent = label;
+          status.append(message);
+          if (!renderToast(status)) form.append(status);
+        }
       }
       const reset = () => {
         delete form.dataset.noobrocketPending;
         form.removeAttribute('aria-busy');
         button?.removeAttribute('aria-disabled');
+        if (buttonContent) {
+          button.replaceChildren(...buttonContent);
+          button.classList.remove('noobrocket-operation-pending');
+          button.style.width = buttonWidth;
+          button.style.maxWidth = buttonMaxWidth;
+          if (buttonLabel === null) button.removeAttribute('aria-label');
+          else button.setAttribute('aria-label', buttonLabel);
+        }
         if (status) {
           // A canceled submit can settle before the tray's announcement frame.
           status.hidden = true;
