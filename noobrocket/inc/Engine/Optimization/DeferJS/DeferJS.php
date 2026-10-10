@@ -163,12 +163,16 @@ class DeferJS {
 	 * @return bool
 	 */
 	private function is_classic_script( string $attributes ): bool {
-		$pattern = '/(?:^|\s)\Ktype(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?(?=\s|$)|"[^"]*"(*SKIP)(*FAIL)|\'[^\']*\'(*SKIP)(*FAIL)/i';
-		if ( ! preg_match( $pattern, $attributes, $type, PREG_UNMATCHED_AS_NULL ) ) {
-			return true;
+		$pattern = '/(?<name>[^\s"\'\/=<>`]+)(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?/';
+		preg_match_all( $pattern, $attributes, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL );
+		$value = '';
+		foreach ( $matches as $attribute ) {
+			if ( 'type' === strtolower( $attribute['name'] ) ) {
+				$value = $attribute['double'] ?? $attribute['single'] ?? $attribute['unquoted'] ?? '';
+				break;
+			}
 		}
 
-		$value = $type['double'] ?? $type['single'] ?? $type['unquoted'] ?? '';
 		$value = strtolower( trim( html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
 
 		return in_array(

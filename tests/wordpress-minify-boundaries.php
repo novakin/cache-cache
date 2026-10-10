@@ -162,20 +162,26 @@ namespace {
 			'module-double' => '<script type="module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
 			'module-single' => "<script type='module'>import { value as jQuery } from 'https://remote.test/modules/dep.js'; window.nativeDeferModuleValue = jQuery;</script>",
 			'module-entity' => '<script TYPE=mod&#117;le>import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-slash' => '<script type="module"/>import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-adjacent-after' => '<script type="module"id="defer-module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-adjacent-before' => '<script id="defer-module"type="module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
 			'module-padded' => '<script type=" MODULE ">jQuery("body");</script>',
 			'json' => '<script id="defer-data" type="application/json">{"example":"jQuery"}</script>',
 			'json-entity' => '<script id="defer-data" TYPE=application&#47;json>{"example":"jQuery"}</script>',
-			'jsonld' => '<script type="application/ld+json">{"example":"jQuery"}</script>',
+			'json-slash' => '<script id="defer-data" type="application/json"/>{"example":"jQuery"}</script>',
+			'json-adjacent-after' => '<script type="application/json"id="defer-data">{"example":"jQuery"}</script>',
+			'json-adjacent-before' => '<script id="defer-data"type="application/json">{"example":"jQuery"}</script>',
+			'jsonld' => '<script id="defer-data" type="application/ld+json">{"example":"jQuery"}</script>',
 			'importmap' => '<script type="importmap">{"imports":{"jQuery":"./jquery.js"}}</script>',
 			'speculationrules' => '<script type="speculationrules">{"prefetch":[{"source":"document","where":{"selector_matches":"a.jQuery"}}]}</script>',
 			'custom-data' => '<script type="text/template"><div>jQuery</div></script>',
 		] as $name => $tag ) {
 			minify_check( $tag === $defer->defer_inline_js( $tag ), $name . ': inline deferral preserves nonclassic script bytes' );
-			if ( in_array( $name, [ 'module-double', 'module-single', 'module-entity', 'json', 'json-entity' ], true ) ) {
+			if ( 0 === strpos( $name, 'json' ) || ( 0 === strpos( $name, 'module' ) && 'module-padded' !== $name ) ) {
 				$export['pages'][ 'defer-' . $name ] = $document( $tag );
 			}
 		}
-		foreach ( [ '', ' type', ' type=""', ' type="text/javascript"', " TYPE='TEXT/JAVASCRIPT'", ' type=text/java&#115;cript', ' type="text/jscript"', ' data-type="module"', ' data-note="type=module >" type="text/javascript"' ] as $attributes ) {
+		foreach ( [ '', ' type', ' type=""', ' type="text/javascript"', " TYPE='TEXT/JAVASCRIPT'", ' type=text/java&#115;cript', ' type="text/jscript"', ' data-type="module"', ' typewriter="module"', ' type="text/javascript"/', ' type="text/javascript"id="defer-classic"', ' id="defer-classic"type="text/javascript"', ' data-note="type=module >" type="text/javascript"' ] as $attributes ) {
 			$tag = '<script' . $attributes . '>window.jQuery=function(){window.nativeDeferClassicRuns=(window.nativeDeferClassicRuns||0)+1;};jQuery();</script>';
 			$output = $defer->defer_inline_js( $tag );
 			minify_check( false !== strpos( $output, "window.addEventListener('DOMContentLoaded', function() {" ) && false !== strpos( $output, '<script' . $attributes . '>' ), 'classic type still defers with original attributes: ' . $attributes );
