@@ -8,6 +8,24 @@
   ],
   "fixtures": [
     {
+      "name": "cache-purge-boundaries",
+      "path": "tests/cache-purge-boundaries.php",
+      "purpose": "Resolved URL cache-bucket ownership, link-safe recursion and truthful deletion outcomes across wildcard/user variants.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Actual plugin purge owners and native filesystem classes with owned temporary files and injected refusals; no site bootstrap, database or HTTP.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
       "name": "inline-background-lazyload",
       "path": "tests/inline-background-lazyload.php",
       "purpose": "Actual inline-background parser preserves layered, repeated and unsupported CSS while retaining single URL delivery, exclusions, real attributes and the Avada filter.",
@@ -144,6 +162,27 @@
       "args": [
         "{wordpress}",
         "import"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "acceptance:import-validation",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native malformed import retains saved lists and protected identities; a fresh WordPress worker consumes persistent field notices before confirming the validated proposal.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Native settings/cache/config/history/queue effects plus owned upload and review/error transients in a marked copied-plugin site; serial fresh PHP workers; exact original settings value restored.",
+      "args": [
+        "{wordpress}",
+        "import-validation"
       ],
       "default": true,
       "minimum_wordpress": "5.8",
@@ -1073,6 +1112,26 @@
       "args": [],
       "default": true,
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-cache-purge-boundaries",
+      "path": "tests/wordpress-cache-purge-boundaries.php",
+      "purpose": "Native authorized URL purge preserves sibling/link targets and reports filesystem refusal on a marked copied-plugin site.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Creates and removes uniquely owned temporary cache entries and sibling sentinel only; no production data or provider requests.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     },
     {
       "name": "wordpress-database-eligibility",

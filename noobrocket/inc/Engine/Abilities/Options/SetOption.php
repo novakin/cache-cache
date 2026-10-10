@@ -229,7 +229,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 			return [ 'success' => false, 'outcome' => 'invalid', 'error' => __( 'Provide an option name and its new value.', 'noobrocket' ) ];
 		}
 		$value = $input['option_value'];
-		if ( ! is_string( $value ) && ! is_bool( $value ) && ! is_int( $value ) && ! ( is_array( $value ) && $this->valid_text_list( $value ) ) ) {
+		if ( ! is_string( $value ) && ! is_bool( $value ) && ! is_int( $value ) && ! ( is_array( $value ) && Settings::is_text_list( $value ) ) ) {
 			return [ 'success' => false, 'outcome' => 'invalid', 'error' => __( 'Provide text, a boolean, a whole number or a list of text entries.', 'noobrocket' ) ];
 		}
 		$update_mode = array_key_exists( 'update_mode', $input ) ? $input['update_mode'] : 'update';
@@ -376,7 +376,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 
 		// Local CSS safelist entries are literal substrings, never patterns.
 		if ( 'local_css_safelist' === $option_name ) {
-			if ( ! $this->valid_text_list( $option_value ) ) {
+			if ( ! Settings::is_text_list( $option_value ) ) {
 				return new WP_Error( 'invalid_setting_list', __( 'Provide text or a list of text entries for this setting.', 'noobrocket' ) );
 			}
 			$sanitized = noobrocket_sanitize_local_css_safelist( $option_value );
@@ -388,7 +388,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 
 		// Textarea field options: use noobrocket_sanitize_textarea_field.
 		if ( in_array( $option_name, self::TEXTAREA_FIELD_OPTIONS, true ) ) {
-			if ( ! $this->valid_text_list( $option_value ) ) {
+			if ( ! Settings::is_text_list( $option_value ) ) {
 				return new WP_Error( 'invalid_setting_list', __( 'Provide text or a list of text entries for this setting.', 'noobrocket' ) );
 			}
 			if ( ! function_exists( 'noobrocket_sanitize_textarea_field' ) ) {
@@ -407,7 +407,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 		}
 
 		if ( 'prerender_excluded_uri' === $option_name ) {
-			if ( ! $this->valid_text_list( $option_value ) ) {
+			if ( ! Settings::is_text_list( $option_value ) ) {
 				return new WP_Error( 'invalid_setting_list', __( 'Provide text or a list of text entries for this setting.', 'noobrocket' ) );
 			}
 			$sanitized = noobrocket_sanitize_prerender_options( [ 'prerender_excluded_uri' => $option_value ] )['prerender_excluded_uri'];
@@ -420,7 +420,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 
 		// Array options: sanitize each item with sanitize_text_field.
 		if ( in_array( $option_name, self::ARRAY_OPTIONS, true ) ) {
-			if ( ! is_array( $option_value ) || ! $this->valid_text_list( $option_value ) ) {
+			if ( ! is_array( $option_value ) || ! Settings::is_text_list( $option_value ) ) {
 				return new WP_Error( 'invalid_setting_list', __( 'Provide a list of text entries for this setting.', 'noobrocket' ) );
 			}
 
@@ -440,27 +440,6 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 	}
 
 	/**
-	 * Lists accept text or string entries, never values that silently become empty lists.
-	 *
-	 * @param mixed $value Submitted text/list.
-	 * @return bool
-	 */
-	private function valid_text_list( $value ): bool {
-		if ( is_string( $value ) ) {
-			return true;
-		}
-		if ( ! is_array( $value ) ) {
-			return false;
-		}
-		foreach ( $value as $entry ) {
-			if ( ! is_string( $entry ) ) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	/**
 	 * A CDN host and its resource scope are one row, written in one settings update.
 	 *
 	 * @param string $name Selected CDN field.
@@ -470,7 +449,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 	 * @return array|WP_Error
 	 */
 	private function sanitize_cdn_changes( string $name, $value, string $mode, $previous ) {
-		if ( ! is_array( $value ) || ! $this->valid_text_list( $value ) ) {
+		if ( ! is_array( $value ) || ! Settings::is_text_list( $value ) ) {
 			return new WP_Error( 'invalid_cdn_list', __( 'Provide a list of CDN hostnames or resource scopes.', 'noobrocket' ) );
 		}
 		$hosts = 'cdn_cnames' === $name ? $value : get_noobrocket_option( 'cdn_cnames', [] );
@@ -484,6 +463,7 @@ A user request such as `enable it` or `disable it` is not enough confirmation. O
 		if ( 'cdn_zone' === $name ) {
 			foreach ( $value as $key => $scope ) {
 				if ( ! is_int( $key ) || $key < 0 || $key >= count( $hosts ) || ! in_array( $scope, Settings::get_cdn_scopes(), true ) ) {
+					/* translators: %s: comma-separated list of available CDN resource scopes. */
 					return new WP_Error( 'invalid_cdn_scope', sprintf( __( 'Assign one resource scope per CDN host using: %s.', 'noobrocket' ), implode( ', ', Settings::get_cdn_scopes() ) ) );
 				}
 			}
