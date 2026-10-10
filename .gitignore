@@ -8,3 +8,4 @@ base-wp-rocket/
 .venv/
 .env
 .env.*
+tools/php-quality/vendor/

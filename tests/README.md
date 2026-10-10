@@ -21,13 +21,34 @@ python tools/check.py generated
 | Profile | Scope | Important prerequisites/boundaries |
 | --- | --- | --- |
 | `docs` | Local documentation links and repository configuration | Python; historical private receipt references are not public setup requirements. |
-| `syntax` | Plugin/test/tool/CI PHP, JavaScript, Python and shell parsing, including shipped PHP dependencies | Applicable executables and `sh` (or `--shell PATH`); syntax does not replace static analysis or runtime tests. Workflow YAML was checked locally with actionlint; the current CI does not run that validator. |
+| `syntax` | Plugin/test/tool/CI PHP, JavaScript, Python and shell parsing, including shipped PHP dependencies; installed check-tool dependencies excluded | Applicable executables and `sh` (or `--shell PATH`); syntax does not replace static analysis or runtime tests. Workflow YAML was checked locally with actionlint; the current CI does not run that validator. |
+| `quality` | Native PHP parsing, PHPCS and PHPStan on full changed maintained PHP files | Isolated locked `tools/php-quality` dependencies and PHP; Git revisions/local diff or explicit relative `--file` paths. Empty scopes skip analyzers visibly. |
 | `fast` | Existing standalone regression fixtures using mocks/owned temporary files | PHP/Node as catalogued; no WordPress site, provider credentials or valuable runtime. |
 | `generated` | Settings bundle and catalog consistency in a disposable copy | Pinned tool dependencies; validation does not rewrite the checkout. |
 | `wordpress` | Native lifecycle/domain fixtures plus explicitly catalogued core-class models, serial per site | Native checks require a copied plugin, marked disposable site and separate database; focused `modeled-core` readers need a core copy without bootstrapping it. |
 | `browser` | Chromium fixtures for settings/optimizer/worker behavior | `npm ci --prefix noobrocket/local-css`, explicit Chromium and any fixture-specific WP/PHP arguments. Synthetic form checks do not establish native page layout. |
 | `server` | Owned Linux/MariaDB/Apache/Nginx/PHP-FPM/worker/multisite rehearsal | Linux dependencies, verified WordPress archive, unprivileged execution; owned service cleanup. |
 | `package` | Existing ZIP structure/integrity and optional exact source equality | `--zip FILE`; `--compare-source` only for a ZIP intended to match the checkout. |
+
+## PHP quality gate
+
+Install only the isolated tool manifest; never use Composer install/update in `noobrocket/` for this gate:
+
+```sh
+composer install --working-dir=tools/php-quality --no-interaction --no-plugins --no-scripts --prefer-dist
+python tools/check.py quality --base origin/cache-cache --head HEAD --php /path/to/php
+python tools/check.py fast --fixture php-quality --php /path/to/php
+```
+
+The first adoption checks full changed maintained PHP files, including touched views, procedural code and deprecated callers. Shipped `vendor/`, `inc/Dependencies/`, `inc/classes/dependencies/`, `inc/vendors/` and `inc/deprecated/vendors/` are excluded from targets. PHPStan scans their symbols to understand maintained callers without executing WordPress or plugin bootstrap code. Explicit `--file` paths must name maintained PHP inside the checkout; they cannot opt a dependency into this gate or escape the checkout. No base selects local tracked/untracked changes. Empty scope reports `SKIP`; it does not establish analyzer execution.
+
+PHPCS runs PHPCompatibilityWP with a PHP 7.4 floor plus selected WordPress rules for output escaping, POST nonce verification, validated/sanitized input, prepared SQL and the `noobrocket` gettext domain. These rules report errors and warnings as failures. GET nonce recommendations are outside this first gate: public cache admission also checks whether query inputs exist, without processing an admin mutation. Review and native boundary tests remain necessary for authorization, GET mutations and data ownership. Full inherited formatting rules are also outside this staged adoption.
+
+The stable PHPCompatibilityWP/PHPCompatibility versions miss some PHP 8 syntax, including nullsafe access. The gate therefore first parses selected files with its actual `--php` binary; CI's existing PHP 7.4 job executes the quality fixture and integrated changed-file gate before WordPress setup. That native parser enforces the product syntax floor on all selected maintained files. A local PHP 8.3 gate alone cannot establish PHP 7.4 syntax compatibility; repeat it with `--php /path/to/php-7.4`. Native parsing does not prove every API call exists at the floor.
+
+PHPStan runs WordPress-aware level 1 with `phpVersion: 70400`; no baseline or ignored-error patterns are loaded. It detects unknown functions/classes/methods and basic variable/control-flow errors. Level 1 does not prove strict argument/return types, and the installed recent WordPress stubs do not prove every called API exists in WordPress 5.8. Native minimum/current matrix checks remain separate. The retained upstream baseline names obsolete tests and is historical input, not an active suppression list.
+
+The opt-in `php-quality` fixture executes actual tools in an owned copy: real Git revision/rename/staged/untracked scope, shallow merge-candidate failure and full-history recovery, base-side deletion with a diverged PR head, a seeded unescaped output failure, a separate undefined-call failure, nullsafe syntax rejection by PHP 7.4 (and the documented static-tool blind spot on PHP 8.3), a repaired probe and five maintained cache/CSS/preload owners. It fails on missing tools. CI fetches candidate history, compares its current base to the integration candidate, and runs this fixture before checking those changed files, so a documentation-only empty scope cannot masquerade as analyzer proof. No site, provider request or shipped dependency install is involved.
 
 ## Native WordPress safety
 
