@@ -17,7 +17,12 @@ namespace {
 	define( 'NOOBROCKET_FILE', dirname( __DIR__ ) . '/noobrocket/noobrocket.php' );
 	$cdn_checks = 0;
 	$wp_settings_errors = [];
-	function apply_filters( $name, $value ) { return $value; }
+	function apply_filters( $name, $value, ...$args ) {
+		if ( 'noobrocket_input_sanitize' === $name ) {
+			foreach ( $GLOBALS['settings_input_callbacks'] ?? [] as $callback ) { $value = $callback( $value, ...$args ); }
+		}
+		return $value;
+	}
 	function __( $value, $domain = null ) { return $value; }
 	function esc_html__( $value, $domain = null ) { return esc_html( $value ); }
 	function esc_html( $value ) { return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' ); }
@@ -30,7 +35,7 @@ namespace {
 		return 'noobrocket_mcp_options_allowlist' === $name ? array_merge( $value, $GLOBALS['mcp_extensions'] ?? [] ) : $value;
 	}
 	function get_transient( $name ) { return false; }
-	function wp_parse_url( $value ) { return parse_url( $value ); }
+	function wp_parse_url( $value, $component = -1 ) { return parse_url( $value, $component ); }
 	function set_url_scheme( $value ) { return preg_replace( '#^(?:https?:)?//#i', 'https://', $value ); }
 	function untrailingslashit( $value ) { return rtrim( $value, '/\\' ); }
 	function add_settings_error( $setting, $code, $message, $type = 'error' ) {

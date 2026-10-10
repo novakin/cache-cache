@@ -17,6 +17,7 @@ function do_action( ...$args ) {}
 function current_user_can( $capability ) { return $GLOBALS['domain_authorized']; }
 function get_option( $name, $default = null ) { return 'noobrocket_settings' === $name ? $GLOBALS['domain_options'] : $default; }
 function get_noobrocket_option( $name, $default = false ) { return $GLOBALS['domain_options'][ $name ] ?? $default; }
+function esc_url_raw( $value ) { return trim( $value ); }
 function update_option( $name, $value ) {
 	if ( 'noobrocket_settings' !== $name ) { throw new RuntimeException( 'Unexpected fixture option writer' ); }
 	$GLOBALS['domain_writes']++;
@@ -152,5 +153,87 @@ foreach ( [ null, [], [ 'option_name' => [] ], [ 'option_name' => 'lazyload' ], 
 $domain_authorized = false; $writes = $domain_writes;
 $result = set_api_option( 'minify_css', 0 );
 domain_check( ! $result['success'] && $writes === $domain_writes, 'Direct execute retains the native capability boundary' );
+
+// Native form/import validation shares the API's text-list type contract before trimming.
+$list_fields = [
+	'dns_prefetch', 'exclude_defer_js', 'cache_purge_pages', 'cache_reject_uri',
+	'cache_reject_cookies', 'cache_query_strings', 'cache_reject_ua', 'exclude_css',
+	'exclude_js', 'exclude_inline_js', 'cdn_reject_pages', 'cdn_reject_files',
+	'exclude_lazyload', 'delay_js_exclusions', 'preload_excluded_uri',
+];
+$saved_lists = array_fill_keys( $list_fields, [ 'saved-entry' ] );
+$saved_lists['secret_cache_key'] = 'saved-cache-identity';
+$saved_lists['minify_css_key'] = 'saved-css-identity';
+$saved_lists['version'] = 'saved-product-version';
+$native_settings = new NoobRocket\Engine\Admin\Settings\Settings( new NoobRocket\Admin\Options_Data( $saved_lists ) );
+foreach ( $list_fields as $field ) {
+	foreach ( [ [ [ 'nested' ] ], [ 'text', false ], [ null ], new stdClass(), false, 0, 1.5, null ] as $malformed ) {
+		$wp_settings_errors = [];
+		$input = [ $field => $malformed, 'lazyload' => 1, 'ignore' => 1, 'third_party_value' => [ [ 'retained' ] ] ];
+		$input = array_merge( $saved_lists, $input );
+		// Other list fields stay absent so their native formatters do not need extra modeled APIs.
+		foreach ( $list_fields as $other ) { if ( $other !== $field ) { unset( $input[ $other ] ); } }
+		$normalized = $native_settings->sanitize_callback( $input );
+		domain_check( [ 'saved-entry' ] === $normalized[ $field ], 'Malformed native text-list preserves the saved field: ' . $field );
+		domain_check( 1 === count( $wp_settings_errors ) && 'invalid_list_' . $field === $wp_settings_errors[0]['code'] && 'error' === $wp_settings_errors[0]['type'], 'Malformed native text-list returns field-specific feedback: ' . $field );
+		domain_check( 1 === $normalized['lazyload'] && [ [ 'retained' ] ] === $normalized['third_party_value'] && 'saved-cache-identity' === $normalized['secret_cache_key'] && 'saved-css-identity' === $normalized['minify_css_key'] && 'saved-product-version' === $normalized['version'], 'Rejected list preserves identities/extensions while unrelated valid settings continue' );
+	}
+}
+foreach ( [ " first\nsecond\nfirst ", [ ' first ', 'second', 'first' ] ] as $valid_list ) {
+	$wp_settings_errors = [];
+	$normalized = $native_settings->sanitize_callback( [ 'exclude_inline_js' => $valid_list, 'ignore' => 1 ] );
+	domain_check( [ 'first', 'second' ] === array_values( $normalized['exclude_inline_js'] ) && [] === $wp_settings_errors, 'Valid native text and text-list normalization remains supported' );
+}
+foreach ( [ '', [] ] as $empty_list ) {
+	$wp_settings_errors = [];
+	$normalized = $native_settings->sanitize_callback( [ 'dns_prefetch' => $empty_list, 'exclude_inline_js' => $empty_list, 'ignore' => 1 ] );
+	domain_check( [] === $normalized['dns_prefetch'] && [] === $normalized['exclude_inline_js'] && [] === $wp_settings_errors, 'Empty text/list explicitly clears native list values' );
+}
+$wp_settings_errors = [];
+$normalized = $native_settings->sanitize_callback( [ 'dns_prefetch' => [ 'https://first.example.test/path', '//second.example.test' ], 'ignore' => 1 ] );
+domain_check( [ '//first.example.test', '//second.example.test' ] === $normalized['dns_prefetch'] && [] === $wp_settings_errors, 'Valid DNS text-list retains hostname normalization' );
+
+// Execute the subscribers' actual registered sanitizers through the modeled filter dispatcher.
+foreach ( [
+	'inc/classes/event-management/subscriber-interface.php',
+	'inc/Engine/Media/Lazyload/AdminSubscriber.php',
+	'inc/Engine/Preload/Admin/Subscriber.php',
+	'inc/Engine/Optimization/DelayJS/Admin/Settings.php',
+	'inc/Engine/Optimization/DelayJS/Admin/Subscriber.php',
+] as $file ) { require_once $plugin . $file; }
+$lazyload = new NoobRocket\Engine\Media\Lazyload\AdminSubscriber();
+$preload = ( new ReflectionClass( NoobRocket\Engine\Preload\Admin\Subscriber::class ) )->newInstanceWithoutConstructor();
+$delay_class = new ReflectionClass( NoobRocket\Engine\Optimization\DelayJS\Admin\Subscriber::class );
+$delay = $delay_class->newInstanceWithoutConstructor();
+$delay_settings = $delay_class->getProperty( 'settings' );
+$delay_settings->setAccessible( true );
+$delay_settings->setValue( $delay, new NoobRocket\Engine\Optimization\DelayJS\Admin\Settings( new NoobRocket\Admin\Options( 'noobrocket_' ) ) );
+$settings_input_callbacks = [
+	[ $lazyload, $lazyload::get_subscribed_events()['noobrocket_input_sanitize'] ],
+	[ $preload, $preload::get_subscribed_events()['noobrocket_input_sanitize'] ],
+	[ $delay, $delay::get_subscribed_events()['noobrocket_input_sanitize'][0][0] ],
+];
+$default_exclusion = NoobRocket\Engine\Optimization\DelayJS\Admin\Settings::get_safe_mode_exclusions()[0];
+$retained = [ 'exclude_lazyload' => [ 'saved-image' ], 'preload_excluded_uri' => [ '/saved-page' ], 'delay_js_exclusions' => [ $default_exclusion ] ];
+$native_settings = new NoobRocket\Engine\Admin\Settings\Settings( new NoobRocket\Admin\Options_Data( $retained ) );
+$wp_settings_errors = [];
+$normalized = $native_settings->sanitize_callback( [
+	'exclude_lazyload' => [ [] ], 'preload_excluded_uri' => [ [] ], 'delay_js_exclusions' => [ [] ],
+	'delay_js' => 1, 'delay_js_execution_safe_mode' => 1, 'ignore' => 1,
+] );
+foreach ( $retained as $field => $saved_value ) {
+	domain_check( $saved_value === $normalized[ $field ], 'Rejected list survives its registered sanitizer and safe-mode filtering: ' . $field );
+}
+domain_check( 3 === count( $wp_settings_errors ), 'Registered sanitizers retain one native error per malformed field' );
+$wp_settings_errors = [];
+$normalized = $native_settings->sanitize_callback( [
+	'exclude_lazyload' => " image-one\nimage-two\nimage-one ",
+	'preload_excluded_uri' => [ ' /page-one ', '/page-two' ],
+	'delay_js_exclusions' => [ ' custom-script ', $default_exclusion ],
+	'delay_js' => 1, 'delay_js_execution_safe_mode' => 1, 'ignore' => 1,
+] );
+domain_check( [ 'image-one', 'image-two' ] === array_values( $normalized['exclude_lazyload'] ) && [ '/page-one', '/page-two' ] === array_values( $normalized['preload_excluded_uri'] ), 'Registered lazyload/preload sanitizers retain text/list normalization' );
+domain_check( [ 'custom-script' ] === array_values( $normalized['delay_js_exclusions'] ) && [] === $wp_settings_errors, 'Valid DelayJS input still applies native safe-mode default removal' );
+$settings_input_callbacks = [];
 restore_error_handler();
 echo 'PASS: ', $domain_checks, ' shared settings/API assertions; isolated in-memory writers only.', PHP_EOL;
