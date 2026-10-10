@@ -17,6 +17,8 @@ $cancelled = false;
 $network_options = [];
 $cleared_crons = [];
 $cleared_site_transients = [];
+$after_deletion = null;
+$cached_posts = $cached_comments = [];
 function database_check( $condition, $message ) { if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); } ++$GLOBALS['checks']; }
 function is_multisite() { return $GLOBALS['multisite']; }
 function get_current_blog_id() { return 2; }
@@ -45,10 +47,13 @@ function wp_delete_post_revision( $id ) {
 	if ( $id === $GLOBALS['fail_id'] ) { return false; }
 	$GLOBALS['deleted'][] = $id;
 	unset( $GLOBALS['wpdb']->ids[ $id ] );
+	if ( is_callable( $GLOBALS['after_deletion'] ) ) { ( $GLOBALS['after_deletion'] )( $id ); }
 	return new WP_Post();
 }
 function wp_delete_post( $id ) { return wp_delete_post_revision( $id ); }
 function wp_delete_comment( $id ) { return (bool) wp_delete_post_revision( $id ); }
+function get_post_status( $id ) { return $GLOBALS['cached_posts'][ $id ] ?? $GLOBALS['wpdb']->ids[ $id ]['post_status'] ?? false; }
+function get_comment( $id ) { return isset( $GLOBALS['cached_comments'][ $id ] ) ? (object) [ 'comment_approved' => $GLOBALS['cached_comments'][ $id ] ] : null; }
 class WP_Post {}
 class DatabaseRedirect extends RuntimeException {}
 class NoobRocket_WP_Background_Process {
@@ -77,6 +82,7 @@ class CleanupDatabase {
 	public $ids = [];
 	public $queries = [];
 	public $table_error = false;
+	public $read_failure_id = 0;
 	public function tables() { return [ 'posts' => $this->posts, 'comments' => $this->comments, 'options' => $this->options ]; }
 	public function esc_like( $value ) { return addcslashes( $value, '_%\\' ); }
 	public function prepare( $sql, ...$args ) {
@@ -91,12 +97,21 @@ class CleanupDatabase {
 			return array_values( array_filter( array_keys( $GLOBALS['multisite'] ? $GLOBALS['network_options'] : $GLOBALS['options'] ), static function ( $key ) use ( $prefix ) { return 0 === strpos( $key, $prefix ); } ) );
 		}
 		if ( false !== strpos( $sql, 'information_schema' ) ) { return [ 'wp_2_posts', 'foreign_application_table', 'wp_3_posts' ]; }
-		if ( preg_match( '/SELECT ID.*ID > (\d+).*LIMIT (\d+)/', $sql, $matches ) ) {
+		if ( preg_match( '/SELECT (?:ID|comment_ID).*(?:ID|comment_ID) > (\d+).*LIMIT (\d+)/', $sql, $matches ) ) {
 			return array_slice( array_values( array_filter( array_keys( $this->ids ), static function ( $id ) use ( $matches ) { return $id > (int) $matches[1]; } ) ), 0, (int) $matches[2] );
 		}
 		return [];
 	}
-	public function get_var( $sql ) { $this->queries[] = $sql; return 0; }
+	public function get_var( $sql ) {
+		$this->queries[] = $sql;
+		$this->last_error = '';
+		if ( preg_match( '/SELECT (post_status|comment_approved) FROM (\w+) WHERE (?:ID|comment_ID) = (\d+)/', $sql, $matches ) ) {
+			database_check( $matches[2] === ( 'post_status' === $matches[1] ? $this->posts : $this->comments ), 'eligibility reads only the current site table' );
+			if ( (int) $matches[3] === $this->read_failure_id ) { $this->last_error = 'Injected eligibility read failure'; return null; }
+			return $this->ids[ (int) $matches[3] ][ $matches[1] ] ?? null;
+		}
+		return 0;
+	}
 	public function get_results( $sql ) { $this->queries[] = $sql; return [ (object) [ 'Msg_type' => $this->table_error ? 'error' : 'status', 'Msg_text' => $this->table_error ? 'failed' : 'OK' ] ]; }
 	public function delete( $table, $where ) { unset( $GLOBALS['options'][ $where['option_name'] ] ); return 1; }
 }
@@ -151,6 +166,48 @@ $complete->invoke( $next );
 $results = $transients['noobrocket_database_optimization_process_complete'];
 database_check( 136 === $results['counts']['database_revisions'] && 1 === $results['failed']['database_revisions'] && 'failed' === $results['status'], 'counts and failure status survive process instances' );
 database_check( ! isset( $options['noobrocket_database_optimization_results'] ), 'completion removes its owned cumulative state' );
+// A previous object's deletion hook can expose a concurrent save/restore after this batch was selected.
+foreach ( [
+	[ 'database_auto_drafts', 'post_status', 'auto-draft', 'draft' ],
+	[ 'database_trashed_posts', 'post_status', 'trash', 'publish' ],
+	[ 'database_spam_comments', 'comment_approved', 'spam', '1' ],
+	[ 'database_trashed_comments', 'comment_approved', 'trash', '0' ],
+	[ 'database_trashed_comments', 'comment_approved', 'post-trashed', '1' ],
+] as [ $category, $column, $selected, $restored ] ) {
+	$wpdb->ids = array_fill_keys( [ 1, 2, 3 ], [ $column => $selected ] );
+	$cached_posts = $cached_comments = [];
+	if ( 'post_status' === $column ) { $cached_posts[2] = $selected; } else { $cached_comments[2] = $selected; }
+	$deleted = [];
+	$calls = 0;
+	$fail_id = 3;
+	$after_deletion = static function ( $id ) use ( $column, $restored ) { if ( 1 === $id ) { $GLOBALS['wpdb']->ids[2][ $column ] = $restored; } };
+	$task->invoke( $process, $category );
+	database_check( [ 1 ] === $deleted && $restored === $wpdb->ids[2][ $column ] && isset( $wpdb->ids[3] ), $category . ': restored object and deletion veto survive the selected batch' );
+	$complete->invoke( $process );
+	$receipt = $transients['noobrocket_database_optimization_process_complete'];
+	database_check( 1 === $receipt['counts'][ $category ] && 1 === $receipt['failed'][ $category ], $category . ': changed category is neither a deletion nor a failure' );
+}
+$after_deletion = null;
+$cached_posts = $cached_comments = [];
+$wpdb->ids = array_fill_keys( [ 1, 2, 3 ], [ 'post_status' => 'trash' ] );
+$wpdb->read_failure_id = 2;
+$fail_id = -1;
+$deleted = [];
+$calls = 0;
+$task->invoke( $process, 'database_trashed_posts' );
+$complete->invoke( $process );
+$receipt = $transients['noobrocket_database_optimization_process_complete'];
+database_check( [ 1, 3 ] === $deleted && isset( $wpdb->ids[2] ) && 2 === $receipt['counts']['database_trashed_posts'] && 1 === $receipt['failed']['database_trashed_posts'], 'failed eligibility read retains its row, reports failure and does not prevent later rows' );
+$wpdb->read_failure_id = 0;
+$wpdb->ids = array_fill_keys( range( 1, 51 ), [ 'post_status' => 'trash' ] );
+$deleted = [];
+$calls = 0;
+$after_deletion = static function ( $id ) { if ( 1 === $id ) { $GLOBALS['wpdb']->ids[2]['post_status'] = 'draft'; unset( $GLOBALS['wpdb']->ids[3] ); } };
+$state = $task->invoke( $process, 'database_trashed_posts' );
+database_check( is_array( $state ) && 50 === $state['cursor'] && 48 === $state['count'] && 0 === $state['failed'], 'changed and missing objects advance a full batch cursor without false counts/failures' );
+database_check( false === $task->invoke( $next, $state ) && isset( $wpdb->ids[2] ) && ! isset( $wpdb->ids[51] ) && 49 === count( $deleted ), 'next process resumes beyond skipped objects and reaches the final eligible row' );
+$after_deletion = null;
+$fail_id = 73;
 $cancelled = true;
 $complete->invoke( $next );
 database_check( 'cancelled' === $transients['noobrocket_database_optimization_process_complete']['status'], 'native cancellation is distinguishable from successful completion' );

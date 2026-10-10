@@ -95,9 +95,9 @@ class OptimizationProcess extends NoobRocket_WP_Background_Process {
 			} catch ( \Throwable $error ) {
 				$deleted = false;
 			}
-			if ( $deleted ) {
+			if ( true === $deleted ) {
 				++$state['count'];
-			} else {
+			} elseif ( false === $deleted ) {
 				++$state['failed'];
 			}
 			$state['cursor'] = 'database_optimize_tables' === $type ? (int) $state['cursor'] + 1 : $id;
@@ -140,15 +140,33 @@ class OptimizationProcess extends NoobRocket_WP_Background_Process {
 		return null;
 	}
 
-	private function delete_item( string $type, $id ): bool {
+	/** Null skips an object that no longer belongs to the selected category. */
+	private function delete_item( string $type, $id ): ?bool {
 		global $wpdb;
 		if ( 'database_revisions' === $type ) {
 			return wp_delete_post_revision( (int) $id ) instanceof \WP_Post;
 		}
 		if ( in_array( $type, [ 'database_auto_drafts', 'database_trashed_posts' ], true ) ) {
+			// A native restore/save in another request can leave this worker's object cache stale.
+			$status = $wpdb->get_var( $wpdb->prepare( "SELECT post_status FROM {$wpdb->posts} WHERE ID = %d", $id ) );
+			if ( ! empty( $wpdb->last_error ) ) {
+				return false;
+			}
+			$expected = 'database_auto_drafts' === $type ? 'auto-draft' : 'trash';
+			if ( $expected !== $status ) {
+				return null;
+			}
 			return wp_delete_post( (int) $id, true ) instanceof \WP_Post;
 		}
 		if ( in_array( $type, [ 'database_spam_comments', 'database_trashed_comments' ], true ) ) {
+			$status = $wpdb->get_var( $wpdb->prepare( "SELECT comment_approved FROM {$wpdb->comments} WHERE comment_ID = %d", $id ) );
+			if ( ! empty( $wpdb->last_error ) ) {
+				return false;
+			}
+			$expected = 'database_spam_comments' === $type ? [ 'spam' ] : [ 'trash', 'post-trashed' ];
+			if ( ! in_array( $status, $expected, true ) ) {
+				return null;
+			}
 			return (bool) wp_delete_comment( (int) $id, true );
 		}
 		if ( 'database_all_transients' === $type ) {
