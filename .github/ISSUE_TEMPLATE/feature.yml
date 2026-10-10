@@ -1,0 +1,22 @@
+name: Feature proposal
+description: Define a problem and bounded acceptance before implementation.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who encounters this and what currently happens?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Proposed behavior and acceptance
+      description: Give a concrete before/after example and meaningful proof. State any important excluded scope.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Compatibility, cost and recovery
+      description: Relevant WordPress/PHP/server constraints, request-time work, public/private data or rollback needs. Leave blank when inapplicable.

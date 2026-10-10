@@ -1,17 +1,10 @@
-/node_modules/
-/vendor/*
-/tests/env/local/
-composer.lock
-/tests/Integration/.phpunit.result.cache
-/tests/Unit/.phpunit.result.cache
-package-lock.json
-
-# Local issue sync cache
-/.TemporaryItems
-/.qa-screenshot
-/.e2e-temp
-.pipeline-logs/
-.playwright-mcp/
-
-# Claude Code user-local settings
-.claude/settings.local.json
+.artifacts/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+base-wp-rocket/
+%SystemDrive%/
+.venv/
+.env
+.env.*

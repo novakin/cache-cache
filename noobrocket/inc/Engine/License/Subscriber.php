@@ -1,0 +1,396 @@
+<?php
+declare(strict_types=1);
+
+namespace NoobRocket\Engine\License;
+
+use NoobRocket\Engine\License\API\User;
+use NoobRocket\Engine\License\API\UserClient;
+use NoobRocket\Event_Management\Subscriber_Interface;
+
+class Subscriber implements Subscriber_Interface {
+	/**
+	 * Cron hook used to refresh the customer data transient shortly after a trial license expires.
+	 *
+	 * @var string
+	 */
+	const CRON_REFRESH_TRIAL_CUSTOMER_DATA = 'noobrocket_cron_refresh_trial_customer_data';
+
+	/**
+	 * Upgrade instance
+	 *
+	 * @var Upgrade
+	 */
+	private $upgrade;
+
+	/**
+	 * Renewal instance
+	 *
+	 * @var Renewal
+	 */
+	private $renewal;
+
+	/**
+	 * Revoked instance
+	 *
+	 * @var Revoked
+	 */
+	private $revoked;
+
+	/**
+	 * User instance
+	 *
+	 * @var User
+	 */
+	private $user;
+
+	/**
+	 * UserClient instance
+	 *
+	 * @var UserClient
+	 */
+	private $user_client;
+
+	/**
+	 * Instantiate the class
+	 *
+	 * @param Upgrade    $upgrade     Upgrade instance.
+	 * @param Renewal    $renewal     Renewal instance.
+	 * @param Revoked    $revoked     Revoked instance.
+	 * @param User       $user        User instance.
+	 * @param UserClient $user_client UserClient instance.
+	 */
+	public function __construct( Upgrade $upgrade, Renewal $renewal, Revoked $revoked, User $user, UserClient $user_client ) {
+		$this->upgrade     = $upgrade;
+		$this->renewal     = $renewal;
+		$this->revoked     = $revoked;
+		$this->user        = $user;
+		$this->user_client = $user_client;
+	}
+
+	/**
+	 * Events this subscriber listens to.
+	 *
+	 * @return array
+	 */
+	public static function get_subscribed_events() {
+		// A free local plugin has no renewal, expiry, purchase, or account events.
+		return [];
+	}
+
+	/**
+	 * Displays the upgrade section in the license info block
+	 *
+	 * @since 3.7.3
+	 *
+	 * @return void
+	 */
+	public function display_upgrade_section() {
+		$this->upgrade->display_upgrade_section();
+	}
+
+	/**
+	 * Displays the upgrade popin
+	 *
+	 * @since 3.7.3
+	 *
+	 * @return void
+	 */
+	public function display_upgrade_popin() {
+		$this->upgrade->display_upgrade_popin();
+	}
+
+	/**
+	 * Adds the notification bubble to the menu title if a promotion is active
+	 *
+	 * @since 3.7.4
+	 *
+	 * @param string $menu_title The text to be used for the menu.
+	 * @param string $context Filter context.
+	 * @return string
+	 */
+	public function add_notification_bubble( $menu_title, $context = 'adminmenu' ) {
+		return $this->upgrade->add_notification_bubble( $menu_title, $context );
+	}
+
+	/**
+	 * Prevents the notification bubble from showing once the user accessed the dashboard once
+	 *
+	 * @since 3.7.4
+	 *
+	 * @return void
+	 */
+	public function dismiss_notification_bubble() {
+		$this->upgrade->dismiss_notification_bubble();
+	}
+
+	/**
+	 * Displays the promotions banner when a promotion is active
+	 *
+	 * @since 3.7.4
+	 *
+	 * @return void
+	 */
+	public function display_promo_banner() {
+		$this->upgrade->display_promo_banner();
+	}
+
+	/**
+	 * AJAX callback to dismiss the promotion banner
+	 *
+	 * @since 3.7.4
+	 *
+	 * @return void
+	 */
+	public function dismiss_promo_banner() {
+		$this->upgrade->dismiss_promo_banner();
+	}
+
+	/**
+	 * Adds the current time and promotion end time to NoobRocket localize script data
+	 *
+	 * @since 3.7.5 Add the renewal localize data
+	 * @since 3.7.4
+	 *
+	 * @param array $data Localize script data.
+	 * @return array
+	 */
+	public function add_localize_script_data( $data ) {
+		$data = $this->upgrade->add_localize_script_data( $data );
+
+		return $this->renewal->add_localize_script_data( $data );
+	}
+
+	/**
+	 * Deletes the user data transient on 3.7.4 update
+	 *
+	 * @since 3.7.4
+	 *
+	 * @param string $new_version New version of the plugin.
+	 * @param string $old_version Installed version of the plugin.
+	 * @return void
+	 */
+	public function clean_user_transient( $new_version, $old_version ) {
+		if ( version_compare( $old_version, '3.7.4', '>' ) ) {
+			return;
+		}
+
+		delete_transient( 'noobrocket_customer_data' );
+	}
+
+	/**
+	 * Displays the renewal banner for users expiring in less than 30 days
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return void
+	 */
+	public function display_renewal_soon_banner() {
+		$this->renewal->display_renewal_soon_banner();
+	}
+
+	/**
+	 * Displays the renewal banner for expired users
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return void
+	 */
+	public function display_renewal_expired_banner() {
+		$this->renewal->display_renewal_expired_banner();
+	}
+
+	/**
+	 * AJAX callback to dismiss the renewal banner
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return void
+	 */
+	public function dismiss_renewal_banner() {
+		$this->renewal->dismiss_renewal_expired_banner();
+	}
+
+	/**
+	 * Add license expiring warning to OCD label
+	 *
+	 * @param array $args Setting field arguments.
+	 *
+	 * @return array
+	 */
+	public function add_license_expire_warning( $args ): array {
+		return $this->renewal->add_license_expire_warning( $args );
+	}
+
+	/**
+	 * Adds the notification bubble to NoobRocket menu item when expired
+	 *
+	 * @param string $menu_title Menu title.
+	 *
+	 * @return string
+	 */
+	public function add_notification_bubble_expired( $menu_title ) {
+		return $this->renewal->add_expired_bubble( $menu_title );
+	}
+
+	/**
+	 * Sets the dashboard seen transient to hide the expired bubble
+	 *
+	 * @return void
+	 */
+	public function set_dashboard_seen_transient() {
+		$this->renewal->set_dashboard_seen_transient();
+	}
+
+	/**
+	 * Disable optimize CSS delivery setting
+	 *
+	 * @param array $args Array of setting field arguments.
+	 *
+	 * @return array
+	 */
+	public function maybe_disable_ocd( $args ) {
+		return $this->renewal->maybe_disable_ocd( $args );
+	}
+
+	/**
+	 * Disables the RUCSS & Async CSS options if license is expired
+	 *
+	 * @param mixed $value Current option value.
+	 *
+	 * @return mixed
+	 */
+	public function maybe_disable_option( $value ) {
+		return $this->renewal->maybe_disable_option( $value );
+	}
+
+	/**
+	 * Displays the revoked website banner in the dashboard if the site's license is revoked.
+	 *
+	 * @since 3.20.4
+	 * @return void
+	 */
+	public function maybe_display_revoked_banner() {
+		$this->revoked->maybe_display_revoked_banner();
+	}
+
+	/**
+	 * Displays a revoked notice in the admin area if the website license is revoked.
+	 *
+	 * @since 3.20.4
+	 * @return void
+	 */
+	public function maybe_display_revoked_notice() {
+		$this->revoked->maybe_display_revoked_notice();
+	}
+
+	/**
+	 * Adds a revoked license notification bubble to the NoobRocket menu item title if the website's license is revoked.
+	 *
+	 * @since 3.20.4
+	 *
+	 * @param string $menu_title The current menu title.
+	 * @return string Modified menu title with revoked notification bubble if applicable.
+	 */
+	public function maybe_add_revoked_bubble( $menu_title ) {
+		return $this->revoked->maybe_add_revoked_bubble( $menu_title );
+	}
+
+	/**
+	 * Fires licence status transition actions when the customer data transient is refreshed.
+	 *
+	 * @since 3.23.4
+	 *
+	 * @param object $user_data Rocket customer data.
+	 * @return void
+	 */
+	public function maybe_noobrocket_license_expired( $user_data ) {
+		if ( empty( $user_data->status ) ) {
+			return;
+		}
+
+		$is_revoked = $user_data->licence->is_revoked ?? false;
+
+		if ( 'expired' === $user_data->status || $is_revoked ) {
+			/**
+			 * Fires when the NoobRocket licence transitions to expired or revoked.
+			 *
+			 * Fires before the more specific noobrocket_license_expired / noobrocket_license_revoked
+			 * actions, so a callback here runs regardless of which of the two applies.
+			 *
+			 * @since 3.23.4
+			 */
+			do_action( 'noobrocket_license_expired_or_revoked' );
+
+			if ( 'expired' === $user_data->status ) {
+				/**
+				 * Fires when the NoobRocket licence has expired.
+				 *
+				 * @since 3.23.4
+				 */
+				do_action( 'noobrocket_license_expired' );
+			}
+
+			if ( $is_revoked ) {
+				/**
+				 * Fires when the NoobRocket licence has been revoked.
+				 *
+				 * @since 3.23.4
+				 */
+				do_action( 'noobrocket_license_revoked' );
+			}
+		}
+
+		if ( 'active' === $user_data->status ) {
+			/**
+			 * Fires when the NoobRocket licence is active.
+			 *
+			 * @since 3.23.4
+			 */
+			do_action( 'noobrocket_license_active' );
+		}
+	}
+
+	/**
+	 * Ensures a refresh of the customer data transient is scheduled shortly after a trial
+	 * customer's license expiration.
+	 *
+	 * @since 3.23.5
+	 *
+	 * @return void
+	 */
+	public function maybe_schedule_trial_customer_data_refresh() {
+		if ( ! current_user_can( 'noobrocket_manage_options' ) ) {
+			return;
+		}
+
+		if ( ! $this->user->is_trial_customer() ) {
+			return;
+		}
+
+		if ( wp_next_scheduled( self::CRON_REFRESH_TRIAL_CUSTOMER_DATA ) ) {
+			return;
+		}
+
+		$expiration = $this->user->get_license_expiration();
+
+		if ( 0 === $expiration || $expiration <= time() ) {
+			return;
+		}
+
+		wp_schedule_single_event( $expiration + 5 * MINUTE_IN_SECONDS, self::CRON_REFRESH_TRIAL_CUSTOMER_DATA );
+	}
+
+	/**
+	 * Flushes and refetches the customer data transient.
+	 *
+	 * Cron callback for self::CRON_REFRESH_TRIAL_CUSTOMER_DATA.
+	 *
+	 * @since 3.23.5
+	 *
+	 * @return void
+	 */
+	public function refresh_trial_customer_data() {
+		$this->user_client->flush_cache();
+		$this->user_client->get_user_data();
+	}
+}

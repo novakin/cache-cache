@@ -1,0 +1,49 @@
+# Operations and recovery
+
+This guide owns diagnosis, server delivery and safe rollout/rollback. [Packaged help](../noobrocket/docs/index.html) owns user-facing settings help; [worker documentation](../noobrocket/local-css/README.md) owns local CSS installation, scheduling and worker recovery. [Benchmarks](../tools/BENCHMARKS.md) owns controlled performance measurements.
+
+## Install and diagnose
+
+Use an owned staging copy and backup before enabling optimizations. Deactivate other page-cache plugins first: WordPress has one shared `advanced-cache.php`. Install Cache-Cache under its preserved `noobrocket/` directory and open **Settings → Cache-Cache**. No activation key/account is needed. Cloud services stay disabled; optional PageSpeed uses the user's separate API key.
+
+Start from the failing layer:
+
+| Symptom | Inspect first | Evidence limit |
+| --- | --- | --- |
+| Page cache appears disabled | Active plugin, filesystem permissions, owned drop-in/config, exclusion and response headers | A setting or queue count does not prove delivered cache hits. |
+| No PHP cache header | Two anonymous homepage requests, cookies/query, server static rules/proxy | Static delivery can work without PHP's `Cache-Status` header. |
+| Preload remains pending | Saved enabled/paused state, cron/Action Scheduler, failure response and usable variants | Completed queue rows do not establish all-site coverage. |
+| Local CSS stays original | Selected mode, worker `--check`, queue/lease state, failures and explicit asset origins | Original delivery is the intended unavailable/failed-result fallback. |
+| Image generation remains queued | Cron and native GD/Imagick encoding support, per-batch progress | The toggle does not prove AVIF/WebP files exist or improve visual quality. |
+| Save is slow | Actual request duration and synchronous callbacks, filesystem work and font preparation | Do not infer latency from admin markup size. Measure before refactoring. |
+
+The dashboard's cache probe checks anonymous homepage delivery; it is not a whole-site benchmark. Object-cache diagnostics use the configured provider and an isolated temporary key, without a global flush. Provider action failure must remain distinct from an unsaved configuration or successful settings save.
+
+## Apache, Nginx and stale refresh
+
+PHP cache delivery evaluates generated site policy. Apache may use generated direct HTML rules; Nginx needs explicitly maintained server configuration matching the effective site/cache paths and exclusions. Do not blindly reuse another site's Rocket rules. Verify authenticated, query, cookie, mobile and HTTPS behavior against representative routes. Protect config/PHP files from public static exposure; public generated CSS/images have separate delivery needs.
+
+Optional stale refresh requires PHP page delivery. Disable direct page-cache HTML rewrites in Nginx before enabling it and keep the normal PHP handler/assets. Apache omits its direct HTML rewrite while enabled. Reverse proxies/CDNs must not serve stale HTML beyond the PHP cutoff. The supported policy requires automatic preload, nonzero lifespan, legacy WebP variants off and no mandatory/dynamic cache cookies; unsupported variants expire normally. Run WordPress cron regularly. Failed refresh retains the original timestamp, and delayed cron cannot extend the one-hour PHP grace.
+
+Modern images use `<picture>` sources with original fallback; the same HTML serves AVIF/WebP-capable and other browsers. Accept-based HTML variants are unnecessary for this mode. Check theme selectors affected by a picture wrapper and complete responsive derivative families. Other tools' legacy WebP cache variants remain a separate compatibility path.
+
+## Rollout
+
+1. Record plugin/product engine versions, saved configuration, delivery mode and a staging backup. Exported settings/history exclude credentials; preserve those through the site's secure backup mechanism.
+2. Validate the immutable ZIP/checksum and update staging under the same plugin path. Product updates purge obsolete page/minification caches while preserving choices; engine changes may perform separate migrations.
+3. Check anonymous cached/bypassed responses, representative interactions, active integrations and affected themes/locales. Start optional worker/image/browser optimizations conservatively and inspect resource usage/failures.
+4. Deploy only when authorized. Reinstall worker dependencies with `npm ci` after updating plugin code and restart persistent workers. Record final version, proof and any server configuration change.
+
+## Recovery boundaries
+
+| Operation | Restores | Does not restore |
+| --- | --- | --- |
+| Replace plugin with a prior verified beta | Plugin code and bundled assets | Deleted data, provider-side state or necessarily migrated schema. |
+| Settings history/import | Reviewed allowlisted configuration/rules | Credentials, site keys, database cleanup, schema or a deleted attachment. |
+| Site/database backup recovery | Data/files covered by the backup at that point | Later edits absent from the backup or external provider state. |
+
+For a CSS regression, select **Original CSS**, save and purge affected page cache; pause the worker while diagnosing. Failed/pending jobs already preserve originals. For image-layout regression, disable modern delivery and purge pages so original markup is served; keep derivative files while cached pages may reference them. Do not remove original media or another tool's derivatives.
+
+For code rollback, retain a verified prior package and backup, pause generation/preload if relevant, replace code under `noobrocket/`, and use owned purge/regeneration controls. Product-version changes invalidate `pages/` and `min/` through the updater; they do not promise to reverse engine/schema migrations or delete all generated font/CSS/image outputs. Disable the affected optimizer before regenerating its owned results. Purge corresponding proxy/CDN caches through the site's authorized operator path.
+
+Deactivation preserves settings and relinquishes owned early-cache configuration. Uninstall removes settings/tables/cache and is not rollback. If another plugin owns `advanced-cache.php`, do not overwrite it manually to recover Cache-Cache. Inspect effective paths/ownership before cleanup; preserve independently active multisite sites and restore blog context after failures.

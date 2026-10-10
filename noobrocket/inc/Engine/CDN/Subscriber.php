@@ -1,0 +1,729 @@
+<?php
+namespace NoobRocket\Engine\CDN;
+
+use NoobRocket\Admin\Options;
+use NoobRocket\Admin\Options_Data;
+use NoobRocket\Engine\CDN\{
+	CdnStateBridge,
+	CNAMEValidator,
+	Context,
+	Drivers\DriverInterface,
+	HostedCDN\Database\Queries\HostedCDN as HostedCDNQuery,
+	HostedCDN\SubscriptionController
+};
+use NoobRocket\Engine\Common\Utils;
+use NoobRocket\Engine\Optimization\UrlTrait;
+use NoobRocket\Engine\Tracking\TrackingTrait;
+use NoobRocket\Event_Management\Subscriber_Interface;
+
+/**
+ * Subscriber for the CDN feature
+ *
+ * @since 3.4
+ */
+class Subscriber implements Subscriber_Interface {
+	use UrlTrait;
+	use TrackingTrait;
+
+	/**
+	 * NoobRocket Options instance
+	 *
+	 * @var Options_Data
+	 */
+	private $options;
+
+	/**
+	 * Options instance.
+	 *
+	 * @var Options
+	 */
+	private $options_api;
+
+	/**
+	 * CDN instance
+	 *
+	 * @var CDN
+	 */
+	private $cdn;
+
+	/**
+	 * Subscription controller instance.
+	 *
+	 * @var SubscriptionController
+	 */
+	private $subscription_controller;
+
+	/**
+	 * Cache instance.
+	 *
+	 * @var Cache
+	 */
+	private $cache;
+
+	/**
+	 * CDN Driver (Strategy)
+	 *
+	 * @var DriverInterface|null
+	 */
+	private $driver;
+
+	/**
+	 * HostedCDN pages query.
+	 *
+	 * @var HostedCDNQuery
+	 */
+	private $query;
+
+	/**
+	 * CNAME Validator instance.
+	 *
+	 * @var CNAMEValidator|null
+	 */
+	private $cname_validator;
+
+	/**
+	 * CDN state bridge instance.
+	 *
+	 * @var CdnStateBridge
+	 */
+	private $cdn_state_bridge;
+
+	/**
+	 * Constructor
+	 *
+	 * @param Options_Data           $options                 NoobRocket Options_Data instance.
+	 * @param CDN                    $cdn                     CDN instance.
+	 * @param Options                $options_api             Options instance.
+	 * @param SubscriptionController $subscription_controller Subscription controller instance.
+	 * @param Cache                  $cache                   Cache instance.
+	 * @param HostedCDNQuery         $query                   HostedCDN pages query.
+	 * @param CdnStateBridge         $cdn_state_bridge        CDN state bridge instance.
+	 * @param DriverInterface|null   $driver                  CDN Driver instance, optional.
+	 * @param CNAMEValidator|null    $cname_validator         CNAME Validator instance, optional.
+	 */
+	public function __construct(
+		Options_Data $options,
+		CDN $cdn,
+		Options $options_api,
+		SubscriptionController $subscription_controller,
+		Cache $cache,
+		HostedCDNQuery $query,
+		CdnStateBridge $cdn_state_bridge,
+		?DriverInterface $driver = null,
+		?CNAMEValidator $cname_validator = null
+	) {
+		$this->options                 = $options;
+		$this->cdn                     = $cdn;
+		$this->options_api             = $options_api;
+		$this->driver                  = $driver;
+		$this->subscription_controller = $subscription_controller;
+		$this->cache                   = $cache;
+		$this->query                   = $query;
+		$this->cdn_state_bridge        = $cdn_state_bridge;
+		$this->cname_validator         = $cname_validator;
+	}
+
+	/**
+	 * Return an array of events that this subscriber wants to listen to.
+	 *
+	 * @since  3.4
+	 *
+	 * @return array
+	 */
+	public static function get_subscribed_events() {
+		return [
+			'noobrocket_buffer'                            => [
+				[ 'rewrite', 2 ],
+				[ 'rewrite_srcset', 3 ],
+			],
+			'noobrocket_css_content'                       => 'rewrite_css_properties',
+			'noobrocket_usedcss_content'                   => 'rewrite_css_properties',
+			'noobrocket_cdn_hosts'                         => [ 'get_cdn_hosts', 10, 2 ],
+			'noobrocket_dns_prefetch'                      => 'add_dns_prefetch_cdn',
+			'noobrocket_facebook_sdk_url'                  => 'add_cdn_url',
+			'noobrocket_css_url'                           => [ 'add_cdn_url', 10, 2 ],
+			'noobrocket_js_url'                            => [ 'add_cdn_url', 10, 2 ],
+			'noobrocket_asset_url'                         => [ 'maybe_replace_url', 10, 2 ],
+			'wp_resource_hints'                        => [ 'add_preconnect_cdn', 10, 2 ],
+			'noobrocket_font_url'                          => [ 'add_cdn_url', 10, 2 ],
+			'noobrocket_first_install_options'             => 'add_cdn_type_option',
+			'noobrocket_upgrade'                        => [
+				[ 'on_update_add_cdn_type_option', 10, 2 ],
+				[ 'on_update_add_cdn_state_option', 11, 2 ],
+			],
+			'noobrocketcdn_free_plan_subscription_expired' => [ 'clear_free_plan_pages_cache' ],
+			'noobrocket_cdnfree_activated'                 => 'clear_cache_on_free_activation',
+			'update_option_noobrocket_settings'         => [
+				[ 'maybe_clear_cache', 10, 2 ],
+				[ 'maybe_clear_cname_cache', 10, 2 ],
+			],
+			'noobrocket_mixpanel_tracked_options'          => [ 'remove_cdn_from_tracked_options', 11 ],
+		];
+	}
+
+	/**
+	 * Removes the deprecated `cdn` key, replaced by `HostedCDN Mode Changed`. Filtered here
+	 * rather than in dynamic-lists.json, which is overwritten by a remote sync.
+	 *
+	 * @param array $options Tracked option keys.
+	 *
+	 * @return array
+	 */
+	public function remove_cdn_from_tracked_options( array $options ): array {
+		return array_values( array_diff( $options, [ 'cdn' ] ) );
+	}
+
+	/**
+	 * Rewrites URLs to the CDN URLs if allowed
+	 *
+	 * @since 3.4
+	 *
+	 * @param string $html HTML content.
+	 *
+	 * @return string
+	 */
+	public function rewrite( $html ) {
+		if ( ! $this->is_allowed() ) {
+			return $html;
+		}
+
+		return $this->cdn->rewrite( $html );
+	}
+
+	/**
+	 * Rewrites URLs in srcset attributes to the CDN URLs if allowed
+	 *
+	 * @since 3.4.0.4
+	 *
+	 * @param string $html HTML content.
+	 *
+	 * @return string
+	 */
+	public function rewrite_srcset( $html ) {
+		if ( ! $this->is_allowed() ) {
+			return $html;
+		}
+
+		return $this->cdn->rewrite_srcset( $html );
+	}
+
+	/**
+	 * Rewrites URLs to the CDN URLs in CSS files
+	 *
+	 * @since 3.4
+	 *
+	 * @param string $content CSS content.
+	 *
+	 * @return string
+	 */
+	public function rewrite_css_properties( $content ) {
+		if ( ! $this->cdn_driver_should_rewrite_url() ) {
+			return $content;
+		}
+
+		/**
+		 * Filters the application of the CDN on CSS properties
+		 *
+		 * @since 2.6
+		 *
+		 * @param bool $do_rewrite true to apply CDN to properties, false otherwise.
+		 */
+		$do_rewrite = apply_filters( 'do_noobrocket_cdn_css_properties', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+
+		if ( ! $do_rewrite ) {
+			return $content;
+		}
+
+		if ( ! $this->is_cdn_enabled() ) {
+			return $content;
+		}
+
+		if ( ! $this->subscription_controller->has_active_subscription() ) {
+			return $content;
+		}
+
+		return $this->cdn->rewrite_css_properties( $content );
+	}
+
+	/**
+	 * Gets the host value for each CDN URLs
+	 *
+	 * @since 3.4
+	 *
+	 * @param array $hosts Base hosts.
+	 * @param array $zones Zones to get the CND URLs associated with.
+	 *
+	 * @return array
+	 */
+	public function get_cdn_hosts( array $hosts = [], array $zones = [ 'all' ] ) {
+		$cdn_urls = $this->cdn->get_cdn_urls( $zones );
+
+		if ( empty( $cdn_urls ) ) {
+			return $hosts;
+		}
+
+		foreach ( $cdn_urls as $cdn_url ) {
+			$parsed = get_noobrocket_parse_url( noobrocket_add_url_protocol( $cdn_url ) );
+
+			if ( empty( $parsed['host'] ) ) {
+				continue;
+			}
+
+			$hosts[] = untrailingslashit( $parsed['host'] . $parsed['path'] );
+		}
+
+		return array_unique( $hosts );
+	}
+
+	/**
+	 * Adds CDN URLs to the DNS prefetch links
+	 *
+	 * @since 3.4
+	 *
+	 * @param array $domains Domain names to DNS prefetch.
+	 *
+	 * @return array
+	 */
+	public function add_dns_prefetch_cdn( $domains ) {
+		if ( ! $this->is_allowed() || ! $this->can_insert_resource_hints() ) {
+			return $domains;
+		}
+
+		$cdn_urls = $this->cdn->get_cdn_urls( [ 'all', 'images', 'css_and_js', 'css', 'js' ] );
+
+		if ( ! $cdn_urls ) {
+			return $domains;
+		}
+
+		return array_merge( $domains, $cdn_urls );
+	}
+
+	/**
+	 * Adds the CDN URL on the provided URL
+	 *
+	 * @since 3.4
+	 *
+	 * @param string $url          URL to rewrite.
+	 * @param string $original_url Original URL for this URL. Optional.
+	 *
+	 * @return string
+	 */
+	public function add_cdn_url( $url, $original_url = '' ) {
+		if ( ! $this->is_allowed() ) {
+			return $url;
+		}
+
+		if ( ! empty( $original_url ) ) {
+			if ( $this->cdn->is_excluded( $original_url ) ) {
+				return $url;
+			}
+		}
+
+		return $this->cdn->rewrite_url( $url );
+	}
+
+	/**
+	 * Replace CDN URL with site URL on the provided asset URL.
+	 *
+	 * @since 3.5.3
+	 *
+	 * @param string $url   URL of the asset.
+	 * @param array  $zones Array of corresponding zones for the asset.
+	 *
+	 * @return string
+	 */
+	public function maybe_replace_url( $url, array $zones = [ 'all' ] ) {
+		if ( ! $this->is_allowed() ) {
+			return $url;
+		}
+
+		$url_parts = get_noobrocket_parse_url( $url );
+
+		if ( empty( $url_parts['host'] ) ) {
+			return $url;
+		}
+
+		$site_url_parts = get_noobrocket_parse_url( site_url() );
+
+		if ( empty( $site_url_parts['host'] ) ) {
+			return $url;
+		}
+
+		if ( $url_parts['host'] === $site_url_parts['host'] ) {
+			return $url;
+		}
+
+		$cdn_urls = $this->cdn->get_cdn_urls( $zones );
+
+		if ( empty( $cdn_urls ) ) {
+			return $url;
+		}
+
+		$cdn_urls = array_map( 'noobrocket_add_url_protocol', $cdn_urls );
+
+		$site_url = $site_url_parts['scheme'] . '://' . $site_url_parts['host'];
+
+		foreach ( $cdn_urls as $cdn_url ) {
+			if ( false === strpos( $url, $cdn_url ) ) {
+				continue;
+			}
+
+			return str_replace( $cdn_url, $site_url, $url );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Add a preconnect tag for the CDN.
+	 *
+	 * @since 3.8.3
+	 *
+	 * @param array  $urls          The initial array of wp_resource_hint urls.
+	 * @param string $relation_type The relation type for the hint: eg., 'preconnect', 'prerender', etc.
+	 *
+	 * @return array The filtered urls.
+	 */
+	public function add_preconnect_cdn( array $urls, string $relation_type ): array {
+		if (
+			'preconnect' !== $relation_type
+			||
+			noobrocket_bypass()
+			||
+			! $this->is_allowed()
+			||
+			! $this->is_cdn_enabled()
+			||
+			! $this->can_insert_resource_hints()
+		) {
+			return $urls;
+		}
+
+		$cdn_urls = $this->cdn->get_cdn_urls( [ 'all', 'images', 'css_and_js', 'css', 'js' ] );
+
+		if ( empty( $cdn_urls ) ) {
+			return $urls;
+		}
+
+		foreach ( $cdn_urls as $url ) {
+			$url_parts = get_noobrocket_parse_url( $url );
+
+			if ( empty( $url_parts['scheme'] ) ) {
+				if ( preg_match( '/^(?![\/])(?=[^\.]+\/).+/i', $url ) ) {
+					continue;
+				}
+
+				$url       = '//' . $url;
+				$url_parts = get_noobrocket_parse_url( $url );
+			}
+
+			$domain = empty( $url_parts['scheme'] )
+				? '//' . $url_parts['host']
+				: $url_parts['scheme'] . '://' . $url_parts['host'];
+
+			// Note: As of 22 Feb, 2021 we cannot add more than one instance of a domain url
+			// on the wp_resource_hint() hook -- wp_resource_hint() will
+			// only actually print the first one.
+			// Ideally, we want both because CSS resources will use the crossorigin version,
+			// But JS resources will not.
+			// Jonathan has submitted a ticket to change this behavior:
+			// @see https://core.trac.wordpress.org/ticket/52465
+			// Until then, we order these to prefer/print the non-crossorigin version.
+			$urls[] = [ 'href' => $domain ];
+			$urls[] = [
+				'href'        => $domain,
+				'crossorigin' => 'anonymous',
+			];
+		}
+
+		return $urls;
+	}
+
+	/**
+	 * Checks if CDN can be applied
+	 *
+	 * @since 3.4
+	 *
+	 * @return boolean
+	 */
+	private function is_allowed() {
+		if ( noobrocket_get_constant( 'DONOTNOOBROCKETOPTIMIZE' ) ) {
+			return false;
+		}
+
+		if ( ! $this->is_cdn_enabled() ) {
+			return false;
+		}
+
+		if ( is_noobrocket_post_excluded_option( 'cdn' ) ) {
+			return false;
+		}
+
+		if ( ! $this->cdn_driver_should_rewrite_url() ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Checks if the CDN option is enabled
+	 *
+	 * @since 3.5.5
+	 *
+	 * @return bool
+	 */
+	private function is_cdn_enabled() {
+		return (bool) $this->options->get( 'cdn', 0 );
+	}
+
+	/**
+	 * Check if CDN can insert resource hints into head.
+	 *
+	 * @return bool
+	 */
+	private function can_insert_resource_hints(): bool {
+		/**
+		 * Enable adding resource hints by CDN feature.
+		 *
+		 * @since 3.19
+		 *
+		 * @param bool $can_insert Can cdn insert resource hints or not, default is true.
+		 */
+		return wpm_apply_filters_typed( 'boolean', 'noobrocket_cdn_insert_resource_hints', true );
+	}
+
+	/**
+	 * Adds cdn_type option to NoobRocket options.
+	 *
+	 * @since 3.22
+	 *
+	 * @param array $options NoobRocket options array.
+	 *
+	 * @return array
+	 */
+	public function add_cdn_type_option( array $options ) {
+		$options = (array) $options;
+
+		$options['cdn_type'] = 'noobrocketcdn';
+
+		return $options;
+	}
+
+	/**
+	 * Add cdn_type option when upgrading from < 3.22.
+	 *
+	 * @since 3.22
+	 *
+	 * @param string $new_version New plugin version.
+	 * @param string $old_version Previously installed plugin version.
+	 *
+	 * @return void
+	 */
+	public function on_update_add_cdn_type_option( string $new_version, string $old_version ) {
+		if ( version_compare( $old_version, '3.22', '>=' ) ) {
+			return;
+		}
+
+		$has_active_subscription = $this->subscription_controller->has_active_subscription();
+		$cdn_type                = 'noobrocketcdn';
+		// Check if a CNAME is saved, cdn is enabled, and no HostedCDN subscription, then default to byocdn.
+		if (
+			! $has_active_subscription
+			&&
+			! empty( $this->options->get( 'cdn_cnames', [] ) ) && $this->is_cdn_enabled()
+		) {
+			$cdn_type = 'byocdn';
+		}
+
+		$current_options             = $this->options_api->get( 'settings', [] );
+		$current_options['cdn_type'] = $cdn_type;
+		if ( ! $has_active_subscription ) {
+			$current_options['cdn'] = 1;
+		}
+
+		$this->options_api->set( 'settings', $current_options );
+	}
+
+	/**
+	 * Add cdn_state option during plugin update when upgrading from < 3.23.4.
+	 *
+	 * @since 3.23.4
+	 *
+	 * @param string $_new_version New plugin version.
+	 * @param string $old_version  Previously installed plugin version.
+	 *
+	 * @return void
+	 */
+	public function on_update_add_cdn_state_option( string $_new_version, string $old_version ) {
+		if ( version_compare( $old_version, '3.23.4', '>=' ) ) {
+			return;
+		}
+
+		$current_options = $this->options_api->get( 'settings', [] );
+		$cdn_enabled     = ! empty( $current_options['cdn'] );
+		$cdn_type        = (string) ( $current_options['cdn_type'] ?? Context::HOSTEDCDN_TYPE );
+		$has_cname       = ! empty( array_filter( (array) ( $current_options['cdn_cnames'] ?? [] ) ) );
+
+		// A HostedCDN site was only genuinely active pre-update if the CDN toggle was on AND
+		// a CNAME had been saved — either missing means CDN was not functional for this domain.
+		// Only applies when a subscription is active: free/inactive users with no CNAME fall
+		// through to legacy_to_state so they remain in noobrocketcdn_free rather than nothing.
+		if ( $cdn_enabled && Context::HOSTEDCDN_TYPE === $cdn_type && ! $has_cname
+			&& $this->subscription_controller->has_active_subscription() ) {
+			$new_state              = Context::CDN_STATE_NOTHING;
+			$current_options['cdn'] = 0;
+		} else {
+			$new_state = $this->cdn_state_bridge->legacy_to_state( $current_options );
+		}
+
+		if ( ( $current_options['cdn_state'] ?? null ) === $new_state ) {
+			return;
+		}
+
+		$current_options['cdn_state'] = $new_state;
+		$this->options_api->set( 'settings', $current_options );
+
+		$this->track_event(
+			'HostedCDN Mode Changed',
+			[
+				'cdn_mode'   => $new_state,
+				'cdn_status' => Context::CDN_STATE_NOTHING === $new_state ? 'inactive' : 'active',
+				'trigger'    => 'migration',
+			]
+		);
+	}
+
+	/**
+	 * Clear cached pages from free plan when subscription expired.
+	 *
+	 * @return void
+	 */
+	public function clear_free_plan_pages_cache(): void {
+		if ( null === $this->query ) {
+			return;
+		}
+
+		$pages = $this->query->get_all();
+
+		foreach ( $pages as $page ) {
+			if ( empty( $page->url ) ) {
+				continue;
+			}
+
+			if ( Utils::is_home( $page->url ) ) {
+				noobrocket_clean_home();
+				continue;
+			}
+
+			noobrocket_clean_files( [ $page->url ] );
+		}
+	}
+
+	/**
+	 * Clears all page cache when HostedCDN free mode is first activated.
+	 *
+	 * The page cache may have been rebuilt without CDN URL replacement during the window
+	 * between the admin settings save (which clears the cache early) and when the
+	 * subscription is confirmed active. Clearing here ensures all pages rebuild with
+	 * the CDN URL injected.
+	 *
+	 * @return void
+	 */
+	public function clear_cache_on_free_activation(): void {
+		$this->cache->clear_noobrocketcdn_free_pages_cache();
+	}
+
+	/**
+	 * Determines if the CDN driver should rewrite the current URL.
+	 *
+	 * Checks if a CDN driver is set and whether it allows rewriting of the current URL.
+	 *
+	 * @return bool True if the URL should be rewritten by the CDN driver, false otherwise.
+	 */
+	private function cdn_driver_should_rewrite_url(): bool {
+		if ( $this->driver && ! $this->driver->should_rewrite_url( $this->get_current_url() ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Clears the appropriate cache scope when the CDN state changes.
+	 *
+	 * @param mixed $old_value Old option value.
+	 * @param mixed $value     New option value.
+	 *
+	 * @return void
+	 */
+	public function maybe_clear_cache( $old_value, $value ) {
+		$cdn_state_changed = Utils::did_setting_change( 'cdn_state', $old_value, $value );
+
+		// Detect cdn status for cdn_state change.
+		if ( ! $cdn_state_changed ) {
+			return;
+		}
+
+		// Clear whole cache when moving from nothing to noobrocketcdn_paid OR from noobrocketcdn_paid to nothing.
+		// Clear whole cache when moving from nothing to byocdn OR from byocdn to nothing.
+		// Clear whole cache when moving from noobrocketcdn_paid to byocdn OR from byocdn to noobrocketcdn_paid.
+		// Clear whole cache when moving from noobrocketcdn_paid to noobrocketcdn_free OR from noobrocketcdn_free to noobrocketcdn_paid.
+		// Clear whole cache when moving from noobrocketcdn_free to byocdn OR from byocdn to noobrocketcdn_free.
+		// Clear free pages' cache when moving from nothing to noobrocketcdn_free OR from noobrocketcdn_free to nothing.
+
+		if (
+			( Context::CDN_STATE_NOTHING === $old_value['cdn_state'] && Context::HOSTEDCDN_FREE_TYPE === $value['cdn_state'] )
+			||
+			( Context::HOSTEDCDN_FREE_TYPE === $old_value['cdn_state'] && Context::CDN_STATE_NOTHING === $value['cdn_state'] )
+		) {
+			$this->cache->clear_noobrocketcdn_free_pages_cache();
+
+			$this->track_event(
+				'HostedCDN Cache Cleared',
+				[
+					'scope'       => 'free_pages',
+					'trigger'     => 'cdn_state_changed',
+					'pages_count' => $this->query->get_total_count(),
+				]
+			);
+			return;
+		}
+
+		// Clear whole cache.
+		$this->cache->clear_all_cache();
+
+		$this->track_event(
+			'HostedCDN Cache Cleared',
+			[
+				'scope'       => 'site_wide',
+				'trigger'     => 'cdn_state_changed',
+				'pages_count' => 0,
+			]
+		);
+	}
+
+	/**
+	 * Clears CNAME validation transients when CDN settings are saved.
+	 *
+	 * Runs on both old and new CNAME lists so no stale cache entry survives a
+	 * settings update regardless of whether CNAMEs were added or removed.
+	 *
+	 * @since 3.22.0.3
+	 *
+	 * @param mixed $old_value Previous option value.
+	 * @param mixed $value     New option value.
+	 * @return void
+	 */
+	public function maybe_clear_cname_cache( $old_value, $value ): void {
+		if ( null === $this->cname_validator ) {
+			return;
+		}
+
+		$old_cnames = is_array( $old_value ) && ! empty( $old_value['cdn_cnames'] ) ? (array) $old_value['cdn_cnames'] : [];
+		$new_cnames = is_array( $value ) && ! empty( $value['cdn_cnames'] ) ? (array) $value['cdn_cnames'] : [];
+		$all_cnames = array_filter( array_unique( array_merge( $old_cnames, $new_cnames ) ), 'is_string' );
+
+		$this->cname_validator->clear_validation_cache( $all_cnames );
+	}
+}
