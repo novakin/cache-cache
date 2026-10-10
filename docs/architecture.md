@@ -33,6 +33,8 @@ The early hit bypasses normal plugin boot. PHP hits expose `Cache-Status: NoobRo
 
 Preload admission computes an adaptive total target within the configured maximum; without duration evidence the default target is five. Native database rows retain that total-target contract, while pending/running Action Scheduler work independently limits available slots. Matching active work consumes capacity once. Load-control caps, stale-row recovery and the existing request grace remain authoritative even when no new work can be admitted.
 
+URL completion and deletion visit every normalized matching row, including existing duplicates beyond BerlinDB's default 100-row limit. Membership lookup bypasses stale cached ID lists. Completion refreshes the modification time; when native writes return false, an uncached scalar check distinguishes identical stored completion from failure without trusting cached item objects. Update/deletion failures do not prevent later matching rows from being attempted. Required cache-file variants still gate completion. This recovers duplicate rows after usable cache publication; it does not prevent concurrent discovery inserts or change task counts into unique-page counts.
+
 ## Settings and admin transactions
 
 ```mermaid
