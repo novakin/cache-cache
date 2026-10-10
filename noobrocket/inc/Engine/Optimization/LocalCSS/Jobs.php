@@ -302,12 +302,17 @@ class Jobs {
 		);
 	}
 
+	/** Whether local CSS job storage exists. */
+	public function is_available(): bool {
+		return $this->table->exists();
+	}
+
 	/** Report the saved CSS mode; Retry targets the same queue. */
 	public function diagnostics(): array {
 		global $wpdb;
 
 		$data = [
-			'available' => $this->table->exists(),
+			'available' => $this->is_available(),
 			'mode'      => get_noobrocket_option( 'local_css_mode', 'off' ),
 			'counts'    => [
 				'pending' => 0,

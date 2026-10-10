@@ -24,6 +24,7 @@ function __( $text, $domain = '' ) {
 }
 function esc_html( $text ) { return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' ); }
 function esc_attr( $text ) { return esc_html( $text ); }
+function esc_attr__( $text, $domain = '' ) { return esc_attr( __( $text, $domain ) ); }
 function esc_url( $text ) { return esc_attr( $text ); }
 function esc_html__( $text, $domain = '' ) { return esc_html( __( $text, $domain ) ); }
 function esc_html_e( $text, $domain = '' ) { echo esc_html__( $text, $domain ); }
@@ -49,7 +50,8 @@ function wp_safe_remote_get( $url, $args ) {
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function wp_remote_retrieve_response_code( $response ) { return $response['status']; }
 function wp_remote_retrieve_header( $response, $header ) { return $response['headers'][ $header ] ?? ''; }
-function current_user_can() { return true; }
+function current_user_can() { return $GLOBALS['overview_can_manage'] ?? true; }
+function get_noobrocket_option( $key, $default = false ) { return 'local_css_mode' === $key ? ( $GLOBALS['overview_css_mode'] ?? 'critical' ) : $default; }
 function check_admin_referer() {}
 function wp_unslash( $text ) { return $text; }
 function sanitize_key( $text ) { return preg_replace( '/[^a-z_]/', '', $text ); }
@@ -224,7 +226,38 @@ $xpath = overview_document( $html );
 overview_check( str_contains( $html, 'CSS queue storage is unavailable.' )
 	&& 1 === $xpath->query( '//section[contains(@class,"noobrocket-css-status") and contains(@class,"is-error")]//span[contains(@class,"noobrocket-badge") and contains(@class,"is-error")][.="Unavailable"]' )->length, 'missing queue storage identifies the failing layer with matching error panel and badge severity' );
 
-$action_html = overview_render( [ 'preload_enabled' => true, 'counts' => [ 'failed' => 1 ] ] )
+$header_diagnostics = ( new ReflectionClass( Diagnostics::class ) )->newInstanceWithoutConstructor();
+$header_jobs = new class {
+	public function is_available(): bool { return $GLOBALS['overview_css_available'] ?? true; }
+	public function diagnostics(): array { throw new RuntimeException( 'Header rendering must not query queue diagnostics.' ); }
+};
+$jobs_property = ( new ReflectionClass( Diagnostics::class ) )->getProperty( 'jobs' );
+$jobs_property->setAccessible( true );
+$jobs_property->setValue( $header_diagnostics, $header_jobs );
+$header_action = '';
+foreach ( [
+	[ 'critical', true, true, true ],
+	[ 'used', true, true, true ],
+	[ 'off', true, true, false ],
+	[ 'critical', false, true, false ],
+	[ 'critical', true, false, false ],
+] as [ $mode, $available, $can_manage, $visible ] ) {
+	$GLOBALS['overview_css_mode'] = $mode;
+	$GLOBALS['overview_css_available'] = $available;
+	$GLOBALS['overview_can_manage'] = $can_manage;
+	ob_start();
+	$header_diagnostics->render_regenerate_button();
+	$header = ob_get_clean();
+	$header_xpath = overview_document( '<div>' . $header . '</div>' );
+	overview_check( ( $visible ? 1 : 0 ) === $header_xpath->query( '//button[@type="submit"][@form="noobrocket-diagnostics-actions"][@name="operation"][@value="regenerate"]' )->length, 'header regeneration preserves saved mode/storage/capability gating' );
+	if ( $visible ) {
+		$header_action = $header;
+		overview_check( 1 === $header_xpath->query( '//button[@aria-describedby="noobrocket-regenerate-scope"][contains(@title,"Regeneration clears CSS results and page cache.")]' )->length, 'header regeneration retains accessible reset and rebuild scope' );
+	}
+}
+unset( $GLOBALS['overview_css_mode'], $GLOBALS['overview_css_available'], $GLOBALS['overview_can_manage'] );
+overview_check( 0 === overview_document( overview_render() )->query( '//button[@value="regenerate"]' )->length, 'diagnostics does not duplicate the header regeneration action' );
+$action_html = $header_action . overview_render( [ 'preload_enabled' => true, 'counts' => [ 'failed' => 1 ] ] )
 	. overview_render( [ 'paused' => true, 'preload_enabled' => true, 'preload_paused' => true ] );
 $action_xpath = overview_document( $action_html );
 foreach ( [ 'probe', 'pause_preload', 'resume_preload', 'retry', 'pause_css', 'resume_css', 'regenerate' ] as $operation ) {
