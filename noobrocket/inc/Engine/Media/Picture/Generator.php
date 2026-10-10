@@ -98,8 +98,16 @@ class Generator implements Subscriber_Interface {
 		}
 		try {
 			$state = $this->state();
-			if ( ! $state['active'] && ! $this->pending() ) {
-				$state['cursor'] = 0;
+			if ( ! $state['active'] ) {
+				$pending = $this->pending();
+				if ( null === $pending ) {
+					$state['active'] = true;
+					$this->retry_failed_read( $state );
+					return $this->status();
+				}
+				if ( ! $pending ) {
+					$state['cursor'] = 0;
+				}
 			}
 			$state['active'] = true;
 			$state['last_error'] = '';
@@ -116,13 +124,21 @@ class Generator implements Subscriber_Interface {
 			wp_clear_scheduled_hook( self::CRON );
 			return;
 		}
-		if ( $this->state()['active'] || $this->pending() ) {
+		$state = $this->state();
+		if ( $state['active'] ) {
+			$this->schedule();
+			return;
+		}
+		$pending = $this->pending();
+		if ( null === $pending ) {
+			$this->retry_failed_read( $state );
+		} elseif ( $pending ) {
 			$this->schedule();
 		}
 	}
 
 	public function handle_backfill(): void {
-		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || ! current_user_can( 'noobrocket_manage_options' ) ) {
+		if ( ! in_array( $_SERVER['REQUEST_METHOD'] ?? '', [ 'POST' ], true ) || ! current_user_can( 'noobrocket_manage_options' ) ) {
 			wp_die( esc_html__( 'You cannot queue Cache-Cache image generation.', 'noobrocket' ), '', [ 'response' => 403 ] );
 		}
 		check_admin_referer( 'noobrocket_image_backfill', '_noobrocket_image_nonce' );
@@ -152,9 +168,21 @@ class Generator implements Subscriber_Interface {
 				return;
 			}
 			$pending = $this->pending();
+			if ( null === $pending ) {
+				$this->retry_failed_read( $state );
+				return;
+			}
+			$scanned_state = $state;
 			if ( ! $pending && $state['active'] ) {
-				$this->scan_library( $state );
+				if ( ! $this->scan_library( $scanned_state ) ) {
+					$this->retry_failed_read( $state );
+					return;
+				}
 				$pending = $this->pending();
+				if ( null === $pending ) {
+					$this->retry_failed_read( $state );
+					return;
+				}
 			}
 			$budget = 4;
 			$deadline = microtime( true ) + 20;
@@ -167,9 +195,17 @@ class Generator implements Subscriber_Interface {
 			$state['generated'] += $generated;
 			$state['dirty'] = $state['dirty'] || $generated > 0 || $this->changed;
 			$state['last_run'] = time();
+			$remaining = $this->pending();
+			if ( null === $remaining ) {
+				$this->retry_failed_read( $state );
+				return;
+			}
+			// Commit scan exhaustion only after the pending queue can be read successfully.
+			$state['cursor'] = $scanned_state['cursor'];
+			$state['active'] = $scanned_state['active'];
 			$state['last_error'] = '';
 			update_option( self::STATE, $state, false );
-			if ( $this->pending() || $state['active'] ) {
+			if ( $remaining || $state['active'] ) {
 				$this->schedule();
 			} elseif ( $state['dirty'] ) {
 				// Publish a completed scan once; purging every four encodes would repeatedly invalidate local CSS.
@@ -378,9 +414,12 @@ class Generator implements Subscriber_Interface {
 		return 0 === strpos( $path, $prefix ) ? substr( $path, strlen( $prefix ) ) : false;
 	}
 
-	private function scan_library( array &$state ): void {
+	private function scan_library( array &$state ): bool {
 		global $wpdb;
 		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type IN ('image/jpeg','image/png') AND ID > %d ORDER BY ID ASC LIMIT 20", $state['cursor'] ) );
+		if ( $wpdb->last_error ) {
+			return false;
+		}
 		foreach ( $ids as $id ) {
 			$this->enqueue( (int) $id );
 			$state['cursor'] = (int) $id;
@@ -388,6 +427,7 @@ class Generator implements Subscriber_Interface {
 		if ( count( $ids ) < 20 ) {
 			$state['active'] = false;
 		}
+		return true;
 	}
 
 	private function enqueue( int $id ): void {
@@ -397,9 +437,17 @@ class Generator implements Subscriber_Interface {
 		delete_post_meta( $id, self::ERROR );
 	}
 
-	private function pending(): array {
+	/** Null means the native read failed; an empty array alone proves no pending work. */
+	private function pending(): ?array {
 		global $wpdb;
-		return array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s ORDER BY post_id ASC LIMIT 2", self::PENDING ) ) );
+		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s ORDER BY post_id ASC LIMIT 2", self::PENDING ) );
+		return $wpdb->last_error ? null : array_map( 'intval', $ids );
+	}
+
+	private function retry_failed_read( array $state ): void {
+		$state['last_error'] = 'database_read_failed';
+		update_option( self::STATE, $state, false );
+		$this->schedule();
 	}
 
 	private function state(): array {
