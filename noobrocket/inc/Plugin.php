@@ -44,7 +44,6 @@ use NoobRocket\Engine\Optimization\ServiceProvider as OptimizationServiceProvide
 use NoobRocket\Engine\Plugin\ServiceProvider as PluginServiceProvider;
 use NoobRocket\Engine\Preload\Links\ServiceProvider as PreloadLinksServiceProvider;
 use NoobRocket\Engine\Preload\ServiceProvider as PreloadServiceProvider;
-use NoobRocket\Engine\Saas\ServiceProvider as SaasAdminServiceProvider;
 use NoobRocket\Engine\Support\ServiceProvider as SupportServiceProvider;
 use NoobRocket\ServiceProvider\Common_Subscribers;
 use NoobRocket\ServiceProvider\Options as OptionsServiceProvider;
@@ -298,7 +297,6 @@ class Plugin {
 		$this->container->addServiceProvider( new DebugServiceProvider() );
 		$this->container->addServiceProvider( new ATFServiceProvider() );
 		$this->container->addServiceProvider( new JobManagerServiceProvider() );
-		$this->container->addServiceProvider( new SaasAdminServiceProvider() );
 		$this->container->addServiceProvider( new PerformanceHintsServiceProvider() );
 		$this->container->addServiceProvider( new LRCServiceProvider() );
 		$this->container->addServiceProvider( new MediaFontsServiceProvider() );

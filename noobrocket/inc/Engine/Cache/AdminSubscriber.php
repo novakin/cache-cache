@@ -203,16 +203,23 @@ class AdminSubscriber implements Event_Manager_Aware_Subscriber_Interface {
 		$configs = [];
 
 		if ( is_multisite() ) {
-			foreach ( get_sites( [ 'fields' => 'ids' ] ) as $site_id ) {
+			foreach ( get_sites( [ 'fields' => 'ids', 'number' => 0 ] ) as $site_id ) {
 				switch_to_blog( $site_id );
-				$configs[] = $this->generate_config_path();
-				restore_current_blog();
+				try {
+					$configs[] = $this->generate_config_path();
+				} finally {
+					restore_current_blog();
+				}
 			}
 		} else {
 			$configs[] = $this->generate_config_path();
 		}
 
 		$contents = $this->filesystem->dirlist( NOOBROCKET_CONFIG_PATH );
+		if ( ! is_array( $contents ) ) {
+			return;
+		}
+
 		foreach ( $contents as $content ) {
 			$content = NOOBROCKET_CONFIG_PATH . $content['name'];
 			if ( ! preg_match( '#\.php$#', $content ) || ! $this->filesystem->is_file( $content ) || in_array(

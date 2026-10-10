@@ -20,22 +20,24 @@ The curated import excludes `.artifacts/`, `dist/`, installed `node_modules`, pr
 
 `tools/prepare-github.py` creates a new checkout from upstream release `v3.23.5.1` and copies these inputs. It stages a reviewable migration; it does not commit or publish. The downloaded shallow checkout retains the release commit identity; the GitHub fork provides the existing upstream ancestry. Local history depth is not a claim that every historical blob was downloaded.
 
-## Product findings kept open
+## Product findings and disposition
 
-These source-confirmed findings remain separate from the developer-process implementation. They require focused reproduction before a product fix, rather than deletion of legacy code or a speculative cache redesign.
+These findings distinguish resolved owner defects, retained dependencies and remaining work. Focused regressions establish their scope; none proves a production loading improvement.
 
 | Finding | Current status | Responsible path / next proof |
 | --- | --- | --- |
-| Expiry scanning walks the owned cache tree; a historical 50k-URL Windows run took about 11–12 seconds. | Open performance work | Measure representative host workload, then change the expiry owner only if the cost is material. |
+| Expiry scanning walks the owned cache tree; a historical 50k-URL Windows run took about 11–12 seconds. | Bookkeeping optimized; traversal remains proportional to files | Append expired paths without repeated array copying and report each directory once. Owned-file regressions cover variants, expiry/stale deadlines, deletion failure and publication races. Host timing remains variable; a faster live scan is not established. |
 | Cold local-font preparation uses a synchronous request budget. | Open performance work | Measure cold versus prepared requests; preserve font exclusions, failures and original delivery. |
-| Config cleanup retrieves site IDs with WordPress's default site-query limit. | Open correctness review | Reproduce a network above 100 sites before changing configuration cleanup. |
+| Config cleanup retrieves site IDs with WordPress's default site-query limit. | Resolved | Configuration cleanup and shared stylesheet-background directory preservation enumerate all sites across networks. A modeled 107-site fixture covers sites above 100, ownership, unavailable listings and normal/exceptional blog restoration. |
 | Combined JavaScript insertion matches lowercase `</body>` before removing originals. | Open correctness review | Reproduce uppercase/missing closing tags with actual optimizer output and adjacent CSP/module invariants. |
 | Delay runtime insertion assumes a head element. | Open correctness review | Exercise headless markup and preserve original scripts when required runtime cannot be placed. |
 | Hosted font replacement can omit original link attributes. | Open correctness review | Verify conditional/media/disabled/onload behavior before changing the font controller. |
-| Dormant cloud/license/account/tracking classes remain in the distribution. | Retained pending caller assessment | Trace active callers and compatibility before removal; dormant classes are not proof that remote services run. |
+| Dormant cloud/license/account/tracking classes remain in the distribution. | Caller assessment complete; shared dependencies retained | Unused SaaS admin provider registration removed. License, HostedCDN, TrackingTrait and Support retain concrete settings/CDN/Abilities/Beacon/preload callers. The sender subscriber remains inactive and analytics disabled. See the architecture caller boundaries. |
 | Document speculation rules and eagerness selection are not exposed. | Deferred product proposal | Current handler dynamically prepares one destination after intent. Native document rules need separate acceptance and exclusions. |
 
-The [latest full-system review](../tools/FULL_SYSTEM_REAUDIT.md) owns the reviewed behavior and limits. Older audits retain their original findings and proofs. No process check claims these product gaps are fixed.
+The expiry measurement used 10,000 owned page directories with four desktop/mobile HTTPS plain/gzip variants, three Windows/PHP 8.3.35 samples per revision. Expired-scan medians were 8,959.027 ms before and 8,452.930 ms after, a 5.6% reduction. Filesystem work remains dominant; fresh-tree results varied, and no Linux, live-host or visitor loading gain is claimed.
+
+The [latest full-system review](../tools/FULL_SYSTEM_REAUDIT.md) retains its dated reviewed behavior and limits. This inventory records the later cache/network fixes and caller assessment; earlier audits retain their original findings and proofs.
 
 ## Focused loading review, 2026-10-10
 

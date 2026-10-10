@@ -135,8 +135,8 @@ class PurgeExpiredCache {
 					}
 				}
 
-				if ( $url_deleted ) {
-					$deleted = array_merge( $deleted, $url_deleted );
+				foreach ( $url_deleted as $purged_directory ) {
+					$deleted[] = $purged_directory;
 				}
 			}
 
@@ -301,7 +301,8 @@ class PurgeExpiredCache {
 	 * @return array                A list of files that have been deleted.
 	 */
 	private function purge_dir( $dir_path, $file_age_limit, bool $refresh = false, string $home_url = '', string $home_path = '' ) {
-		$deleted = [];
+		$deleted            = [];
+		$directory_reported = false;
 
 		try {
 			$iterator = new \DirectoryIterator( $dir_path );
@@ -321,7 +322,10 @@ class PurgeExpiredCache {
 				 * Maybe there’s a dinosaur fossil or a hidden treasure.
 				 */
 				$dir_deleted = $this->purge_dir( $item->getPathname(), $file_age_limit, $refresh, $home_url, $home_path );
-				$deleted     = array_merge( $deleted, $dir_deleted );
+				// Append without copying every previously deleted sibling directory.
+				foreach ( $dir_deleted as $deleted_path ) {
+					$deleted[] = $deleted_path;
+				}
 
 			} elseif ( $item->isFile() && $item->getMTime() < $file_age_limit ) {
 				$file_path = $item->getPathname();
@@ -354,8 +358,9 @@ class PurgeExpiredCache {
 				 */
 				$dir_path = dirname( $file_path );
 
-				if ( ! in_array( $dir_path, $deleted, true ) ) {
+				if ( ! $directory_reported ) {
 					$deleted[] = $dir_path;
+					$directory_reported = true;
 				}
 			}
 		}

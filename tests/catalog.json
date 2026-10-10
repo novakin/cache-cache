@@ -1634,6 +1634,34 @@
       ],
       "default": true,
       "minimum_php": "8.0"
+    },
+    {
+      "name": "cache-expiry",
+      "path": "tests/cache-expiry.php",
+      "purpose": "Owned expiry traversal, deadlines and cache publication boundaries.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Modeled boundaries and owned temporary files; no WordPress bootstrap or provider requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "cache-network-configs",
+      "path": "tests/cache-network-configs.php",
+      "purpose": "Network configuration and CSS directory preservation above 100 sites.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Modeled boundaries and owned temporary files; no WordPress bootstrap or provider requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
     }
   ]
 }
