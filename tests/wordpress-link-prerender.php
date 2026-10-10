@@ -74,6 +74,12 @@ function wp_add_inline_script( $handle, $source, $position = 'after' ) {
 }
 function wp_json_encode( $value, $flags = 0, $depth = 512 ) { return json_encode( $value, $flags, $depth ); }
 function wp_localize_script() { throw new RuntimeException( 'Link configuration must preserve boolean JSON types instead of localizing them as text.' ); }
+function wp_get_inline_script_tag( $source, $attributes = [] ) {
+	$attributes = apply_filters( 'wp_inline_script_attributes', $attributes, $source );
+	$rendered = '';
+	foreach ( $attributes as $name => $value ) { $rendered .= ' ' . esc_attr( $name ) . '="' . esc_attr( $value ) . '"'; }
+	return '<script' . $rendered . '>' . $source . '</script>';
+}
 
 require ABSPATH . 'wp-includes/plugin.php';
 require ABSPATH . 'wp-includes/formatting.php';
@@ -134,6 +140,15 @@ if ( isset( $argv[2] ) ) {
 
 $defaults = noobrocket_free_settings( [] );
 link_prerender_check( 0 === $defaults['prerender_links'] && [] === $defaults['prerender_excluded_uri'], 'old or imported settings default to prerender off' );
+link_prerender_check( 'intent' === $defaults['prerender_links_mode'] && 'conservative' === $defaults['prerender_links_eagerness'], 'old settings preserve intent and conservative document defaults' );
+foreach ( [ 'prerender_links_mode' => [ 'intent', 'document' ], 'prerender_links_eagerness' => [ 'conservative', 'moderate', 'eager' ] ] as $name => $values ) {
+	foreach ( $values as $value ) {
+		link_prerender_check( $value === noobrocket_sanitize_prerender_options( [ $name => $value ] )[ $name ], 'stored enum retains supported ' . $name . ': ' . $value );
+	}
+	foreach ( [ 'unsupported', [], true, 1 ] as $invalid ) {
+		link_prerender_check( $values[0] === noobrocket_sanitize_prerender_options( [ $name => $invalid ] )[ $name ], 'malformed enum cannot enable document preparation' );
+	}
+}
 foreach ( [ true, 1, '1' ] as $enabled ) {
 	link_prerender_check( 1 === noobrocket_sanitize_prerender_options( [ 'prerender_links' => $enabled ] )['prerender_links'], 'explicit boolean enables prerender' );
 }
@@ -165,6 +180,11 @@ $allowed = new NoobRocket\Engine\Abilities\Options\AllowedOptions();
 link_prerender_check( in_array( 'prerender_links', $allowed->get(), true ) && in_array( 'prerender_excluded_uri', $allowed->get(), true ), 'MCP and history allowlist includes both prerender options' );
 $ability = new NoobRocket\Engine\Abilities\Options\SetOption( $allowed );
 $sanitize = new ReflectionMethod( $ability, 'sanitize_value' );
+foreach ( [ 'prerender_links_mode' => [ 'intent', 'document' ], 'prerender_links_eagerness' => [ 'conservative', 'moderate', 'eager' ] ] as $name => $values ) {
+	link_prerender_check( in_array( $name, $allowed->get(), true ), 'MCP/history permits ' . $name );
+	foreach ( $values as $value ) { link_prerender_check( $value === $sanitize->invoke( $ability, $name, $value ), 'MCP validates supported enum ' . $value ); }
+	link_prerender_check( $sanitize->invoke( $ability, $name, 'unsupported' ) instanceof WP_Error, 'MCP rejects unsupported enum ' . $name );
+}
 foreach ( [ true, 1, '1', 'true', false, 0, '0', 'false' ] as $value ) {
 	$expected_boolean = in_array( $value, [ true, 1, '1', 'true' ], true ) ? 1 : 0;
 	link_prerender_check( $expected_boolean === $sanitize->invoke( $ability, 'prerender_links', $value ), 'MCP boolean uses shared explicit representations' );
@@ -179,6 +199,7 @@ link_prerender_check( ! $ability->check_permissions(), 'MCP mutation retains nat
 ( new NoobRocket\Engine\Abilities\Options\GetOptions( new NoobRocket\Admin\Options_Data( [] ), $allowed ) )->register();
 $schema = $abilities['noobrocket/get-options']['output_schema']['properties'];
 link_prerender_check( [ 0, 1 ] === $schema['prerender_links']['enum'] && 'array' === $schema['prerender_excluded_uri']['type'] && 'string' === $schema['prerender_excluded_uri']['items']['type'], 'readable ability schema describes boolean and pattern list' );
+link_prerender_check( [ 'intent', 'document' ] === $schema['prerender_links_mode']['enum'] && [ 'conservative', 'moderate', 'eager' ] === $schema['prerender_links_eagerness']['enum'], 'readable ability schema describes mode/eagerness enums' );
 $history = new NoobRocket\Engine\Optimization\Assets\Snapshots( new NoobRocket\Engine\Optimization\Assets\Rules() );
 $restorable = $history->restorable( [ 'prerender_links' => 1, 'prerender_excluded_uri' => $patterns, 'cloudflare_api_key' => 'fixture-private-key' ] );
 link_prerender_check( 1 === $restorable['prerender_links'] && $expected === $restorable['prerender_excluded_uri'] && ! isset( $restorable['cloudflare_api_key'] ), 'history restores normalized prerender settings and omits credentials' );
@@ -222,6 +243,34 @@ link_prerender_check( [] === $scripts, 'both options off emit no scripts' );
 link_subscriber( [ 'preload_links' => 1, 'prerender_links' => 'on' ] )->add_preload_script();
 $config = link_script_configuration();
 link_prerender_check( true === $config['prefetch'] && false === $config['prerender'], 'legacy prefetch remains available and malformed opt-in cannot prerender' );
+
+$scripts = [];
+$document_subscriber = link_subscriber( [ 'prerender_links' => 1, 'prerender_links_mode' => 'document', 'prerender_links_eagerness' => 'moderate' ] );
+$document_subscriber->add_preload_script();
+$attributes_filter = static function ( $attributes ) { $attributes['nonce'] = 'fixture-document-nonce'; $attributes['data-fixture-hook'] = 'preserved'; return $attributes; };
+add_filter( 'wp_inline_script_attributes', $attributes_filter );
+ob_start();
+$document_subscriber->print_document_rules();
+$document_source = ob_get_clean();
+remove_filter( 'wp_inline_script_attributes', $attributes_filter );
+link_prerender_check( false !== strpos( $document_source, 'id="noobrocket-document-speculation-rules"' ) && false !== strpos( $document_source, 'type="speculationrules"' ), 'document mode emits source-visible native rules' );
+link_prerender_check( false !== strpos( $document_source, 'nonce="fixture-document-nonce"' ) && false !== strpos( $document_source, 'data-fixture-hook="preserved"' ), 'document output uses core inline attribute hooks' );
+preg_match( '#<script[^>]*>(.*)</script>#s', $document_source, $source_match );
+$document_rules = json_decode( $source_match[1], true, 512, JSON_THROW_ON_ERROR );
+link_prerender_check( 'document' === $document_rules['prerender'][0]['source'] && 'moderate' === $document_rules['prerender'][0]['eagerness'], 'document JSON owns configured mode/eagerness' );
+link_prerender_check( [ 'and' => [ [ 'selector_matches' => 'a' ], [ 'not' => [ 'selector_matches' => 'a' ] ] ] ] === $document_rules['prerender'][0]['where'], 'initial document rules cannot prepare links before validated browser initialization' );
+$config = link_script_configuration();
+link_prerender_check( 'document' === $config['mode'] && 'moderate' === $config['eagerness'], 'handler receives document settings with native JSON types' );
+$filtered = static function ( $config ) { $config['mode'] = []; $config['eagerness'] = 'immediate'; return $config; };
+add_filter( 'noobrocket_preload_links_config', $filtered );
+$scripts = [];
+$filtered_subscriber = link_subscriber( [ 'prerender_links' => 1, 'prerender_links_mode' => 'document' ] );
+$filtered_subscriber->add_preload_script();
+$config = link_script_configuration();
+link_prerender_check( 'intent' === $config['mode'] && 'conservative' === $config['eagerness'], 'invalid filtered enum configuration retains supported defaults' );
+ob_start(); $filtered_subscriber->print_document_rules(); $filtered_source = ob_get_clean();
+link_prerender_check( '' === $filtered_source, 'intent mode emits no additional document rule' );
+remove_filter( 'noobrocket_preload_links_config', $filtered );
 
 foreach ( [ 'DONOTCACHEPAGE', 'REST_REQUEST', 'DOING_AJAX' ] as $constant ) {
 	$output = [];

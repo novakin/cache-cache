@@ -53,6 +53,8 @@ class AllowedOptions {
 			'manual_preload',
 			'preload_links',
 			'prerender_links',
+			'prerender_links_mode',
+			'prerender_links_eagerness',
 			'prerender_excluded_uri',
 			'preload_fonts',
 			'preload_excluded_uri',

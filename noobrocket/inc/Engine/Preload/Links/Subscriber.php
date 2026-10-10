@@ -29,6 +29,9 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	private $is_enqueued = false;
 
+	/** Filtered configuration used by both the handler and initial document rule. */
+	private $configuration = [];
+
 	/** Read core exclusions before replacing its broader document rule. */
 	private $reading_core_rules = false;
 
@@ -51,6 +54,7 @@ class Subscriber implements Subscriber_Interface {
 	public static function get_subscribed_events() {
 		return [
 			'wp_enqueue_scripts' => 'add_preload_script',
+			'wp_footer' => [ 'print_document_rules', 19 ],
 			'wp_speculation_rules_configuration' => 'coordinate_core_speculation',
 		];
 	}
@@ -102,6 +106,7 @@ class Subscriber implements Subscriber_Interface {
 		}
 
 		$js_assets_path = noobrocket_get_constant( 'NOOBROCKET_PATH' ) . 'assets/js/';
+		$this->configuration = $this->get_preload_links_config();
 
 		if ( ! wp_script_is( 'noobrocket-browser-checker' ) ) {
 			$checker_filename = noobrocket_get_constant( 'SCRIPT_DEBUG' ) ? 'browser-checker.js' : 'browser-checker.min.js';
@@ -141,11 +146,26 @@ class Subscriber implements Subscriber_Interface {
 		);
 		wp_add_inline_script(
 			'noobrocket-preload-links',
-			'var NoobRocketPreloadLinksConfig = ' . wp_json_encode( $this->get_preload_links_config() ) . ';',
+			'var NoobRocketPreloadLinksConfig = ' . wp_json_encode( $this->configuration ) . ';',
 			'before'
 		);
 
 		$this->is_enqueued = true;
+	}
+
+	/** Emit source-visible document rules that remain inert until browser eligibility is validated. */
+	public function print_document_rules() {
+		if ( ! $this->is_enqueued || ! $this->can_prepare_links()
+			|| true !== ( $this->configuration['prerender'] ?? false )
+			|| 'document' !== ( $this->configuration['mode'] ?? 'intent' ) ) {
+			return;
+		}
+		$rules = [ 'prerender' => [ [
+			'source' => 'document',
+			'where' => [ 'and' => [ [ 'selector_matches' => 'a' ], [ 'not' => [ 'selector_matches' => 'a' ] ] ] ],
+			'eagerness' => $this->configuration['eagerness'],
+		] ] ];
+		echo wp_get_inline_script_tag( wp_json_encode( $rules, JSON_HEX_TAG ), [ 'id' => 'noobrocket-document-speculation-rules', 'type' => 'speculationrules' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core script helper escapes attributes; JSON has no executable markup.
 	}
 
 	/**
@@ -167,6 +187,8 @@ class Subscriber implements Subscriber_Interface {
 		$config = [
 			'prefetch'          => (bool) $this->options->get( 'preload_links', 0 ),
 			'prerender'         => $prerender,
+			'mode'             => $this->options->get( 'prerender_links_mode', 'intent' ),
+			'eagerness'        => $this->options->get( 'prerender_links_eagerness', 'conservative' ),
 			'prerenderExcludeUris' => $this->get_prerender_exclusions(),
 			'nativeExcludePaths' => $native_exclusions['paths'] ?? [],
 			'nativeExcludeSelectors' => $native_exclusions['selectors'] ?? [],
@@ -191,7 +213,10 @@ class Subscriber implements Subscriber_Interface {
 		 */
 		$filtered_config = wpm_apply_filters_typed( 'array', 'noobrocket_preload_links_config', $config );
 
-		return array_merge( $config, $filtered_config );
+		$config = array_merge( $config, $filtered_config );
+		$config['mode'] = in_array( $config['mode'], [ 'intent', 'document' ], true ) ? $config['mode'] : 'intent';
+		$config['eagerness'] = in_array( $config['eagerness'], [ 'conservative', 'moderate', 'eager' ], true ) ? $config['eagerness'] : 'conservative';
+		return $config;
 	}
 
 	/** Preserve core's path prefixes and third-party exclusion hooks without converting URLPattern to regex. */

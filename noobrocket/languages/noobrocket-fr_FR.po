@@ -12432,3 +12432,61 @@ msgstr ""
 "Prépare les polices Google en arrière-plan et les sert localement "
 "lorsqu’elles sont prêtes. Les pages conservent les polices d’origine jusqu’à"
 " la réussite de la préparation. %1$sEn savoir plus%2$s"
+
+#: inc/Engine/Admin/Settings/Page.php:1055
+msgid ""
+"Load resources and run JavaScript before a visitor navigates to a public "
+"page. Uses more bandwidth."
+msgstr ""
+"Charge les ressources et exécute le JavaScript avant la navigation vers une "
+"page publique. Consomme davantage de bande passante."
+
+#: inc/Engine/Admin/Settings/Page.php:1065
+msgid "Prerender trigger"
+msgstr "Déclenchement du prérendu"
+
+#: inc/Engine/Admin/Settings/Page.php:1066
+msgid ""
+"Link intent waits for hovering, focus or touch. Document rules let the "
+"browser choose among eligible public links. Unsupported browsers keep link "
+"preloading."
+msgstr ""
+"L’intention de navigation attend un survol, le focus ou un contact tactile. "
+"Les règles du document laissent le navigateur choisir parmi les liens "
+"publics admissibles. Les navigateurs non compatibles conservent le "
+"préchargement des liens."
+
+#: inc/Engine/Admin/Settings/Page.php:1067
+msgid "Link intent"
+msgstr "Intention de navigation"
+
+#: inc/Engine/Admin/Settings/Page.php:1067
+msgid "Browser document rules"
+msgstr "Règles du document"
+
+#: inc/Engine/Admin/Settings/Page.php:1077
+msgid "Document rule eagerness"
+msgstr "Anticipation des règles du document"
+
+#: inc/Engine/Admin/Settings/Page.php:1078
+msgid ""
+"Applies to browser document rules. Conservative waits for a click or touch; "
+"moderate may prepare links on hover; eager may prepare visible links and "
+"uses more bandwidth."
+msgstr ""
+"S’applique aux règles du document du navigateur. Le mode prudent attend un "
+"clic ou un contact tactile ; le mode modéré peut préparer les liens au "
+"survol ; le mode anticipé peut préparer les liens visibles et consomme "
+"davantage de bande passante."
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Conservative"
+msgstr "Prudent"
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Moderate"
+msgstr "Modéré"
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Eager"
+msgstr "Anticipé"

@@ -33,27 +33,37 @@ const defaults = () => ({
 const render = url => {
   const variant = url.searchParams.get('variant') || 'source';
   const scenario = url.searchParams.get('scenario') || 'dom';
+  const native = ['native', 'document-candidates'].includes(scenario);
   const config = { ...defaults(), ...JSON.parse(url.searchParams.get('config') || '{}') };
   const capabilities = JSON.parse(url.searchParams.get('capabilities') || '{}');
+  const run = url.searchParams.get('run') || variant;
+  const documentRules = config.mode === 'document' ? `<script id="noobrocket-document-speculation-rules" type="speculationrules" nonce="${nonce}" data-fixture-hook="preserved">${JSON.stringify({ prerender: [{ source: 'document', where: { and: [{ selector_matches: 'a' }, { not: { selector_matches: 'a' } }] }, eagerness: config.eagerness || 'conservative' }] })}</script>` : '';
   const configure = `window.NoobRocketPreloadLinksConfig = ${JSON.stringify(config)};
     ${capabilities.unsupported ? "HTMLScriptElement.supports = () => false;" : ''}
     ${capabilities.noUrlPattern ? "window.URLPattern = undefined;" : ''}
     ${capabilities.noPrefetch ? "NoobRocketBrowserCompatibilityChecker.prototype.supportsLinkPrefetch = () => false;" : ''}
     ${capabilities.saveData || capabilities.slow ? `Object.defineProperty(navigator, 'connection', { value: { saveData: ${!!capabilities.saveData}, effectiveType: '${capabilities.slow ? '2g' : '4g'}' }, configurable: true });` : ''}`;
-  const automation = scenario !== 'native' ? '' : `setTimeout(() => document.querySelector('#first').dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), 200);
+  const automation = scenario !== 'native' ? '' : `${config.mode === 'document' ? 'document.querySelector("#second").classList.remove("no-prerender");document.querySelector("#second").href="/wordpress/private/account";' : ''}
+    fetch('/qa/report?run=${run}&stage=rules&data='+encodeURIComponent(document.querySelector('#noobrocket-document-speculation-rules')?.textContent || 'intent'));
+    setTimeout(() => document.querySelector('#first').dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), 200);
     const ready = setInterval(async () => {
-      const state = await fetch('/qa/state?run=${variant}').then(response => response.json());
+      const state = await fetch('/qa/state?run=${run}').then(response => response.json());
       if (!state.loaded) return;
       clearInterval(ready);
       document.querySelector('#first').click();
     }, 150);`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Link intent fixture</title></head><body>
     <a id="first" href="/wordpress/article-one"><span>First article</span></a>
-    <a id="second" href="/wordpress/article-two">Second article</a><button id="other">Other control</button>
-    ${script(checker)}${script(configure)}${script(scripts[variant])}${script(automation)}</body></html>`;
+    <a id="second" ${native && config.mode === 'document' ? 'class="no-prerender"' : ''} href="/wordpress/article-two">Second article</a><button id="other">Other control</button>
+    ${native ? '<a href="/wordpress/private/account">Private route</a><a href="/wordpress/never-cache/account">Cache exclusion</a><a href="/outside/article">Outside site</a><a href="/wordpress/download.png">Image</a><a href="/wordpress/article-download" download>Download</a><a href="/wordpress/article-tab" target="_blank">New tab</a><div class="no-prerender"><a href="/wordpress/article-parent">Parent exclusion</a></div>' : ''}
+    ${documentRules}${script(checker)}${script(configure)}${script(scripts[variant])}${script(automation)}</body></html>`;
 };
 const server = createServer((request, response) => {
   const url = new URL(request.url, origin);
+  const active = nativeResults.get(activeNativeRun);
+  if (active && !url.pathname.startsWith('/qa/') && url.pathname !== '/wordpress/fixture' && request.headers['sec-fetch-dest'] === 'document') {
+    active.requests.push({ pathname: url.pathname, purpose: request.headers['sec-purpose'] || '' });
+  }
   if (url.pathname === '/qa/report') {
     const result = nativeResults.get(url.searchParams.get('run'));
     if (result) {
@@ -63,6 +73,8 @@ const server = createServer((request, response) => {
       } else if (url.searchParams.get('stage') === 'activated') {
         result.activationStart = Number(url.searchParams.get('start'));
         result.resolve();
+      } else if (url.searchParams.get('stage') === 'rules') {
+        result.rules = url.searchParams.get('data');
       }
     }
     response.end('ok');
@@ -77,14 +89,12 @@ const server = createServer((request, response) => {
   response.setHeader('Content-Type', 'text/html');
   response.setHeader('Cache-Control', 'max-age=60');
   if (url.pathname === '/wordpress/fixture') {
-    if (url.searchParams.get('scenario') === 'native') activeNativeRun = url.searchParams.get('variant');
+    if (['native', 'document-candidates'].includes(url.searchParams.get('scenario'))) activeNativeRun = url.searchParams.get('run') || url.searchParams.get('variant');
     if (url.searchParams.get('csp') === '1') response.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'nonce-${nonce}'; connect-src 'self'`);
     response.end(render(url));
     return;
   }
   if (url.pathname.startsWith('/wordpress/article-')) {
-    const native = nativeResults.get(activeNativeRun);
-    if (native) native.requests.push({ pathname: url.pathname, purpose: request.headers['sec-purpose'] || '' });
     const run = JSON.stringify(activeNativeRun);
     response.end(`<!doctype html><title>Prepared article</title><p>Article content</p><script>
       fetch('/qa/report?run=' + ${run} + '&stage=loaded&prerender=' + document.prerendering);
@@ -300,28 +310,139 @@ try {
       await dispatch(csp, '#first', 'mousedown');
       check((await prepared(csp)).rules[0]?.nonce === nonce, `${variant}: nonce survives an enforced CSP`);
       await csp.close();
+
+      for (const eagerness of ['conservative', 'moderate', 'eager']) {
+        const documentPage = await newPage({ mode: 'document', eagerness }, {}, { csp: '1' });
+        let documentState = await prepared(documentPage);
+        const rule = documentState.rules[0]?.rules.prerender[0];
+        check(rule?.source === 'document' && rule.eagerness === eagerness && documentState.prefetch.length === 0, `${variant}: native document mode exposes ${eagerness} without duplicate prefetch`);
+        check(documentState.rules[0].nonce === nonce && await documentPage.locator('#noobrocket-document-speculation-rules').getAttribute('data-fixture-hook') === 'preserved', `${variant}: document-rule replacement preserves nonce and inline tag hooks`);
+        const allowed = await documentPage.evaluate(() => {
+          const patterns = JSON.parse(document.querySelector('#noobrocket-document-speculation-rules').textContent).prerender[0].where.and[0].href_matches;
+          return patterns.every(pattern => new URLPattern(pattern).test(location.origin + pattern.pathname));
+        });
+        check(allowed, `${variant}: document destinations bind to exact scheme/host/port/path/query/hash components`);
+        await dispatch(documentPage, '#first', 'mousedown');
+        check((await prepared(documentPage)).rules.length === 1 && (await prepared(documentPage)).prefetch.length === 0, `${variant}: document mode has one owner after intent`);
+        await documentPage.evaluate(() => {
+          window.anchorScans = 0;
+          const original = document.querySelectorAll.bind(document);
+          document.querySelectorAll = selector => { if (selector === 'a[href]') window.anchorScans++; return original(selector); };
+          document.querySelector('#other').setAttribute('data-state', 'updated');
+          document.querySelector('#other').append('Unrelated text');
+        });
+        await documentPage.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        check(await documentPage.evaluate(() => window.anchorScans === 0), `${variant}: unrelated mutations do not rescan anchors`);
+        await documentPage.evaluate(() => {
+          document.querySelector('#first').href = '/wordpress/private/account';
+          document.body.insertAdjacentHTML('beforeend', '<a id="dynamic-document" href="/wordpress/article-new">Dynamic article</a><a id="literal-document" href="/wordpress/article(test)+:*{value}">Literal URL syntax</a>');
+        });
+        await documentPage.waitForFunction(() => {
+          const patterns = JSON.parse(document.querySelector('#noobrocket-document-speculation-rules').textContent).prerender[0].where.and[0].href_matches;
+          return patterns.some(pattern => new URLPattern(pattern).test(location.origin + '/wordpress/article-new'));
+        });
+        const literalProof = await documentPage.evaluate(() => {
+          const patterns = JSON.parse(document.querySelector('#noobrocket-document-speculation-rules').textContent).prerender[0].where.and[0].href_matches.map(pattern => new URLPattern(pattern));
+          return {
+            private: patterns.some(pattern => pattern.test(location.origin + '/wordpress/private/account')),
+            literal: patterns.some(pattern => pattern.test(document.querySelector('#literal-document').href)),
+            other: patterns.some(pattern => pattern.test(location.origin + '/wordpress/article-other')),
+            query: patterns.some(pattern => pattern.test(location.origin + '/wordpress/article-new?action=logout')),
+            outside: patterns.some(pattern => pattern.test('https://example.invalid/wordpress/article-new'))
+          };
+        });
+        check(!literalProof.private && literalProof.literal && !literalProof.other && !literalProof.query && !literalProof.outside, `${variant}: dynamic candidates preserve exclusions and literal URLPattern syntax`);
+        await documentPage.close();
+      }
+      for (const capabilities of [{ saveData: true }, { slow: true }]) {
+        const inert = await newPage({ mode: 'document', eagerness: 'eager' }, capabilities);
+        const state = await prepared(inert);
+        check(!state.rules[0].rules.prerender[0].where.and[0].href_matches && state.prefetch.length === 0, `${variant}: constrained connection leaves initial source document JSON inert`);
+        await inert.close();
+      }
+      const documentFallback = await newPage({ mode: 'document', eagerness: 'eager' }, { unsupported: true });
+      await dispatch(documentFallback, '#first', 'mousedown');
+      check((await prepared(documentFallback)).prefetch.length === 1, `${variant}: unsupported document API retains legacy intent preloading`);
+      await documentFallback.close();
       check(errors.length === 0, `${variant}: no uncaught browser errors (${errors.join('; ')})`);
     } finally { await context.close(); }
+  }
+
+  // Native document eagerness requires trusted browser interest. Synthetic DOM
+  // events do not establish that interest. DevTools input does, but Chrome then
+  // deliberately blocks prerender activation; assert that exact boundary.
+  for (const variant of Object.keys(scripts)) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const client = await context.newCDPSession(page);
+    const ruleSets = [];
+    const statuses = [];
+    let candidates = [];
+    const waitForNative = async (predicate, message) => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (predicate()) return;
+        await new Promise(resolveWait => setTimeout(resolveWait, 30));
+      }
+      throw new Error(`${variant}: ${message}; candidates=${JSON.stringify(candidates)} statuses=${JSON.stringify(statuses)}`);
+    };
+    client.on('Preload.ruleSetUpdated', event => ruleSets.push(event.ruleSet));
+    client.on('Preload.preloadingAttemptSourcesUpdated', event => {
+      candidates = event.preloadingAttemptSources.filter(item => item.key.action === 'Prerender').map(item => item.key.url).sort();
+    });
+    client.on('Preload.prerenderStatusUpdated', event => statuses.push(event));
+    await client.send('Preload.enable');
+    const run = `${variant}-document-candidates`;
+    const result = { requests: [] };
+    nativeResults.set(run, result);
+    const firstUrl = origin + '/wordpress/article-one';
+    try {
+      await page.goto(urlFor(variant, { mode: 'document', eagerness: 'eager' }, {}, { scenario: 'document-candidates', csp: '1', run }));
+      await waitForNative(() => candidates.join() === firstUrl, 'native document candidates exclude private/resource/new-tab/download/ancestor destinations');
+      check(ruleSets.length >= 2 && ruleSets.every(ruleSet => !ruleSet.errorMessage && !ruleSet.errorType), `${variant}: native browser parses initial and replacement document rules under CSP`);
+      check(candidates.join() === firstUrl, `${variant}: native candidates enforce URL and CSS exclusions`);
+      await page.evaluate(() => {
+        document.querySelector('#second').classList.remove('no-prerender');
+        document.querySelector('#second').href = '/wordpress/private/account';
+        document.body.insertAdjacentHTML('beforeend', '<a id="native-dynamic" href="/wordpress/article(test)+:*{value}">Dynamic literal</a>');
+      });
+      const dynamicUrl = await page.locator('#native-dynamic').evaluate(anchor => anchor.href);
+      await waitForNative(() => candidates.join() === [firstUrl, dynamicUrl].sort().join(), 'native document rules admit a literal dynamic URL without admitting private links');
+      check(candidates.join() === [firstUrl, dynamicUrl].sort().join(), `${variant}: native URLPattern predicates preserve literal syntax for dynamic links`);
+      const beforeTargetChange = (await prepared(page)).rules[0].rules;
+      await page.locator('#native-dynamic').evaluate(anchor => anchor.target = '_blank');
+      await waitForNative(() => candidates.join() === firstUrl, 'native CSS predicates react to target changes without a runtime rescan');
+      check(JSON.stringify((await prepared(page)).rules[0].rules) === JSON.stringify(beforeTargetChange), `${variant}: native CSS removes a new-tab candidate without rewriting its URL predicates`);
+      await page.locator('#first').hover();
+      await waitForNative(() => statuses.some(status => status.key.url === firstUrl && status.status === 'Failure' && status.prerenderStatus === 'PrerenderingDisabledByDevTools'), 'trusted interest reaches the documented DevTools activation boundary');
+      await waitForNative(() => result.requests.some(request => request.pathname === '/wordpress/article-one' && request.purpose.includes('prerender')), 'trusted interest issues a native prerender document request');
+      check(statuses.some(status => status.key.url === firstUrl && status.prerenderStatus === 'PrerenderingDisabledByDevTools'), `${variant}: trusted native interest reaches prerender scheduling, with explicit DevTools activation limit`);
+      check(result.requests.length === 1 && result.requests[0].pathname === '/wordpress/article-one' && result.requests[0].purpose.includes('prerender'), `${variant}: native document interest requests only the eligible destination`);
+    } finally {
+      activeNativeRun = undefined;
+      await context.close();
+    }
   }
   await browser.close();
   browser = undefined;
 
   // A DevTools-attached page disables real prerender activation. Let this isolated Chrome navigate itself instead.
   for (const variant of Object.keys(scripts)) {
+    const mode = 'intent';
+    const run = `${variant}-${mode}`;
     const profile = await mkdtemp(join(tmpdir(), 'noobrocket-link-prerender-'));
     let chrome;
     try {
       const result = { requests: [] };
       const activated = new Promise(resolveActivation => { result.resolve = resolveActivation; });
-      nativeResults.set(variant, result);
+      nativeResults.set(run, result);
       chrome = spawn(executablePath, [
         '--headless', '--no-first-run', '--no-default-browser-check', '--user-data-dir=' + profile,
-        urlFor(variant, {}, {}, { scenario: 'native', csp: '1' })
+        urlFor(variant, { mode, eagerness: 'eager' }, {}, { scenario: 'native', csp: '1', run })
       ], { windowsHide: true, stdio: 'ignore' });
       let timer;
       await Promise.race([
         activated,
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${variant}: native prerender activation timed out`)), 8000); }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${run}: native prerender activation timed out ${JSON.stringify({ loaded: result.loaded, wasPrerendered: result.wasPrerendered, requests: result.requests, rules: result.rules })}`)), 8000); }),
         new Promise((_, reject) => chrome.once('error', reject))
       ]).finally(() => clearTimeout(timer));
       check(result.wasPrerendered, `${variant}: real destination loads with document.prerendering=true under CSP`);
@@ -340,7 +461,7 @@ try {
       await rm(path, { recursive: true, force: true, maxRetries: 8, retryDelay: 200 });
     }
   }
-  console.log(`PASS: ${checks} source/minified link preparation browser assertions, including actual localhost prerender activation.`);
+  console.log(`PASS: ${checks} source/minified link preparation browser assertions. Detached intent activation verified; document rules verify native candidates, exclusions and trusted-interest requests. Document activation is blocked by Chromium's explicit PrerenderingDisabledByDevTools state.`);
 } finally {
   if (browser) await browser.close();
   await new Promise(resolveClose => server.close(resolveClose));
