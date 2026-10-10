@@ -148,7 +148,7 @@ def generated(root, node):
         raise CheckFailure('Generated checks need: python -m pip install -r tools/requirements.txt') from error
     if not (root / 'tools/node_modules/terser').is_dir():
         raise CheckFailure('Generated checks need: npm ci --prefix tools')
-    outputs = [root / 'noobrocket/assets/js/noobrocket-settings.min.js']
+    outputs = [root / 'noobrocket/assets/js' / name for name in ('noobrocket-settings.min.js', 'lazyload-css.min.js')]
     outputs.extend(sorted((root / 'noobrocket/languages').glob('*')))
     outputs = [path for path in outputs if path.suffix in {'.js', '.po', '.mo', '.pot'}]
     if not any(path.suffix == '.pot' for path in outputs) or not any(path.suffix == '.po' for path in outputs):
@@ -161,12 +161,13 @@ def generated(root, node):
         copy = Path(folder)
         shutil.copytree(root / 'noobrocket', copy / 'noobrocket', ignore=shutil.ignore_patterns('node_modules'))
         (copy / 'tools').mkdir()
-        for name in ('generate-settings-assets.mjs', 'update-translations.py'):
+        for name in ('generate-settings-assets.mjs', 'generate-lazyload-css.mjs', 'update-translations.py'):
             shutil.copy2(root / 'tools' / name, copy / 'tools' / name)
         # Node resolves deps relative to the copied script; a read-only dependency location stays owned by the source checkout.
         env = dict(os.environ)
         env['NOOBROCKET_TOOLS_DEPENDENCIES'] = str(root / 'tools/package.json')
         run([node, str(copy / 'tools/generate-settings-assets.mjs')], root, 'generated-settings', env)
+        run([node, str(copy / 'tools/generate-lazyload-css.mjs')], root, 'generated-lazyload-css', env)
         run([sys.executable, str(copy / 'tools/update-translations.py')], root, 'generated-translations')
         differences = [str(path) for path, digest in before.items() if not (copy / path).is_file() or hashlib.sha256((copy / path).read_bytes()).digest() != digest]
         if differences:

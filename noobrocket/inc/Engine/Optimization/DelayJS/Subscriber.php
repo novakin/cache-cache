@@ -4,9 +4,11 @@ declare(strict_types=1);
 namespace NoobRocket\Engine\Optimization\DelayJS;
 
 use NoobRocket\Admin\Options_Data;
+use NoobRocket\Engine\Optimization\RegexTrait;
 use NoobRocket\Event_Management\Subscriber_Interface;
 
 class Subscriber implements Subscriber_Interface {
+	use RegexTrait;
 
 	/**
 	 * HTML instance.
@@ -64,6 +66,9 @@ class Subscriber implements Subscriber_Interface {
 	 * @return string
 	 */
 	public function delay_js( $buffer_html ) {
+		if ( ! $this->find_html_tag( $buffer_html, 'head' ) ) {
+			return $buffer_html;
+		}
 		$version = wpm_apply_filters_typesafe( 'noobrocket_delay_js_version_js_script', '' );
 		if ( ! $this->get_runtime( $version ) ) {
 			return $buffer_html;
@@ -87,7 +92,10 @@ class Subscriber implements Subscriber_Interface {
 			return $html;
 		}
 
-		$pattern = '/<head[^>]*>/i';
+		$head = $this->find_html_tag( $html, 'head' );
+		if ( ! $head ) {
+			return $html;
+		}
 
 		/**
 		 * Select the version of the JS script used for delay js.
@@ -101,21 +109,8 @@ class Subscriber implements Subscriber_Interface {
 			return $html;
 		}
 
-		$replaced_html = $html;
-
-		if ( false !== $lazyload_script ) {
-			$replaced_html = preg_replace( $pattern, "$0<script>{$lazyload_script}</script>", $replaced_html, 1 );
-
-			if ( empty( $replaced_html ) ) {
-				return $html;
-			}
-		}
-
-		$replaced_html = preg_replace( $pattern, '$0<script>' . $this->html->get_ie_fallback() . '</script>', $replaced_html, 1 );
-
-		if ( empty( $replaced_html ) ) {
-			return $html;
-		}
+		$scripts       = '<script>' . $this->html->get_ie_fallback() . '</script><script>' . $lazyload_script . '</script>';
+		$replaced_html = substr_replace( $html, $scripts, $head[1] + strlen( $head[0] ), 0 );
 
 		return $this->html->move_meta_charset_to_head( $replaced_html );
 	}

@@ -4,6 +4,41 @@ declare(strict_types=1);
 namespace NoobRocket\Engine\Optimization;
 
 trait RegexTrait {
+	/**
+	 * Locate an insertion boundary without matching tag-like comments, raw text or attributes.
+	 *
+	 * @param string $html HTML content.
+	 * @param string $name Element name.
+	 * @param bool   $closing Whether to find the closing tag.
+	 * @return array The original tag bytes and their offset, or an empty array.
+	 */
+	protected function find_html_tag( string $html, string $name, bool $closing = false ): array {
+		// An unfinished tag/quoted attribute consumes the remaining document in
+		// the HTML parser; tag-like bytes inside it cannot be insertion points.
+		$attributes = '(?:"[^"]*(?:"|\z)|\'[^\']*(?:\'|\z)|[^\'">])*';
+		$name       = preg_quote( $name, '#' );
+		$target     = $closing ? '</' . $name . '\s*>' : '<' . $name . '(?=[\s/>])' . $attributes . '>';
+		$pattern    = '#<!--.*?(?:-->|\z)(*SKIP)(*FAIL)'
+			. '|<plaintext(?=[\s/>])' . $attributes . '>.*\z(*SKIP)(*FAIL)'
+			. '|<(script|style|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=[\s/>])' . $attributes . '>.*?(?:</\1\s*>|\z)(*SKIP)(*FAIL)'
+			. '|' . $target
+			. '|</?template(?=[\s/>])' . $attributes . '>'
+			. '|</?[a-z][a-z0-9:-]*\b' . $attributes . '(?:>|\z)(*SKIP)(*FAIL)#is';
+
+		$template_depth = 0;
+		$offset = 0;
+		while ( 1 === preg_match( $pattern, $html, $match, PREG_OFFSET_CAPTURE, $offset ) ) {
+			$offset = $match[0][1] + strlen( $match[0][0] );
+			if ( 0 === stripos( $match[0][0], '<template' ) ) {
+				++$template_depth;
+			} elseif ( 0 === stripos( $match[0][0], '</template' ) ) {
+				$template_depth = max( 0, $template_depth - 1 );
+			} elseif ( 0 === $template_depth ) {
+				return $match[0];
+			}
+		}
+		return [];
+	}
 
 	/**
 	 * Array of replaced xmp tags
