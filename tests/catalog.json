@@ -1854,6 +1854,58 @@
       "mutation": "Owned temporary boundary files only; reads maintained dependency inputs without changing them.",
       "args": [],
       "default": true
+    },
+    {
+      "name": "wordpress-beacon-nonce-http",
+      "path": "tests/wordpress-beacon-nonce-http.php",
+      "purpose": "Real guest/authenticated core nonce expiry, registered uncached AJAX refresh and collector SQL storage/no-op outcomes.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "loopback-http-8765"
+      ],
+      "mutation": "One owned URL's collector rows and a temporary subscriber/session; cleanup restores settings and removes only owned data. Serial site access.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "beacon-nonce",
+      "path": "tests/beacon-nonce.php",
+      "purpose": "Actual shared AJAX registration and fresh visitor nonce response preserve collector verification and payload contracts.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Modeled WordPress responses and collector boundaries; no site bootstrap, network or storage.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "beacon-nonce-browser",
+      "path": "tests/beacon-nonce-browser.mjs",
+      "purpose": "Actual readable/minified beacon requests, shared expiry retry, response validation and timeout/reentrancy outcomes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Temporary Chromium contexts with every network request intercepted; no WordPress, providers or source writes.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
     }
   ]
 }
