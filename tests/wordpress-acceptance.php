@@ -1,7 +1,7 @@
 <?php
 /**
  * Real WordPress acceptance checks. Use only with an isolated, disposable site.
- * php tests/wordpress-acceptance.php /absolute/path/to/wordpress activate|boot|hooks|settings|import|render|cdn|minify-purge|release-update|health|abilities|branding|veto|deactivate|uninstall|collision|restore
+ * php tests/wordpress-acceptance.php /absolute/path/to/wordpress activate|boot|hooks|settings|import|import-validation|render|cdn|minify-purge|release-update|health|abilities|branding|veto|deactivate|uninstall|collision|restore
  */
 $wordpress = isset( $argv[1] ) ? realpath( $argv[1] ) : false;
 $phase = $argv[2] ?? '';
@@ -35,6 +35,17 @@ function acceptance_original_preload_status() {
 		'acceptance_original_rocket_preload',
 		'rocket-preload'
 	) );
+}
+function acceptance_run_import_worker( $wordpress, $phase ) {
+	$php = getenv( 'NOOBROCKET_TEST_PHP' ) ?: PHP_BINARY;
+	$worker = proc_open( [ $php, __FILE__, $wordpress, $phase ], [ 0 => [ 'pipe', 'r' ], 1 => [ 'pipe', 'w' ], 2 => [ 'redirect', 1 ] ], $pipes );
+	if ( ! is_resource( $worker ) ) {
+		throw new RuntimeException( 'Cannot start native import worker.' );
+	}
+	fclose( $pipes[0] );
+	echo stream_get_contents( $pipes[1] );
+	fclose( $pipes[1] );
+	acceptance_check( 0 === proc_close( $worker ), 'native import worker completes: ' . $phase );
 }
 $plugin = 'noobrocket/noobrocket.php';
 $sentinel_settings = [ 'acceptance_sentinel' => 'original-wp-rocket' ];
@@ -210,6 +221,133 @@ switch ( $phase ) {
 			if ( is_file( $tmp_file ) ) { unlink( $tmp_file ); }
 			delete_transient( 'settings_errors' );
 			delete_transient( $review_key );
+		}
+		break;
+	case 'import-validation':
+		do_action( 'admin_init' );
+		$original = get_option( 'noobrocket_settings' );
+		$review_key = 'noobrocket_import_review_' . get_current_user_id();
+		$seeded = array_merge( $original, [
+			'dns_prefetch'     => [ '//saved.example.test' ],
+			'exclude_css'      => [ '/native-saved.css' ],
+			'cache_reject_uri' => [ '/native-saved/' ],
+		] );
+		try {
+			update_option( 'noobrocket_settings', $seeded );
+			$saved = get_option( 'noobrocket_settings' );
+			foreach ( [ 'dns_prefetch', 'exclude_css', 'cache_reject_uri' ] as $field ) {
+				acceptance_check( $seeded[ $field ] === $saved[ $field ], 'native saved list sentinel seeded: ' . $field );
+			}
+			delete_transient( 'settings_errors' );
+			delete_transient( $review_key );
+			// New boots load the persisted sentinels into the injected Options_Data snapshot.
+			acceptance_run_import_worker( $wordpress, 'import-validation-stage' );
+			acceptance_run_import_worker( $wordpress, 'import-validation-consume' );
+		} finally {
+			// Restore only this owned row; a normal save rotates CSS keys and the parent's cache predates the workers.
+			global $wpdb;
+			if ( false === $wpdb->update( $wpdb->options, [ 'option_value' => maybe_serialize( $original ) ], [ 'option_name' => 'noobrocket_settings' ] ) ) {
+				throw new RuntimeException( 'Native import fixture could not restore its owned settings value.' );
+			}
+			foreach ( [ 'alloptions', 'notoptions', 'noobrocket_settings' ] as $cache_key ) { wp_cache_delete( $cache_key, 'options' ); }
+			flush_noobrocket_htaccess( ! noobrocket_valid_key() );
+			noobrocket_generate_config_file();
+			delete_transient( 'settings_errors' );
+			delete_transient( $review_key );
+			delete_transient( 'noobrocket_acceptance_import_redirect' );
+		}
+		acceptance_check( $original === get_option( 'noobrocket_settings' ), 'native import proof restores original settings' );
+		break;
+	case 'import-validation-stage':
+		do_action( 'admin_init' );
+		$original = get_option( 'noobrocket_settings' );
+		$review_key = 'noobrocket_import_review_' . get_current_user_id();
+		acceptance_check( false !== has_action( 'admin_post_noobrocket_import_settings', 'noobrocket_handle_settings_import' ), 'native import handler remains registered' );
+		list( $filename, $json ) = noobrocket_export_options();
+		$input = json_decode( $json, true );
+		foreach ( [ 'dns_prefetch', 'exclude_css', 'cache_reject_uri' ] as $field ) {
+			$input[ $field ] = [ [ 'nested' ] ];
+		}
+		$input['heartbeat_admin_behavior'] = 'disable' === $original['heartbeat_admin_behavior'] ? 'reduce_periodicity' : 'disable';
+		foreach ( [ 'version', 'engine_version', 'secret_cache_key', 'minify_css_key', 'minify_js_key' ] as $key ) {
+			$input[ $key ] = 'foreign-import-value';
+		}
+		$tmp_file = wp_tempnam( $filename );
+		file_put_contents( $tmp_file, wp_json_encode( $input ) );
+		$_FILES['import'] = [ 'name' => $filename, 'tmp_name' => $tmp_file, 'size' => filesize( $tmp_file ), 'type' => 'application/json', 'error' => UPLOAD_ERR_OK ];
+		$_POST['action'] = 'noobrocket_import_settings';
+		$_REQUEST['noobrocket_import_settings_nonce'] = wp_create_nonce( 'noobrocket_import_settings' );
+		$_SERVER['HTTP_REFERER'] = admin_url( 'options-general.php?page=noobrocket' );
+		$redirect_url = null;
+		$stop_redirect = function ( $location ) use ( &$redirect_url ) {
+			$redirect_url = $location;
+			throw new LogicException( 'acceptance-import-validation-redirect' );
+		};
+		add_filter( 'wp_redirect', $stop_redirect );
+		set_error_handler( function ( $severity, $message, $file, $line ) {
+			throw new ErrorException( $message, 0, $severity, $file, $line );
+		}, E_WARNING | E_NOTICE );
+		try {
+			try {
+				do_action( 'admin_post_noobrocket_import_settings' );
+			} catch ( LogicException $redirect ) {
+				if ( 'acceptance-import-validation-redirect' !== $redirect->getMessage() ) { throw $redirect; }
+			}
+			acceptance_check( is_string( $redirect_url ) && false !== strpos( $redirect_url, 'settings-updated=true' ) && '#tools' === substr( $redirect_url, -6 ), 'native malformed import redirects to review with notice consumption enabled' );
+			$review = get_transient( $review_key );
+			acceptance_check( is_array( $review ) && $original === get_option( 'noobrocket_settings' ) && $original === $review['current'], 'native malformed import stages review without changing saved settings' );
+			foreach ( [ 'dns_prefetch', 'exclude_css', 'cache_reject_uri', 'version', 'engine_version', 'secret_cache_key', 'minify_css_key', 'minify_js_key' ] as $key ) {
+				acceptance_check( $original[ $key ] === $review['settings'][ $key ], 'native malformed import retains saved field or protected identity: ' . $key );
+			}
+			acceptance_check( $input['heartbeat_admin_behavior'] === $review['settings']['heartbeat_admin_behavior'], 'native malformed import retains valid sibling change' );
+			$errors = get_transient( 'settings_errors' );
+			acceptance_check( is_array( $errors ) && 3 === count( $errors ), 'native field errors persist for the next request' );
+			acceptance_check( set_transient( 'noobrocket_acceptance_import_redirect', $redirect_url, MINUTE_IN_SECONDS ), 'owned native redirect receipt persists' );
+		} finally {
+			restore_error_handler();
+			remove_filter( 'wp_redirect', $stop_redirect );
+			if ( is_file( $tmp_file ) ) { unlink( $tmp_file ); }
+		}
+		break;
+	case 'import-validation-consume':
+		do_action( 'admin_init' );
+		$original = get_option( 'noobrocket_settings' );
+		$review_key = 'noobrocket_import_review_' . get_current_user_id();
+		$review = get_transient( $review_key );
+		$redirect_url = get_transient( 'noobrocket_acceptance_import_redirect' );
+		acceptance_check( is_string( $redirect_url ) && is_array( $review ), 'next native request reads staged import and its redirect' );
+		parse_str( wp_parse_url( $redirect_url, PHP_URL_QUERY ), $_GET );
+		ob_start();
+		include ABSPATH . 'wp-admin/options-head.php';
+		$html = ob_get_clean();
+		$errors = get_settings_errors();
+		acceptance_check( 3 === count( $errors ) && false === get_transient( 'settings_errors' ), 'native notice reader consumes persisted field errors once' );
+		$codes = array_column( $errors, 'code' );
+		sort( $codes );
+		acceptance_check( [ 'invalid_list_cache_reject_uri', 'invalid_list_dns_prefetch', 'invalid_list_exclude_css' ] === $codes && [ 'error' ] === array_values( array_unique( array_column( $errors, 'type' ) ) ), 'next native request receives precise field errors without a saved notice' );
+		foreach ( $codes as $code ) {
+			acceptance_check( false !== strpos( $html, "id='setting-error-" . $code . "'" ), 'native notice renderer exposes retained validation feedback: ' . $code );
+		}
+		acceptance_check( $original === get_option( 'noobrocket_settings' ), 'native notice consumption does not save the staged proposal' );
+		$GLOBALS['wp_settings_errors'] = [];
+		unset( $_GET['settings-updated'] );
+		$_FILES = [];
+		$_POST = [ 'action' => 'noobrocket_import_settings', 'noobrocket_import_review' => $review['token'] ];
+		$_REQUEST['noobrocket_import_settings_nonce'] = wp_create_nonce( 'noobrocket_import_settings' );
+		$_SERVER['HTTP_REFERER'] = admin_url( 'options-general.php?page=noobrocket' );
+		$stop_redirect = function () { throw new LogicException( 'acceptance-import-validation-confirm' ); };
+		add_filter( 'wp_redirect', $stop_redirect );
+		try {
+			try {
+				do_action( 'admin_post_noobrocket_import_settings' );
+			} catch ( LogicException $redirect ) {
+				if ( 'acceptance-import-validation-confirm' !== $redirect->getMessage() ) { throw $redirect; }
+			}
+			acceptance_check( $review['settings'] === get_option( 'noobrocket_settings' ) && false === get_transient( $review_key ), 'native confirmation saves exactly the reviewed proposal' );
+			$errors = get_settings_errors();
+			acceptance_check( 'updated' === end( $errors )['type'], 'native confirmation reports successful persistence' );
+		} finally {
+			remove_filter( 'wp_redirect', $stop_redirect );
 		}
 		break;
 	case 'cdn':

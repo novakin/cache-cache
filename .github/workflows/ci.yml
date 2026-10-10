@@ -157,7 +157,7 @@ jobs:
             # Full bundled-source syntax runs in the PHP 8.3 fast job. This
             # pair proves the native paths below, including loaded dependencies.
             args=()
-            for phase in activate boot hooks settings import render cdn minify-purge release-update health abilities branding; do
+            for phase in activate boot hooks settings import import-validation render cdn minify-purge release-update health abilities branding; do
               args+=(--fixture "acceptance:$phase")
             done
             python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress" "${args[@]}" --fixture wordpress-preload-discovery --fixture wordpress-revision-invalidation --fixture wordpress-query-cache-invalidation --fixture wordpress-bootstrap-construction --fixture wordpress-database-transients

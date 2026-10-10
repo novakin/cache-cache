@@ -150,6 +150,27 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "acceptance:import-validation",
+      "path": "tests/wordpress-acceptance.php",
+      "purpose": "Native malformed import retains saved lists and protected identities; a fresh WordPress worker consumes persistent field notices before confirming the validated proposal.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Native settings/cache/config/history/queue effects plus owned upload and review/error transients in a marked copied-plugin site; serial fresh PHP workers; exact original settings value restored.",
+      "args": [
+        "{wordpress}",
+        "import-validation"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "acceptance:render",
       "path": "tests/wordpress-acceptance.php",
       "purpose": "Native WordPress render acceptance assertions.",

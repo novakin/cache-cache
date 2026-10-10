@@ -96,6 +96,25 @@ class Settings {
 		'heartbeat_editor_behavior'   => [ '', 'reduce_periodicity', 'disable' ],
 	];
 
+	/** Text lists formatted here or by registered settings subscribers. */
+	private const TEXT_LIST_OPTIONS = [
+		'dns_prefetch',
+		'exclude_defer_js',
+		'cache_purge_pages',
+		'cache_reject_uri',
+		'cache_reject_cookies',
+		'cache_query_strings',
+		'cache_reject_ua',
+		'exclude_css',
+		'exclude_js',
+		'exclude_inline_js',
+		'cdn_reject_pages',
+		'cdn_reject_files',
+		'exclude_lazyload',
+		'delay_js_exclusions',
+		'preload_excluded_uri',
+	];
+
 
 	/**
 	 * Options_Data instance.
@@ -183,6 +202,7 @@ class Settings {
 		if ( in_array( $value, $allowed, true ) ) {
 			return $value;
 		}
+		/* translators: %s: comma-separated list of available setting values. */
 		return new WP_Error( 'invalid_setting_choice', sprintf( __( 'Choose an available value: %s.', 'noobrocket' ), implode( ', ', $allowed ) ) );
 	}
 
@@ -200,6 +220,27 @@ class Settings {
 			}
 		}
 		return new WP_Error( 'invalid_cache_lifespan', __( 'Cache lifespan must be a nonnegative whole number. Use 0 for unlimited.', 'noobrocket' ) );
+	}
+
+	/**
+	 * Text lists accept newline text or string entries without coercing other values.
+	 *
+	 * @param mixed $value Submitted text/list.
+	 * @return bool
+	 */
+	public static function is_text_list( $value ): bool {
+		if ( is_string( $value ) ) {
+			return true;
+		}
+		if ( ! is_array( $value ) ) {
+			return false;
+		}
+		foreach ( $value as $entry ) {
+			if ( ! is_string( $entry ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -338,7 +379,20 @@ class Settings {
 	public function sanitize_callback( $input ) {
 		global $wp_settings_errors;
 
+		$rejected_lists = [];
 		foreach ( $input as $name => $value ) {
+			if ( in_array( $name, self::TEXT_LIST_OPTIONS, true ) && ! self::is_text_list( $value ) ) {
+				$rejected_lists[ $name ] = $this->options->get( $name, [] );
+				// Keep malformed input away from all formatters; restore the saved value afterward.
+				$input[ $name ] = [];
+				add_settings_error(
+					'general',
+					'invalid_list_' . $name,
+					esc_html( $name ) . ': ' . __( 'Provide text or a list of text entries for this setting.', 'noobrocket' ),
+					'error'
+				);
+				continue;
+			}
 			if ( ! self::is_boolean_option( $name ) ) {
 				continue;
 			}
@@ -616,6 +670,9 @@ class Settings {
 		 * @param Settings $settings Current class instance.
 		 */
 		$input = apply_filters( 'noobrocket_input_sanitize', $input, $this );
+		foreach ( $rejected_lists as $name => $value ) {
+			$input[ $name ] = $value;
+		}
 
 		// NoobRocket has no license credentials or NoobRocket cloud services.
 		unset( $input['consumer_key'], $input['consumer_email'], $input['secret_key'], $input['license'] );
