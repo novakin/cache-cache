@@ -86,11 +86,15 @@ The Linux script reads `PHP_FPM` and optional `APACHE_MODULE_DIR` from the envir
 ## Focused lazy-load proof
 
 ```sh
+python tools/check.py fast --fixture inline-background-lazyload --php /path/to/php
+python tools/check.py browser --fixture inline-background-lazyload-browser --php /path/to/php --chromium /path/to/chromium
 python tools/check.py fast --fixture lazyload-bootstrap --php /path/to/php
 python tools/check.py browser --fixture lazyload-bootstrap-browser --php /path/to/php --chromium /path/to/chromium
 python tools/check.py wordpress --fixture wordpress-picture-delivery --wordpress /path/to/disposable-wordpress --php /path/to/php
 python tools/check.py browser --fixture picture-delivery-browser --wordpress /path/to/disposable-wordpress --php /path/to/php --chromium /path/to/chromium
 ```
+
+The inline-background fixtures exercise the bundled PHP owner and readable/minified 17.8.3 runtime at 1365×900 and 390×844. Layered, repeated and unsupported declarations remain byte-identical and eager; supported single URLs retain quotes, literal parentheses, unrelated declarations, exclusions and the actual Avada filter. Browser checks compare computed layers with the original CSS, verify eager requests and later single-URL intersection loading, and retain layered declarations with JavaScript disabled. WordPress helpers are modeled and image responses intercepted; these fixtures do not bootstrap a site or establish a loading-speed gain.
 
 The bootstrap fixtures use actual footer/buffer subscriber output and shipped library bytes with modeled WordPress boundaries and intercepted browser responses. They do not bootstrap a site or contact providers. Default empty/target pages retain original HTML and work under a final CSP header added after PHP, including a later AJAX target. Optimization scenarios explicitly enable the default-false `noobrocket_lazyload_gate_runtime` filter; actual use requires final Nginx/CDN response policy permission for its inline bootstrap and accepts delayed `LazyLoad` globals/events. Known enforcing PHP/meta CSP still retains original delivery when opted in. The fixtures check opted-in empty/eager-only pages, dynamic targets, YouTube thumbnail timing, filtered configuration/runtime attributes, CSP/Trusted Types fallbacks, shipped DelayJS activation, fallback markup and bootstrap observer cleanup. Combine removal/relocation is modeled output; the fixture does not execute native combining. The existing native picture fixtures separately cover production responsive conversion, library activation and JavaScript-disabled fallback; both require a marked copied-plugin site and serial execution. These checks establish behavior and opted-in avoided runtime work, not a PageSpeed score or measured site-speed gain; no settings or deployment changes are performed.
 

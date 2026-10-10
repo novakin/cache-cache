@@ -8,6 +8,30 @@
   ],
   "fixtures": [
     {
+      "name": "inline-background-lazyload",
+      "path": "tests/inline-background-lazyload.php",
+      "purpose": "Actual inline-background parser preserves layered, repeated and unsupported CSS while retaining single URL delivery, exclusions, real attributes and the Avada filter.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Read-only production code with modeled WordPress helpers; no site bootstrap or source writes.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "inline-background-lazyload-browser",
+      "path": "tests/inline-background-lazyload-browser.mjs",
+      "purpose": "Actual PHP inline-background output and both bundled runtime modes retain eager layers and restore supported single URLs after intersection at desktop/mobile sizes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": ["node22", "php", "chromium", "worker-dependencies"],
+      "mutation": "Owned Chromium profiles and intercepted image responses only; no WordPress bootstrap or providers.",
+      "args": ["{php}", "{chromium}"],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "php-quality",
       "path": "tests/php-quality.py",
       "purpose": "Real Git changed-file selection and installed PHPCS/PHPStan negative controls plus representative maintained owners.",
