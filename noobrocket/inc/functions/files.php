@@ -19,7 +19,7 @@ function noobrocket_generate_advanced_cache_file( $advanced_cache = null ) {
 	 *
 	 * @since 3.6.3
 	 *
-	 * @param bool True (default) to go ahead with advanced cache file generation; false to stop generation.
+	 * @param bool $generate True (default) to go ahead with advanced cache file generation; false to stop generation.
 	 */
 	if ( ! (bool) apply_filters( 'noobrocket_generate_advanced_cache_file', true ) ) {
 		return false;
@@ -110,7 +110,7 @@ function get_noobrocket_config_file() { // phpcs:ignore WordPress.NamingConventi
 	 * @since 2.10
 	 * @author Remy Perona
 	 *
-	 * @param bool True to activate the common cache, false to ignore.
+	 * @param bool $enabled True to activate the common cache, false to ignore.
 	 */
 	if ( apply_filters( 'noobrocket_common_cache_logged_users', false ) ) {
 		$buffer .= '$noobrocket_common_cache_logged_users = 1;' . "\n";
@@ -619,6 +619,7 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 	foreach ( $urls as $url_key => $url ) {
 		$original_url = $url;
 		$cleared      = false;
+		$failed       = false;
 
 		if ( $run_actions ) {
 			/**
@@ -637,36 +638,41 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 		$parsed_url = get_noobrocket_parse_url( $url );
 
 		if ( ! empty( $parsed_url['host'] ) ) {
+			// Decode once, so all public/user buckets use the same cache path.
+			$parsed_url['path'] = rawurldecode( $parsed_url['path'] );
+
+			// Encode Non-latin characters if found in url path.
+			if ( false !== preg_match_all( '/(?<non_latin>[^\x00-\x7F]+)/', $parsed_url['path'], $matches ) ) {
+				$cb_encode_non_latin = function ( $non_latin ) {
+					return strtolower( rawurlencode( $non_latin ) );
+				};
+
+				$parsed_url['path'] = str_replace( $matches['non_latin'], array_map( $cb_encode_non_latin, $matches['non_latin'] ), $parsed_url['path'] );
+			}
+
 			foreach ( _noobrocket_get_cache_dirs( $parsed_url['host'], $cache_path ) as $dir ) {
-				// Decode url path.
-				$url_chunks = explode( '/', $parsed_url['path'] );
-				$matches    = preg_grep( '/%/', $url_chunks );
-
-				if ( ! empty( $matches ) ) {
-					$parsed_url['path'] = rawurldecode( $parsed_url['path'] );
-				}
-
-				// Encode Non-latin characters if found in url path.
-				if ( false !== preg_match_all( '/(?<non_latin>[^\x00-\x7F]+)/', $parsed_url['path'], $matches ) ) {
-					$cb_encode_non_latin = function ( $non_latin ) {
-						return strtolower( rawurlencode( $non_latin ) );
-					};
-
-					$parsed_url['path'] = str_replace( $matches['non_latin'], array_map( $cb_encode_non_latin, $matches['non_latin'] ), $parsed_url['path'] );
-				}
-
 				$entry = $dir . $parsed_url['path'];
 
 				// For regex we use it for file names only, and it should include the * character.
 				if ( str_contains( $entry, '*' ) ) {
 					$regex_part    = basename( $entry );
-					$search_dir    = str_replace( $regex_part, '', $entry );
+					$search_dir    = dirname( $entry );
+					if ( ! $filesystem->is_dir( $search_dir ) ) {
+						continue;
+					}
+					if ( ! noobrocket_cache_path_is_within( $search_dir, $dir ) ) {
+						$failed = true;
+						continue;
+					}
 					$matched_files = _noobrocket_get_dir_files_by_regex( $search_dir, '#' . $regex_part . '#i' );
 					foreach ( $matched_files as $item ) {
 						$current_file = $item->getPath() . DIRECTORY_SEPARATOR . $item->getFilename();
 						if ( $filesystem->exists( $current_file ) ) {
-							$filesystem->delete( $current_file );
-							$cleared = true;
+							if ( ! noobrocket_cache_path_is_within( $current_file, $dir ) || ! $filesystem->delete( $current_file ) ) {
+								$failed = true;
+							} else {
+								$cleared = true;
+							}
 						}
 					}
 					// Remove the regex part from the url.
@@ -678,18 +684,28 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 				if ( ! $filesystem->exists( $entry ) ) {
 					continue;
 				}
+				if ( ! noobrocket_cache_path_is_within( $entry, $dir ) ) {
+					$failed = true;
+					continue;
+				}
 
 				if ( $filesystem->is_dir( $entry ) ) {
 					noobrocket_rrmdir( $entry, [], $filesystem );
+					clearstatcache( true, $entry );
+					$deleted = ! $filesystem->exists( $entry );
 				} else {
-					$filesystem->delete( $entry );
+					$deleted = $filesystem->delete( $entry );
 				}
 
-				$cleared = true;
+				if ( $deleted ) {
+					$cleared = true;
+				} else {
+					$failed = true;
+				}
 			}
 		}
 
-		$results[ $original_url ] = $cleared;
+		$results[ $original_url ] = $cleared && ! $failed;
 
 		if ( $run_actions ) {
 			/**
@@ -719,6 +735,28 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 }
 
 /**
+ * Checks resolved ownership before URL-derived cache deletion or wildcard scanning.
+ *
+ * @param string $path Candidate existing path.
+ * @param string $root Selected host/user cache bucket.
+ * @return bool
+ */
+function noobrocket_cache_path_is_within( string $path, string $root ): bool {
+	if ( false !== strpos( $path, "\0" ) ) {
+		return false;
+	}
+	clearstatcache( true, $path );
+	$resolved_path = realpath( $path );
+	$resolved_root = realpath( $root );
+	if ( false === $resolved_path || false === $resolved_root ) {
+		return false;
+	}
+	$resolved_path = wp_normalize_path( $resolved_path );
+	$resolved_root = untrailingslashit( wp_normalize_path( $resolved_root ) );
+	return $resolved_path === $resolved_root || 0 === strpos( $resolved_path, $resolved_root . '/' );
+}
+
+/**
  * Remove the home cache file and pagination
  *
  * $since 2.2 Add $lang argument
@@ -743,7 +781,7 @@ function noobrocket_clean_home( $lang = '' ) {
 	 * Filter the homepage caching folder root
 	 *
 	 * @since 2.6.5
-	 * @param array     $root The root that will be returned.
+	 * @param string    $root The root that will be returned.
 	 * @param string    $host The website host.
 	 * @param string    $path The website path.
 	*/
@@ -901,8 +939,8 @@ function noobrocket_clean_domain( $lang = '', $filesystem = null ) {
 	 *
 	 * @since 2.6.4
 	 *
-	 * @param array     URLs that will be returned.
-	 * @param string    The language code.
+	 * @param array     $urls URLs that will be returned.
+	 * @param string    $lang The language code.
 	 */
 	$urls = (array) apply_filters( 'noobrocket_clean_domain_urls', $urls, $lang );
 	$urls = array_filter( $urls );
@@ -1018,7 +1056,7 @@ function noobrocket_clean_term( $term_id, $taxonomy_slug ) {
 	 * Fires before deleted caching files related with the term
 	 *
 	 * @since 2.6.8
-	 * @param obj    $term       The term object.
+	 * @param WP_Term|false $term       The term object, or false when unavailable.
 	 * @param array  $purge_urls URLs cache files to remove.
 	 * @param string $lang       The term language.
 	*/
@@ -1029,7 +1067,7 @@ function noobrocket_clean_term( $term_id, $taxonomy_slug ) {
 	 *
 	 * @since 2.6.8
 	 * @param array $purge_urls List of URLs cache files to remove.
-	 * @param obj   $term       The term object.
+	 * @param WP_Term|false $term       The term object, or false when unavailable.
 	*/
 	$purge_urls = apply_filters( 'noobrocket_term_purge_urls', $purge_urls, $term );
 
@@ -1043,7 +1081,7 @@ function noobrocket_clean_term( $term_id, $taxonomy_slug ) {
 	 * Fires before deleted caching files related with the term
 	 *
 	 * @since 2.6.8
-	 * @param obj    $term       The term object.
+	 * @param WP_Term|false $term       The term object, or false when unavailable.
 	 * @param array  $purge_urls URLs cache files to remove.
 	 * @param string $lang       The term language.
 	*/
@@ -1175,6 +1213,13 @@ function noobrocket_rrmdir( $dir, array $dirs_to_preserve = [], $filesystem = nu
 	 */
 	do_action( 'before_noobrocket_rrmdir', $dir, $dirs_to_preserve ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
 
+	// A directory link is an entry to unlink, never a tree we own.
+	if ( is_link( $dir ) ) {
+		$filesystem->delete( $dir, false, 'f' );
+		do_action( 'after_noobrocket_rrmdir', $dir, $dirs_to_preserve ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
+		return;
+	}
+
 	// Remove the hidden empty file for mobile detection on NGINX with the Rocket NGINX configuration.
 	$nginx_mobile_detect_file = $dir . '/.mobile-active';
 
@@ -1213,17 +1258,17 @@ function noobrocket_rrmdir( $dir, array $dirs_to_preserve = [], $filesystem = nu
 			$keys[]  = reset( $matches );
 		}
 
+		$keys = array_filter( $keys );
 		if ( ! empty( $keys ) ) {
-			$keys = array_filter( $keys );
-			if ( ! empty( $keys ) ) {
-				$entries = array_diff( $entries, $keys );
-			}
+			$entries = array_diff( $entries, $keys );
 		}
 	}
 
 	foreach ( $entries as $entry ) {
 		// If not a directory, delete it.
-		if ( ! $filesystem->is_dir( $entry ) ) {
+		if ( is_link( $entry ) ) {
+			noobrocket_rrmdir( $entry, $dirs_to_preserve, $filesystem );
+		} elseif ( ! $filesystem->is_dir( $entry ) ) {
 			$filesystem->delete( $entry );
 		} else {
 			noobrocket_rrmdir( $entry, $dirs_to_preserve, $filesystem );
@@ -1475,10 +1520,10 @@ function noobrocket_get_filesystem_perms( $type ) {
 function _noobrocket_get_dir_files_by_regex( $dir, $regex ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 	try {
 		$iterator = new IteratorIterator(
-			new FilesystemIterator( $dir )
+			new FilesystemIterator( $dir, FilesystemIterator::SKIP_DOTS | FilesystemIterator::KEY_AS_FILENAME )
 		);
 
-		return new RegexIterator( $iterator, $regex );
+		return new RegexIterator( $iterator, $regex, RegexIterator::MATCH, RegexIterator::USE_KEY );
 	} catch ( Exception $e ) {
 		return [];
 	}
