@@ -68,6 +68,7 @@ namespace {
 	$root = dirname( __DIR__ ) . '/noobrocket/inc/';
 	define( 'WP_CONTENT_DIR', '/fixture/wp-content' );
 	define( 'NOOBROCKET_CACHE_ROOT_PATH', '/fixture/wp-content/cache/noobrocket/' );
+	define( 'NOOBROCKET_CACHE_ROOT_URL', 'https://site.test/wp-content/cache/noobrocket/' );
 	define( 'NOOBROCKET_PATH', dirname( __DIR__ ) . '/noobrocket/' );
 	require $root . 'classes/event-management/subscriber-interface.php';
 	require $root . 'Engine/Common/AbstractFileSystem.php';
