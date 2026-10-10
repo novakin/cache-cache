@@ -55,7 +55,7 @@ Two executable gaps were corrected: the minimum-version job attempted full synta
 
 The local checkpoint made the process ready for its first coherent batch and draft PR. Before every merge, require successful applicable hosted checks on the current integration candidate and verified effective repository gates; use an explicit manual gate if enforcement is unavailable. Releases still need separate version, package and compatibility acceptance.
 
-The local table is historical rehearsal evidence, not acceptance for a committed PR head. Each PR starts its own head/base/candidate/reviewed-revision record. Recurring actionlint, useful configured static analysis and dependency reconstruction can improve the base later; none requires another layer or blocks contributor work now.
+The local table is historical rehearsal evidence, not acceptance for a committed PR head. Each PR starts its own head/base/candidate/reviewed-revision record. The later changed-file PHP quality gate and released-prefixed dependency reconstruction are documented in [current development setup](development.md); their PRs own revision-bound acceptance. Recurring actionlint and full raw-package reconstruction remain separate improvements.
 
 ## GitHub import setup
 
@@ -81,5 +81,13 @@ Before the protected import merge, API readback verified required GitHub Actions
 ## Remaining limits and action boundaries
 
 - Hosted proof covers the selected compatibility pairs and fixtures above. New changes require their own applicable current-candidate checks; these results do not establish all environments or full product/UI acceptance.
-- Bundled Composer dependencies are preserved; a complete reconstruction pipeline, PHPCS/PHPStan and new product/UI improvements remain outside this process checkpoint.
-- The import and repair are merged. No release or live deployment occurred. The existing preview, reference distributions and beta.1 ZIP remain unchanged.
+- Bundled runtime dependencies remain preserved. The current changed-file gate uses native parsing, selected PHPCS rules and PHPStan level 1 without a baseline; this is not whole-repository strict analysis. Released-prefixed reconstruction reproduces 219 files, while raw Composer/Mozart, unprefixed vendor and 13 generated bootstrap files remain outside that proof.
+- The import and repair are merged. No release or production deployment occurred. Reference distributions and the frozen beta.1 ZIP remain untouched; later reviewed source batches can update the local workspace.
+
+## Current production-readiness evidence
+
+The import tables above remain historical. [Quality PR #50](https://github.com/novakin/cache-cache/pull/50), [atomic preload PR #51](https://github.com/novakin/cache-cache/pull/51) and [prefixed reconstruction PR #52](https://github.com/novakin/cache-cache/pull/52) each passed all seven applicable hosted groups, including native PHP 7.4/WordPress 5.8 and PHP 8.3/WordPress 7.1.3, browser and Linux server/worker checks, on their recorded integration candidates. Each merged through the strict Required checks gate after fresh agent review. The preload proof demonstrates simultaneous discovery and migration retry; large-table DDL duration remains unmeasured.
+
+The [matched loading and Linux maintenance evidence](../tools/BENCHMARKS.md#matched-loading-and-linux-maintenance-evidence--2026-10-10) adds cold/hit separation, completed critical-CSS delivery, two-job worker resource costs and 2,600 cache-hit requests during paired expiry windows. It demonstrates no material expiry-hit bottleneck on this development host and no critical-CSS loading advantage on the small fixture. It is neither a current WP Rocket superiority claim nor production capacity acceptance.
+
+Cache-Cache remains beta. Selected native/server proofs support the implemented paths; representative installed theme/store/page-builder integrations, constrained or saturated servers, large-queue migration timing and actual deployment/recovery still need their own acceptance. Existing native rollback/failure tests do not prove every operator environment. Follow [release rules](releases.md) before a stable claim; no package, release or production deployment is implied by these source merges.
