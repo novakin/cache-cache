@@ -22,6 +22,13 @@ class Filesystem extends AbstractFileSystem {
 	 */
 	private $path;
 
+	/**
+	 * Public URL matching this instance's font storage.
+	 *
+	 * @var string
+	 */
+	private $url;
+
 	/** One bounded download budget for a background preparation task. */
 	private $download_deadline;
 
@@ -34,6 +41,7 @@ class Filesystem extends AbstractFileSystem {
 		parent::__construct( is_null( $filesystem ) ? noobrocket_direct_filesystem() : $filesystem );
 
 		$this->path = noobrocket_get_constant( 'NOOBROCKET_CACHE_ROOT_PATH', '' ) . 'fonts/' . get_current_blog_id() . '/';
+		$this->url  = noobrocket_get_constant( 'NOOBROCKET_CACHE_ROOT_URL', '' ) . 'fonts/' . get_current_blog_id() . '/';
 	}
 
 	/**
@@ -152,7 +160,7 @@ class Filesystem extends AbstractFileSystem {
 				Logger::debug( "Font $font_url download duration -- $download_time", [ 'Host Fonts Locally' ] );
 			}
 
-			$local_url = content_url( $this->get_fonts_relative_path( $font_provider_path, $font_path ) );
+			$local_url = $this->get_fonts_url( $font_provider_path, $font_path );
 			$local_css = str_replace( $font_url, $local_url, $local_css );
 		}
 
@@ -241,19 +249,15 @@ class Filesystem extends AbstractFileSystem {
 	}
 
 	/**
-	 * Get the fonts relative paths
+	 * Get a font URL from the configured public cache root.
 	 *
 	 * @param string $font_provider_path Font provider path.
 	 * @param string $path               Path to the file.
 	 *
 	 * @return string
 	 */
-	private function get_fonts_relative_path( string $font_provider_path, string $path ): string {
-		$base_path      = $this->path . $font_provider_path . 'fonts';
-		$wp_content_dir = noobrocket_get_constant( 'WP_CONTENT_DIR', '' );
-		$relative_path  = str_replace( $wp_content_dir, '', $base_path );
-
-		return $relative_path . $path;
+	private function get_fonts_url( string $font_provider_path, string $path ): string {
+		return $this->url . $font_provider_path . 'fonts' . $path;
 	}
 
 	/**
