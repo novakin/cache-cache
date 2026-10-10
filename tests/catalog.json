@@ -1817,6 +1817,19 @@
         "{chromium}"
       ],
       "default": true
+    },
+    {
+      "name": "php-dependency-reconstruction",
+      "path": "tests/php-dependency-reconstruction.py",
+      "purpose": "Pin shipped prefixed dependency bytes, preserve licenses and reject maintained/existing staging destinations without upstream history.",
+      "profile": "fast",
+      "environment": "standalone",
+      "prerequisites": [
+        "python"
+      ],
+      "mutation": "Owned temporary boundary files only; reads maintained dependency inputs without changing them.",
+      "args": [],
+      "default": true
     }
   ]
 }
