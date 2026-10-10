@@ -93,7 +93,7 @@ class Subscriber implements Subscriber_Interface {
 			return;
 		}
 
-		$preserve_dirs = is_multisite() ? get_sites( [ 'fields' => 'ids' ] ) : [ get_current_blog_id() ];
+		$preserve_dirs = is_multisite() ? get_sites( [ 'fields' => 'ids', 'number' => 0 ] ) : [ get_current_blog_id() ];
 
 		// Completely clear background-css directory.
 		$this->cache->full_clear( $preserve_dirs );

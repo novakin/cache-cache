@@ -92,7 +92,10 @@ switch ( $phase ) {
 				}
 			}
 		}
-		foreach ( [ 'Engine\\Plugin\\Updater', 'Engine\\License\\', 'Engine\\Optimization\\RUCSS\\', 'Engine\\Admin\\PerformanceMonitoring\\', 'Engine\\Tracking\\', 'Engine\\CDN\\HostedCDN\\' ] as $prefix ) {
+		$container = apply_filters( 'noobrocket_container', null );
+		acceptance_check( ! $container->has( 'saas_admin_subscriber' ), 'unused SaaS admin provider is no longer registered' );
+		acceptance_check( $container->has( 'local_css_subscriber' ) && $container->has( 'performance_hints_admin_subscriber' ), 'local CSS and performance-hint services remain registered' );
+		foreach ( [ 'Engine\\Plugin\\Updater', 'Engine\\License\\', 'Engine\\Optimization\\RUCSS\\', 'Engine\\Admin\\PerformanceMonitoring\\', 'Engine\\Tracking\\', 'Engine\\Saas\\', 'Engine\\CDN\\HostedCDN\\' ] as $prefix ) {
 			$matches = array_filter( $registered, function ( $callback ) use ( $prefix ) { return strpos( $callback, 'NoobRocket\\' . $prefix ) !== false && strpos( $callback, '\\Database\\' ) === false; } );
 			acceptance_check( ! $matches, 'vendor/cloud/telemetry callbacks absent: ' . $prefix . ( $matches ? '; registered: ' . implode( ', ', array_slice( $matches, 0, 6 ) ) : '' ) );
 		}
