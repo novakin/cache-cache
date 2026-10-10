@@ -90,6 +90,7 @@ namespace {
 		$imports = new ImportOriginOwner();
 		$dimensions = new \NoobRocket\Engine\Media\ImageDimensions\ImageDimensions( $options, $filesystem );
 		$image_external = new \ReflectionMethod( $dimensions, 'is_external_file' );
+		$image_external->setAccessible( true );
 		foreach ( [ 'https://site.test.other/asset.css', '//site.test.other/asset.css', 'https://remote.test/site.test/asset.css', 'https://site.test@remote.test/asset.css' ] as $url ) {
 			minify_check( $css->import_external( $url ) && $imports->import_external( $url ) && $image_external->invoke( $dimensions, $url ), 'CSS imports and dimensions keep foreign origin external: ' . $url );
 		}

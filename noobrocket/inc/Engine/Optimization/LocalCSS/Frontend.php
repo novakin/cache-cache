@@ -3,11 +3,14 @@ namespace NoobRocket\Engine\Optimization\LocalCSS;
 
 use voku\helper\HtmlDomParser;
 use NoobRocket\Engine\Media\Fonts\Frontend\Controller as Fonts;
+use NoobRocket\Engine\Optimization\RegexTrait;
 
 /**
  * Only replace the exact external sheets successfully processed by the worker.
  */
 class Frontend {
+	use RegexTrait;
+
 	/**
 	 * Local CSS job storage and publication.
 	 *
@@ -58,7 +61,7 @@ class Frontend {
 			|| ( is_singular() && ( post_password_required() || ! is_post_publicly_viewable( get_queried_object_id() ) ) )
 			|| is_noobrocket_post_excluded_option( 'used' === $mode ? 'remove_unused_css' : 'async_css' )
 			|| ! empty( $_GET )
-			|| ! preg_match( '#</head\s*>#i', $html )
+			|| ! $this->find_html_tag( $html, 'head', true )
 		) {
 			return $html;
 		}
@@ -173,9 +176,9 @@ class Frontend {
 	}
 
 	private function styles( string $html, string $url ): array {
-		// Mask comments/scripts/noscript without shifting original byte positions.
+		// Explicit opt-out blocks stay excluded without shifting original byte positions.
 		$masked = preg_replace_callback(
-			'#<!--\s*noptimize\s*-->.*?<!--\s*/\s*noptimize\s*-->|<!--.*?-->|<(script|noscript|style)\b[^>]*>.*?</\1\s*>#is',
+			'#<!--\s*noptimize\s*-->.*?<!--\s*/\s*noptimize\s*-->#is',
 			function ( $match ) {
 				return str_repeat( ' ', strlen( $match[0] ) );
 			},
@@ -183,21 +186,21 @@ class Frontend {
 		);
 		$base = $url;
 
-		if ( preg_match( '#<base\b[^>]*>#i', $masked, $base_tag ) ) {
+		$base_tag = $this->find_html_tag( $masked, 'base' );
+		if ( $base_tag ) {
 			$node = HtmlDomParser::str_get_html( $base_tag[0] )->findOne( 'base' );
 			if ( $node && $node->getAttribute( 'href' ) ) {
 				$base = \WP_Http::make_absolute_url( html_entity_decode( $node->getAttribute( 'href' ), ENT_QUOTES, 'UTF-8' ), $url );
 			}
 		}
 
-		preg_match_all( '#<link\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>#i', $masked, $tags, PREG_OFFSET_CAPTURE );
 		$styles          = [];
 		$excluded        = (array) apply_filters( 'noobrocket_rucss_external_exclusions', [] );
 		$skip_attrs      = (array) apply_filters( 'noobrocket_rucss_skip_styles_with_attr', [] );
 		$excluded        = array_merge( $excluded, (array) apply_filters( 'noobrocket_exclude_async_css', [] ) );
 		$minify_excluded = (array) apply_filters( 'noobrocket_exclude_css', get_noobrocket_option( 'exclude_css', [] ) );
 
-		foreach ( $tags[0] as $match ) {
+		foreach ( $this->find_html_tags( $masked, 'link' ) as $match ) {
 			list( $tag, $offset ) = $match;
 			$node = HtmlDomParser::str_get_html( $tag )->findOne( 'link' );
 			if ( ! $node || 'stylesheet' !== strtolower( trim( (string) $node->getAttribute( 'rel' ) ) ) ) {

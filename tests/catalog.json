@@ -499,6 +499,40 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "local-css-stylesheet-boundaries",
+      "path": "tests/local-css-stylesheet-boundaries.php",
+      "purpose": "Actual local CSS tag selection and completed delivery preserve inert/raw-text/attribute markup, offsets, exclusions and active base/head boundaries.",
+      "profile": "fast",
+      "environment": "modeled-php",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Owned temporary CSS file only; modeled WordPress/job storage, no site bootstrap or HTTP.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "local-css-stylesheet-boundaries-browser",
+      "path": "tests/local-css-stylesheet-boundaries-browser.mjs",
+      "purpose": "Feed the real PHP stylesheet manifest to the actual used/critical generator and compare browser-active links with inert template/textarea/attribute content.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "php"
+      ],
+      "mutation": "Owned loopback listener and temporary Chromium profiles only; no WordPress bootstrap or provider requests.",
+      "args": [
+        "{php}",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "local-css-generator",
       "path": "tests/local-css-generator.mjs",
       "purpose": "Verify actual used and critical CSS extraction: imported styles, order, exclusions, media and dependency retention.",
