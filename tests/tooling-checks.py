@@ -29,6 +29,27 @@ packages = module('cache_cache_packages', ROOT / 'tools/verify-package.py')
 
 
 class ToolingControls(unittest.TestCase):
+    def php_http_fixture(self, root, body, audit_first=False):
+        """Execute the real PHP guards with a modeled hook dispatcher; never send HTTP."""
+        fixture = root / 'http-control.php'
+        fixture.write_text('''<?php
+class WP_Error {}
+function add_filter($hook, $callback, $priority = 10, $args = 1) { if ($hook === 'pre_http_request') { $GLOBALS['http_filters'][$priority][] = $callback; } }
+function fixture_http($url) {
+    ksort($GLOBALS['http_filters']);
+    $pre = false;
+    foreach ($GLOBALS['http_filters'] as $callbacks) {
+        foreach ($callbacks as $callback) { $pre = $callback($pre, [], $url); }
+    }
+    return $pre;
+}
+function wp_parse_url($url) { return parse_url($url); }
+function wp_json_encode($value) { return json_encode($value); }
+define('WP_CONTENT_DIR', dirname($argv[1], 2));
+''' + ("require $argv[2];\n" if audit_first else '') + "require $argv[1];\n" + body, encoding='utf-8')
+        php = checks.executable(os.environ.get('NOOBROCKET_TEST_PHP', 'php'), 'PHP')
+        return subprocess.run([php, str(fixture), str(root / 'wp-content/mu-plugins/cache-cache-check-http.php'), str(ROOT / 'tests/wordpress-http-audit.php')], capture_output=True, text=True)
+
     def test_missing_php_is_a_failure(self):
         with self.assertRaisesRegex(checks.CheckFailure, 'executable missing'):
             checks.executable('cache-cache-deliberately-missing-php', 'PHP')
@@ -107,12 +128,92 @@ class ToolingControls(unittest.TestCase):
                     self.fail('Existing guard should have blocked entry')
             self.assertEqual('owned elsewhere', path.read_text(encoding='utf-8'))
 
+    def test_ignored_blocked_http_fails_after_fixture_and_guard_cleanup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with self.assertRaisesRegex(checks.CheckFailure, 'Unexpected HTTP blocked'):
+                with checks.native_http_boundary(root):
+                    result = self.php_http_fixture(root, "fixture_http('https://unexpected.example.test/private?token=fixture'); echo 'fixture completed';")
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual('fixture completed', result.stdout)
+            self.assertFalse((root / 'wp-content/mu-plugins/cache-cache-check-http.php').exists())
+            self.assertEqual([], list((root / 'wp-content').glob('cache-cache-http-*')))
+
+    def test_synthetic_success_and_error_remain_valid_before_terminal_guard(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with checks.native_http_boundary(root, 'http://127.0.0.1:8765'):
+                result = self.php_http_fixture(root, '''
+$response = ['response' => ['code' => 200], 'body' => 'fixture'];
+$error = new WP_Error();
+add_filter('pre_http_request', function ($pre, $args, $url) use ($response, $error) {
+    return strpos($url, '/success') !== false ? $response : (strpos($url, '/error') !== false ? $error : $pre);
+}, PHP_INT_MAX - 1, 3);
+if (fixture_http('https://provider.example.test/success') !== $response || fixture_http('https://provider.example.test/error') !== $error || fixture_http('http://127.0.0.1:8765/owned') !== false) { exit(3); }
+''')
+                self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_unowned_loopback_and_origin_lookalikes_are_failures(self):
+        for url, origin in [('http://127.0.0.1:8765/owned', None), ('http://127.0.0.1:8766/other', 'http://127.0.0.1:8765'), ('https://127.0.0.1:8765/other', 'http://127.0.0.1:8765'), ('http://127.0.0.1:8765.example.test/other', 'http://127.0.0.1:8765')]:
+            with self.subTest(url=url), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                with self.assertRaises(checks.CheckFailure):
+                    with checks.native_http_boundary(root, origin):
+                        result = self.php_http_fixture(root, f'fixture_http({json.dumps(url)});')
+                        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_existing_audit_cannot_hide_an_unexpected_request(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with self.assertRaisesRegex(checks.CheckFailure, 'Unexpected HTTP blocked'):
+                with checks.native_http_boundary(root):
+                    result = self.php_http_fixture(root, "fixture_http('https://unexpected.example.test/private?token=fixture');", audit_first=True)
+                    self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_unwritable_blocked_receipt_fails_in_php(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with self.assertRaisesRegex(checks.CheckFailure, 'PHP control failed'):
+                with checks.native_http_boundary(root):
+                    result = self.php_http_fixture(root, "unlink(NOOBROCKET_CHECK_HTTP_RECEIPT); mkdir(NOOBROCKET_CHECK_HTTP_RECEIPT); fixture_http('https://unexpected.example.test/');")
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn('Cannot record blocked fixture HTTP.', result.stderr + result.stdout)
+                    raise checks.CheckFailure('PHP control failed')
+            self.assertFalse((root / 'wp-content/mu-plugins/cache-cache-check-http.php').exists())
+
+    def test_audit_server_boundary_records_only_unmocked_unowned_blocks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with self.assertRaisesRegex(checks.CheckFailure, 'Unexpected HTTP blocked'):
+                with checks.native_http_boundary(root):
+                    # The shared audit also runs independently in the Linux harness.
+                    result = self.php_http_fixture(root, '''
+$GLOBALS['http_filters'] = [];
+define('NOOBROCKET_CHECK_HTTP_ORIGIN', 'http://127.0.0.1:8875');
+require $argv[2];
+$response = ['body' => 'mock'];
+add_filter('pre_http_request', function ($pre, $args, $url) use ($response) { return strpos($url, '/mock') !== false ? $response : $pre; }, PHP_INT_MAX - 1, 3);
+if (fixture_http('https://provider.example.test/mock') !== $response || fixture_http('http://127.0.0.1:8875/owned') !== false || filesize(NOOBROCKET_CHECK_HTTP_RECEIPT) !== 0) { exit(3); }
+fixture_http('http://127.0.0.1:8765/unowned?token=fixture');
+if (file_get_contents(NOOBROCKET_CHECK_HTTP_RECEIPT) !== "blocked\\n") { exit(4); }
+''')
+                    self.assertEqual(0, result.returncode, result.stderr)
+
     def test_fixed_http_port_must_serve_this_exact_disposable_site(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             with patch.object(checks, 'urlopen', return_value=io.BytesIO(b'wrong site')):
                 with self.assertRaisesRegex(checks.CheckFailure, 'does not serve'):
                     checks.owned_http_origin(root)
+            self.assertEqual([], list(root.iterdir()))
+
+    def test_owned_origin_probe_accepts_only_this_sites_token_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def own_response(url, timeout):
+                return io.BytesIO(next(root.glob('cache-cache-http-proof-*.txt')).read_bytes())
+            with patch.object(checks, 'urlopen', side_effect=own_response):
+                self.assertEqual('http://127.0.0.1:8765', checks.owned_http_origin(root))
             self.assertEqual([], list(root.iterdir()))
 
 

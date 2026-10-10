@@ -55,6 +55,20 @@ tar -C "$workspace/noobrocket" --exclude='./local-css/node_modules' -cf - . | ta
 ln -s "$(dirname "$dependencies")/node_modules" "$wordpress/wp-content/plugins/noobrocket/local-css/node_modules"
 mkdir -p "$wordpress/wp-content/mu-plugins"
 cp "$workspace/tests/wordpress-http-audit.php" "$wordpress/wp-content/mu-plugins/noobrocket-http-audit.php"
+verify_http_origin() {
+  origin='http://127.0.0.1:8875'
+  probe=$(mktemp "$wordpress/cache-cache-http-proof.XXXXXXXX")
+  token=$("$php_bin" -r 'echo bin2hex(random_bytes(24));')
+  printf '%s' "$token" > "$probe"
+  if "$node" --input-type=module -e 'const [origin, name, token] = process.argv.slice(1); const response = await fetch(origin + "/" + name, {signal: AbortSignal.timeout(5000)}); if (!response.ok || await response.text() !== token) throw new Error("Owned HTTP site probe failed.");' "$origin" "$(basename "$probe")" "$token"; then
+    printf '%s' "$origin" > "$proof/verified-http-origin.txt"
+    rm "$probe"
+  else
+    rm "$probe"
+    echo 'HTTP server does not serve the selected disposable site.' >&2
+    return 1
+  fi
+}
 cat > "$wordpress/wp-content/mu-plugins/noobrocket-no-core-check.php" <<'EOF'
 <?php
 foreach ( [ 'core', 'plugins', 'themes' ] as $type ) {
@@ -74,6 +88,7 @@ cat > "$wordpress/wp-config.php" <<EOF
 <?php
 define('DB_NAME','noobrocket_proof'); define('DB_USER','root'); define('DB_PASSWORD',''); define('DB_HOST','localhost:$proof/run/database.sock'); define('DB_CHARSET','utf8mb4'); define('DB_COLLATE','');
 define('WP_HOME','http://127.0.0.1:8875'); define('WP_SITEURL','http://127.0.0.1:8875'); define('WP_DEBUG',true); define('WP_DEBUG_LOG',true); define('WP_DEBUG_DISPLAY',false); define('DISABLE_WP_CRON',true); define('AUTOMATIC_UPDATER_DISABLED',true); define('FS_METHOD','direct');
+define('NOOBROCKET_CHECK_HTTP_ORIGIN', is_file('$proof/verified-http-origin.txt') ? file_get_contents('$proof/verified-http-origin.txt') : '');
 define('AUTH_KEY','disposable-noobrocket-auth'); define('SECURE_AUTH_KEY','disposable-noobrocket-secure'); define('LOGGED_IN_KEY','disposable-noobrocket-login'); define('NONCE_KEY','disposable-noobrocket-nonce'); define('AUTH_SALT','disposable-noobrocket-auth-salt'); define('SECURE_AUTH_SALT','disposable-noobrocket-secure-salt'); define('LOGGED_IN_SALT','disposable-noobrocket-login-salt'); define('NONCE_SALT','disposable-noobrocket-nonce-salt');
 \$table_prefix='wp_'; if(!defined('ABSPATH')) define('ABSPATH',__DIR__.'/'); require_once ABSPATH.'wp-settings.php';
 EOF
@@ -131,9 +146,11 @@ Header always set X-NoobRocket-Static hit
 </FilesMatch>
 EOF
 apache2 -f "$proof/apache.conf" -k start
+verify_http_origin
 "$php_bin" "$workspace/tests/linux-production.php" "$wordpress" http
 "$node" "$workspace/tools/production-check.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --dependencies "$dependencies" --require-linux yes --require-mysql yes --require-multisite no --out "$proof/apache-preflight.json"
 apache2 -f "$proof/apache.conf" -k stop
+rm "$proof/verified-http-origin.txt"
 attempt=0
 while [ -e "$proof/run/apache.pid" ]; do attempt=$((attempt+1)); test "$attempt" -lt 30; sleep 1; done
 cat > "$proof/nginx.conf" <<EOF
@@ -164,6 +181,7 @@ location ~ \\.php$ { include /etc/nginx/fastcgi_params; fastcgi_param HTTP_HOST 
 }
 EOF
 nginx -c "$proof/nginx.conf" -p "$proof"
+verify_http_origin
 "$php_bin" "$workspace/tests/linux-production.php" "$wordpress" http
 "$node" "$workspace/tools/server-load.mjs" --duration 2 --interval 1000 --out "$proof/host-load-idle.json"
 "$php_bin" "$workspace/tests/wordpress-local-css-settings.php" "$wordpress"
@@ -186,6 +204,10 @@ sampler_pid=''
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" check
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" invalid-site
 "$node" "$workspace/tools/production-check.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --site-url http://127.0.0.1:8875/subsite/ --dependencies "$dependencies" --require-linux yes --require-mysql yes --require-multisite yes --out "$proof/multisite-preflight.json"
+if [ -s "$wordpress/wp-content/http-audit-blocked.txt" ]; then
+  echo 'Unexpected HTTP blocked during the Linux production proof; ignored errors cannot pass.' >&2
+  exit 1
+fi
 if [ -s "$wordpress/wp-content/debug.log" ]; then
   echo 'WordPress debug log is not empty after the production proof:' >&2
   tail -n 20 "$wordpress/wp-content/debug.log" >&2

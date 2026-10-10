@@ -194,26 +194,37 @@ def owned_http_origin(wordpress):
 
 @contextmanager
 def native_http_boundary(wordpress, origin=None):
-    """Block real HTTP by default; keep synthetic fixture responses and one verified owned origin."""
+    """Fail ignored real HTTP after cleanup; preserve mocks and one verified owned origin."""
     path = wordpress / 'wp-content/mu-plugins/cache-cache-check-http.php'
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         raise CheckFailure(f'Refusing to replace existing fixture: {path}')
-    allowed = json.dumps(origin or '')
-    script = f"""<?php
+    with tempfile.TemporaryDirectory(prefix='cache-cache-http-', dir=wordpress / 'wp-content') as folder:
+        receipt = Path(folder) / 'blocked.txt'
+        receipt.write_text('', encoding='utf-8')
+        allowed = json.dumps(origin or '')
+        receipt_literal = json.dumps(receipt.as_posix(), ensure_ascii=False).replace('$', r'\$')
+        script = f"""<?php
+define('NOOBROCKET_CHECK_HTTP_RECEIPT', {receipt_literal});
+add_filter('action_scheduler_allow_async_request_runner', '__return_false');
 add_filter('pre_http_request', function ($pre, $args, $url) {{
     if (false !== $pre) {{ return $pre; }}
     $origin = {allowed};
     if ($origin && strpos($url, $origin . '/') === 0) {{ return false; }}
+    if (8 !== file_put_contents(NOOBROCKET_CHECK_HTTP_RECEIPT, "blocked\\n", FILE_APPEND | LOCK_EX)) {{
+        throw new RuntimeException('Cannot record blocked fixture HTTP.');
+    }}
     return new WP_Error('cache_cache_check_http', 'HTTP blocked by disposable fixture.');
 }}, PHP_INT_MAX, 3);
 """
-    path.write_text(script, encoding='utf-8')
-    try:
-        yield
-    finally:
-        if path.is_file() and path.read_text(encoding='utf-8') == script:
-            path.unlink()
+        path.write_text(script, encoding='utf-8')
+        try:
+            yield
+            if receipt.stat().st_size:
+                raise CheckFailure('Unexpected HTTP blocked by disposable fixture; ignored errors cannot pass')
+        finally:
+            if path.is_file() and path.read_text(encoding='utf-8') == script:
+                path.unlink()
 
 
 def fixtures(root, args):

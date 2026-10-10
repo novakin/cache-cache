@@ -67,7 +67,7 @@ $block_http = function () { return new WP_Error( 'local_font_fixture_http', 'Net
 $font_exclusion = function () { return [ 'family=NoobFixture' ]; };
 add_filter( 'pre_get_noobrocket_option_local_css_mode', $mode_filter );
 add_filter( 'pre_get_noobrocket_option_host_fonts_locally', $hosting_filter );
-add_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+add_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 add_filter( 'noobrocket_generate_advanced_cache_file', '__return_false' );
 add_filter( 'noobrocket_disable_htaccess', '__return_true' );
 add_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
@@ -159,7 +159,7 @@ try {
 	$known_ids = array_column( $rows_before, 'id' );
 	foreach ( $wpdb->get_col( "SELECT id FROM $table" ) as $id ) { if ( ! in_array( $id, $known_ids ) ) { $wpdb->delete( $table, [ 'id' => $id ] ); } }
 	foreach ( $rows_before as $row ) { $wpdb->replace( $table, $row ); }
-	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 	remove_filter( 'noobrocket_generate_advanced_cache_file', '__return_false' );
 	remove_filter( 'noobrocket_disable_htaccess', '__return_true' );
 	remove_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
