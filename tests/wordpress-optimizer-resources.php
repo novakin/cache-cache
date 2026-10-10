@@ -104,7 +104,9 @@ namespace {
 	resource_check( ! $fonts->write_font_css( $font_url . '&publish=fail', 'google-fonts' ) && 2 === count( $filesystem->files ), 'failed final rename keeps original CSS delivery and removes temporary files' );
 	$filesystem->fail_move = false;
 	foreach ( $requests as [ $url, $args ] ) { resource_check( $args['timeout'] > 0 && $args['timeout'] <= 3 && isset( $args['limit_response_size'] ), 'cold requests have timeout and byte bounds' ); }
-	( new ReflectionProperty( $fonts, 'download_deadline' ) )->setValue( $fonts, microtime( true ) - 1 );
+	$deadline = new ReflectionProperty( $fonts, 'download_deadline' );
+	$deadline->setAccessible( true );
+	$deadline->setValue( $fonts, microtime( true ) - 1 );
 	$before = count( $requests );
 	resource_check( $fonts->write_font_css( $font_url . '&new=1', 'google-fonts' ) && $before + 1 === count( $requests ), 'a new background preparation receives a fresh bounded budget and reuses ready font bytes' );
 	foreach ( [ 404, 429, 503 ] as $code ) {
@@ -128,7 +130,11 @@ namespace {
 	resource_check( '' === $cache->get_content( 'https://cdn.test/too-big.css' ), 'possibly truncated response is rejected' );
 
 	$html = ( new ReflectionClass( NoobRocket\Engine\Optimization\DelayJS\HTML::class ) )->newInstanceWithoutConstructor();
-	foreach ( [ 'options' => new DelayOptions(), 'data_manager' => new DelayLists() ] as $property => $value ) { ( new ReflectionProperty( $html, $property ) )->setValue( $html, $value ); }
+	foreach ( [ 'options' => new DelayOptions(), 'data_manager' => new DelayLists() ] as $property => $value ) {
+		$reflection = new ReflectionProperty( $html, $property );
+		$reflection->setAccessible( true );
+		$reflection->setValue( $html, $value );
+	}
 	$subscriber = new NoobRocket\Engine\Optimization\DelayJS\Subscriber( $html, $filesystem );
 	$page = '<html><head><meta http-equiv="Content-Security-Policy" content="script-src &apos;self&apos; &apos;nonce-test&apos;"><script nonce="test" src="/app.js"></script></head><body></body></html>';
 	resource_check( $page === $subscriber->add_delay_js_script( $subscriber->delay_js( $page ) ), 'enforcing meta CSP leaves original scripts and runtime untouched' );
@@ -186,7 +192,11 @@ namespace {
 
 	$query = new HintQuery();
 	$controller = ( new ReflectionClass( NoobRocket\Engine\Optimization\LazyRenderContent\AJAX\Controller::class ) )->newInstanceWithoutConstructor();
-	foreach ( [ 'query' => $query, 'context' => new HintContext() ] as $property => $value ) { ( new ReflectionProperty( $controller, $property ) )->setValue( $controller, $value ); }
+	foreach ( [ 'query' => $query, 'context' => new HintContext() ] as $property => $value ) {
+		$reflection = new ReflectionProperty( $controller, $property );
+		$reflection->setAccessible( true );
+		$reflection->setValue( $controller, $value );
+	}
 	$hashes = array_map( 'md5', range( 1, 40 ) );
 	$_POST = [ 'url' => 'https://site.test/article/', 'is_mobile' => 'false', 'results' => json_encode( [ 'lrc' => $hashes ] ), 'status' => 'success' ];
 	$controller->add_data();

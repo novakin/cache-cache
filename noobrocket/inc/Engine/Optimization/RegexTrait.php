@@ -13,6 +13,21 @@ trait RegexTrait {
 	 * @return array The original tag bytes and their offset, or an empty array.
 	 */
 	protected function find_html_tag( string $html, string $name, bool $closing = false ): array {
+		foreach ( $this->find_html_tags( $html, $name, $closing ) as $tag ) {
+			return $tag;
+		}
+		return [];
+	}
+
+	/**
+	 * Yield active tag bytes and offsets without selecting inert or raw-text content.
+	 *
+	 * @param string $html HTML content.
+	 * @param string $name Element name.
+	 * @param bool   $closing Whether to find closing tags.
+	 * @return \Generator
+	 */
+	protected function find_html_tags( string $html, string $name, bool $closing = false ): \Generator {
 		// An unfinished tag/quoted attribute consumes the remaining document in
 		// the HTML parser; tag-like bytes inside it cannot be insertion points.
 		$attributes = '(?:"[^"]*(?:"|\z)|\'[^\']*(?:\'|\z)|[^\'">])*';
@@ -34,10 +49,9 @@ trait RegexTrait {
 			} elseif ( 0 === stripos( $match[0][0], '</template' ) ) {
 				$template_depth = max( 0, $template_depth - 1 );
 			} elseif ( 0 === $template_depth ) {
-				return $match[0];
+				yield $match[0];
 			}
 		}
-		return [];
 	}
 
 	/**
