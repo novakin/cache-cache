@@ -70,7 +70,7 @@ Reuse existing semantic variables from `noobrocket-admin.css`: `--nbr-background
 
 Use the system UI family for interface text and the existing monospace family for code. Current desktop body text is 14px with approximately 1.55–1.6 line height; narrow-screen body text is 15px and input text is 16px. Reuse the 4/8/12/16/24px spacing scale. Bound explanations through placement and concise copy, without leaving arbitrary half-width text columns.
 
-Provide 44px targets for action controls, labels and disclosure summaries, even when their visible checkbox or switch is smaller. Keep visible focus, logical labels, readable disabled states and text contrast of at least 4.5:1. Focus must clear the sticky header, Save footer and toast tray. Respect reduced motion. Prevent page-level horizontal overflow; long inventories and comparisons may use named, keyboard-accessible local scroll regions.
+Provide 44px targets for action controls, labels and disclosure summaries, even when their visible checkbox or switch is smaller. Keep visible focus, logical labels, readable disabled states and text contrast of at least 4.5:1. Focus must clear the sticky header, Save footer and toast tray, including native tabbable inventory and comparison regions. Respect reduced motion. Prevent page-level horizontal overflow; long inventories and comparisons may use named, keyboard-accessible local scroll regions.
 
 All source messages use English gettext with the `noobrocket` domain. French belongs in PO/MO catalogs, including labels, errors and dynamic statuses. Verify French wrapping instead of adding hardcoded line breaks or language-specific source strings. Maintain catalogs through [update-translations.py](update-translations.py).
 

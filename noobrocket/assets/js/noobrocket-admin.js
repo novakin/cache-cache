@@ -269,7 +269,7 @@
   app.addEventListener('focusin', event => {
     if (!event.target.closest('#noobrocket-main') && !toasts?.contains(event.target)) return;
     closeMenu();
-    if (!event.target.matches('a, button, input, select, textarea, summary')) return;
+    if (!event.target.matches('a, button, input, select, textarea, summary, [tabindex="0"]')) return;
     // Native focus scrolling does not account for the sticky header and Save bar.
     window.requestAnimationFrame(() => {
       if (document.activeElement === event.target) ensureFocusVisible(event.target);
