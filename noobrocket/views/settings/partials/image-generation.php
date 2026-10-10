@@ -6,9 +6,10 @@ $has_work = $data['active'] || $data['pending'];
 $cursor = (int) ( $data['cursor'] ?? 0 );
 $last_run = (int) ( $data['last_run'] ?? 0 );
 $next_run = (int) ( $data['next_run'] ?? 0 );
+$batch_overdue = $has_work && $next_run && $next_run < time() - 300;
 $scan_complete = ! $has_work && $cursor > 0 && $last_run > 0;
 $resume_scan = $data['active'] || ( $data['pending'] && $cursor > 0 );
-$status_label = __( 'Ready', 'noobrocket' );
+$status_label = __( 'No images queued', 'noobrocket' );
 $status_class = 'is-neutral';
 if ( ! $data['enabled'] ) {
 	$status_label = __( 'Off', 'noobrocket' );
@@ -21,8 +22,11 @@ if ( ! $data['enabled'] ) {
 } elseif ( $has_work && ! $next_run ) {
 	$status_label = __( 'Needs scheduling', 'noobrocket' );
 	$status_class = 'is-warning';
+} elseif ( $batch_overdue ) {
+	$status_label = __( 'Scheduled batch overdue', 'noobrocket' );
+	$status_class = 'is-warning';
 } elseif ( $data['active'] ) {
-	$status_label = $cursor > 0 ? __( 'Scan in progress', 'noobrocket' ) : __( 'Scan queued', 'noobrocket' );
+	$status_label = __( 'Scan queued', 'noobrocket' );
 } elseif ( $data['pending'] ) {
 	$status_label = __( 'Images queued', 'noobrocket' );
 } elseif ( $scan_complete ) {
@@ -51,8 +55,10 @@ if ( ! $data['enabled'] ) {
 				esc_html_e( 'Ask your host to enable AVIF or WebP encoding in GD or Imagick.', 'noobrocket' );
 			} elseif ( $has_work && ! $next_run ) {
 				echo esc_html( $resume_scan ? __( 'No generation batch is scheduled. Resume the library scan to queue one.', 'noobrocket' ) : __( 'No generation batch is scheduled. Scan the library to queue one.', 'noobrocket' ) );
+			} elseif ( $batch_overdue ) {
+				esc_html_e( 'The scheduled image batch is over five minutes late. Check WordPress cron; pending work is preserved.', 'noobrocket' );
 			} elseif ( $data['active'] ) {
-				echo esc_html( $cursor > 0 ? __( 'The library scan has started and continues in WordPress cron batches.', 'noobrocket' ) : __( 'The library scan is queued for WordPress cron.', 'noobrocket' ) );
+				esc_html_e( 'The library scan is waiting for a WordPress cron batch. Recorded progress does not mean a batch is running now.', 'noobrocket' );
 			} elseif ( $data['pending'] ) {
 				esc_html_e( 'Image generation is queued for WordPress cron.', 'noobrocket' );
 			} elseif ( $scan_complete ) {
@@ -79,10 +85,21 @@ if ( ! $data['enabled'] ) {
 		<div class="noobrocket-action-group"><button class="noobrocket-button" type="submit" form="noobrocket-image-actions" <?php disabled( ! $data['enabled'] || ! $supported ); ?>><?php echo esc_html( $resume_scan ? __( 'Resume library scan', 'noobrocket' ) : __( 'Scan media library', 'noobrocket' ) ); ?></button></div>
 		<?php if ( $data['enabled'] && $supported ) : ?><p class="noobrocket-helper"><?php esc_html_e( 'Uses saved Media settings.', 'noobrocket' ); ?></p><?php endif; ?>
 		<details class="noobrocket-status-evidence"><summary><?php esc_html_e( 'Image queue and encoder details', 'noobrocket' ); ?></summary>
+			<p><?php esc_html_e( 'Requires PHP GD or Imagick with AVIF or WebP encoding, a writable uploads directory and working WordPress cron. Node.js and Chromium are not required for images.', 'noobrocket' ); ?></p>
 			<p><?php esc_html_e( 'Only versions that save at least 5% are kept. A completed scan does not mean every image has a new format.', 'noobrocket' ); ?></p>
-			<div class="noobrocket-worker-meta"><?php foreach ( $data['capabilities'] as $format => $available ) : ?><span><?php echo esc_html( strtoupper( $format ) . ' · ' . ( $available ? __( 'Available', 'noobrocket' ) : __( 'Unavailable', 'noobrocket' ) ) ); ?></span><?php endforeach; ?></div>
-			<div class="noobrocket-status-detail"><span><b><?php echo esc_html( number_format_i18n( $data['pending'] ) ); ?></b><?php esc_html_e( 'Pending attachments', 'noobrocket' ); ?></span><span><b><?php echo esc_html( number_format_i18n( $data['failed'] ) ); ?></b><?php esc_html_e( 'Failed attachments', 'noobrocket' ); ?></span></div>
-			<?php if ( $data['enabled'] && $supported && $next_run ) : ?><p><?php
+			<dl class="noobrocket-key-values">
+				<?php foreach ( [ 'avif' => __( 'AVIF encoder', 'noobrocket' ), 'webp' => __( 'WebP encoder', 'noobrocket' ) ] as $format => $label ) : ?>
+				<div>
+					<dt><?php echo esc_html( $label ); ?></dt>
+					<dd><?php echo esc_html( $data['capabilities'][ $format ] ? __( 'Available', 'noobrocket' ) : __( 'Unavailable', 'noobrocket' ) ); ?></dd>
+				</div>
+				<?php endforeach; ?>
+				<div><dt><?php esc_html_e( 'Pending media items', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $data['pending'] ) ); ?></dd></div>
+				<div><dt><?php esc_html_e( 'Failed media items', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $data['failed'] ) ); ?></dd></div>
+				<div><dt><?php esc_html_e( 'Successful encodes recorded', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( (int) ( $data['generated'] ?? 0 ) ) ); ?></dd></div>
+			</dl>
+			<p class="noobrocket-helper"><?php esc_html_e( 'The encode total is historical, including image sizes and formats. It is not a count of media items or files currently on disk.', 'noobrocket' ); ?></p>
+			<?php if ( $data['enabled'] && $supported && $has_work && $next_run ) : ?><p><?php
 				/* translators: %s: scheduled date and time. Scheduling is not proof that WordPress cron ran. */
 				echo esc_html( sprintf( __( 'Next batch scheduled for: %s. WordPress cron must run to process it.', 'noobrocket' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $next_run ) ) );
 			?></p><?php endif; ?>

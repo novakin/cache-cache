@@ -10482,3 +10482,77 @@ msgstr[0] ""
 msgid "and %d other setting"
 msgid_plural "and %d other settings"
 msgstr[0] ""
+
+#: views/settings/partials/image-generation.php:26
+msgid "Scheduled batch overdue"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:59
+msgid ""
+"The scheduled image batch is over five minutes late. Check WordPress cron; "
+"pending work is preserved."
+msgstr ""
+
+#: views/settings/partials/image-generation.php:61
+msgid ""
+"The library scan is waiting for a WordPress cron batch. Recorded progress "
+"does not mean a batch is running now."
+msgstr ""
+
+#: views/settings/partials/image-generation.php:88
+msgid ""
+"Requires PHP GD or Imagick with AVIF or WebP encoding, a writable uploads "
+"directory and working WordPress cron. Node.js and Chromium are not required "
+"for images."
+msgstr ""
+
+#: views/settings/partials/image-generation.php:91
+msgid "AVIF encoder"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:91
+msgid "WebP encoder"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:97
+msgid "Pending media items"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:98
+msgid "Failed media items"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:99
+msgid "Successful encodes recorded"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:101
+msgid ""
+"The encode total is historical, including image sizes and formats. It is not"
+" a count of media items or files currently on disk."
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:200
+msgid ""
+"Generation is off or paused. The recorded worker report below is historical."
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:200
+msgid "Generation is off or paused. No worker report has been recorded."
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:216
+msgid "Last recorded state"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:218
+msgid "Last report"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:229
+msgid "Last recorded error"
+msgstr ""
+
+#: views/settings/partials/image-generation.php:12
+msgid "No images queued"
+msgstr ""

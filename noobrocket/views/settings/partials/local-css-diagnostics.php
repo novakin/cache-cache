@@ -195,10 +195,10 @@ $button = static function ( $operation, $label, $disabled = false ) {
 					<span class="noobrocket-badge <?php echo $css_active && 'error' === $worker_state ? 'is-error' : ( $worker_attention ? 'is-warning' : 'is-neutral' ); ?>"><?php echo esc_html( $css_active || ! $seen ? $worker_badge : __( 'Previous activity', 'noobrocket' ) ); ?></span>
 				</summary>
 				<div class="noobrocket-worker-body">
-			<?php if ( ! $css_active && $seen ) : ?><p class="noobrocket-helper"><?php esc_html_e( 'Generation is off or paused. This is a previous worker report, not an active warning.', 'noobrocket' ); ?></p><?php endif; ?>
-			<div class="noobrocket-status-line"><strong><?php echo esc_html( $seen ? ( $worker_labels[ $worker_state ] ?? __( 'Unknown', 'noobrocket' ) ) : __( 'No worker report', 'noobrocket' ) ); ?></strong></div>
 			<p><?php
-				if ( ! $seen ) {
+				if ( ! $css_active ) {
+					echo esc_html( $seen ? __( 'Generation is off or paused. The recorded worker report below is historical.', 'noobrocket' ) : __( 'Generation is off or paused. No worker report has been recorded.', 'noobrocket' ) );
+				} elseif ( ! $seen ) {
 					esc_html_e( 'No worker report recorded. Set up Node.js, Chromium and scheduling on this WordPress server.', 'noobrocket' );
 				} elseif ( 'ready' === $worker_state ) {
 					esc_html_e( 'A setup check passed; it does not show a running or scheduled worker.', 'noobrocket' );
@@ -212,14 +212,27 @@ $button = static function ( $operation, $label, $disabled = false ) {
 					esc_html_e( 'Recent worker activity is recorded. This report does not verify future scheduled runs.', 'noobrocket' );
 				}
 			?></p>
-			<?php if ( ! empty( $worker['error'] ) ) : ?><p><?php echo esc_html( \NoobRocket\Engine\Optimization\LocalCSS\Diagnostics::error_message( (string) $worker['error'] ) ); ?></p><?php endif; ?>
+			<dl class="noobrocket-key-values">
+				<div><dt><?php esc_html_e( 'Last recorded state', 'noobrocket' ); ?></dt><dd><?php echo esc_html( $seen ? ( $worker_labels[ $worker_state ] ?? __( 'Unknown', 'noobrocket' ) ) : __( 'No worker report', 'noobrocket' ) ); ?></dd></div>
+				<?php if ( $seen ) : ?>
+				<div><dt><?php esc_html_e( 'Last report', 'noobrocket' ); ?></dt><dd><?php
+					/* translators: 1: report date and time, 2: elapsed time. */
+					echo esc_html( sprintf( __( '%1$s (%2$s ago)', 'noobrocket' ), wp_date( $date_format, $seen ), human_time_diff( $seen ) ) );
+				?></dd></div>
+				<?php foreach ( [ 'node' => 'Node.js', 'chromium' => 'Chromium', 'php' => 'PHP CLI' ] as $key => $label ) : ?>
+					<?php if ( preg_match( '/^[v\d][\d.a-zA-Z-]{0,40}$/', (string) ( $worker[ $key ] ?? '' ) ) ) : ?>
+					<div><dt><?php echo esc_html( $label ); ?></dt><dd><?php echo esc_html( $worker[ $key ] ); ?></dd></div>
+					<?php endif; ?>
+				<?php endforeach; ?>
+				<?php if ( ! empty( $worker['error'] ) ) : ?>
+				<div>
+					<dt><?php esc_html_e( 'Last recorded error', 'noobrocket' ); ?></dt>
+					<dd><?php echo esc_html( \NoobRocket\Engine\Optimization\LocalCSS\Diagnostics::error_message( (string) $worker['error'] ) ); ?></dd>
+				</div>
+				<?php endif; ?>
+				<?php endif; ?>
+			</dl>
 			<?php if ( ! $worker_attention && ! ( $css_active && ! $seen ) ) : ?><div class="noobrocket-status-navigation"><a href="<?php echo esc_url( plugins_url( 'docs/index.html#css', NOOBROCKET_FILE ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Worker setup and scheduling', 'noobrocket' ); ?></a></div><?php endif; ?>
-			<?php if ( $seen ) : ?><p class="noobrocket-helper"><?php
-				/* translators: 1: report date and time, 2: elapsed time. */
-				echo esc_html( sprintf( __( 'Last report: %1$s (%2$s ago).', 'noobrocket' ), wp_date( $date_format, $seen ), human_time_diff( $seen ) ) );
-			?></p><details class="noobrocket-status-evidence"><summary><?php esc_html_e( 'Worker runtime details', 'noobrocket' ); ?></summary><div class="noobrocket-worker-meta">
-				<?php foreach ( [ 'node' => 'Node.js', 'chromium' => 'Chromium', 'php' => 'PHP CLI' ] as $key => $label ) : ?><?php if ( preg_match( '/^[v\d][\d.a-zA-Z-]{0,40}$/', (string) ( $worker[ $key ] ?? '' ) ) ) : ?><span><?php echo esc_html( $label . ' ' . $worker[ $key ] ); ?></span><?php endif; ?><?php endforeach; ?>
-			</div></details><?php endif; ?>
 				</div>
 			</details>
 	</div>

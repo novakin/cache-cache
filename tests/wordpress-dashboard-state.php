@@ -65,7 +65,14 @@ namespace {
 		[ $html, $xpath ] = render_dashboard( array_merge( $inactive, [ 'worker' => [ 'state' => 'error', 'last_seen' => time() ], 'counts' => [ 'pending' => 2, 'running' => 0, 'failed' => 1, 'ready' => 0 ] ] ) );
 		dashboard_check( 0 === $xpath->query( '//details[contains(@class,"noobrocket-worker-details") and @open]' )->length && 0 === $xpath->query( '//section[contains(@class,"noobrocket-css-status") and contains(@class,"is-error")]' )->length, 'inactive CSS retains collapsed history without an active error' );
 		dashboard_check( false !== strpos( $html, 'Previous activity' ) && 0 === $xpath->query( '//button[@value="retry"]' )->length, 'inactive CSS offers no ineffective retry action' );
+		dashboard_check( false !== strpos( $html, 'The recorded worker report below is historical.' ) && false === strpos( $html, 'Check its details and worker setup.' ), 'inactive reports use historical context instead of active recovery instructions' );
 	}
+	[ $html, $xpath ] = render_dashboard( [ 'mode' => 'critical', 'paused' => true, 'worker' => [ 'state' => 'stopped', 'last_seen' => time() - 600, 'node' => 'v22.0.0', 'chromium' => '123.0', 'php' => '8.3.35' ] ] );
+	dashboard_check( false === strpos( $html, 'Scheduled runs are needed to process new jobs.' ) && false !== strpos( $html, 'The recorded worker report below is historical.' ), 'paused successful history does not request an active schedule' );
+	dashboard_check( 1 === $xpath->query( '//details[contains(@class,"noobrocket-worker-details")]//dl/div[dt="Last recorded state" and dd="Last run ended"]' )->length && 1 === $xpath->query( '//details[contains(@class,"noobrocket-worker-details")]//dl/div[dt="Last report"]' )->length, 'recorded worker outcome and timestamp stay grouped in labeled evidence' );
+	dashboard_check( 1 === $xpath->query( '//details[contains(@class,"noobrocket-worker-details")]//dl/div[dt="Node.js" and dd="v22.0.0"]' )->length && 0 === $xpath->query( '//details[contains(@class,"noobrocket-worker-details")]//details' )->length, 'runtime versions use the existing disclosure rather than nested evidence' );
+	[ $html ] = render_dashboard( [ 'mode' => 'critical', 'paused' => true ] );
+	dashboard_check( false !== strpos( $html, 'No worker report has been recorded.' ) && false === strpos( $html, 'Set up Node.js' ), 'paused generation without evidence avoids active setup instructions' );
 	[ $html, $xpath ] = render_dashboard( [ 'mode' => 'used', 'worker' => [ 'state' => 'error', 'last_seen' => time() ], 'counts' => [ 'pending' => 2, 'running' => 0, 'failed' => 0, 'ready' => 0 ] ] );
 	dashboard_check( false !== strpos( $html, 'The last CSS worker run failed.' ) && false === strpos( $html, 'Waiting for server worker' ), 'known worker failure takes precedence over a generic waiting state' );
 	[ $html, $xpath ] = render_dashboard( [ 'preload_counts' => [ 'pending' => 2, 'in-progress' => 1, 'failed' => 0, 'completed' => 7 ] ] );

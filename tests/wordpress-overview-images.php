@@ -69,7 +69,7 @@ function image_action( DOMXPath $xpath ): string {
 
 list( $html, $xpath, $data ) = images_render();
 images_check( $data['next_run'] === $next_batch && 2 === count( $reads ), 'status reads its own scheduled event and existing queue counts only' );
-images_check( 'Ready' === image_badge( $xpath ) && 'Scan media library' === image_action( $xpath ), 'enabled fresh installation prompts an explicit initial scan' );
+images_check( 'No images queued' === image_badge( $xpath ) && 'Scan media library' === image_action( $xpath ), 'enabled fresh installation reports no work and prompts an explicit initial scan' );
 images_check( str_contains( $html, 'New uploads are queued automatically. Scan the library to convert existing images.' ), 'automatic uploads are distinct from an existing-library backfill' );
 images_check( str_contains( $html, 'Uses saved Media settings.' ), 'operation ownership is visible before optional evidence' );
 images_check( 1 === $xpath->query( '//button[@type="submit" and @form="noobrocket-image-actions"]' )->length, 'backfill continues to use the independent native action form' );
@@ -92,10 +92,15 @@ images_check( 'Off' === image_badge( $xpath ) && ! str_contains( $html, 'Ask you
 list( $html, $xpath ) = images_render( [ 'active' => true ] );
 images_check( 'Scan queued' === image_badge( $xpath ) && 'Resume library scan' === image_action( $xpath ), 'active initial discovery with cursor zero is queued rather than complete' );
 list( $html, $xpath ) = images_render( [ 'active' => true, 'cursor' => 42, 'last_run' => 1800000000 ] );
-images_check( 'Scan in progress' === image_badge( $xpath ), 'saved cursor progress is different from an untouched scan queue' );
-images_check( str_contains( $html, 'continues in WordPress cron batches.' ) && ! str_contains( $html, 'cron is running' ), 'scan progress never claims cron liveness' );
+images_check( 'Scan queued' === image_badge( $xpath ) && ! str_contains( $html, 'Scan in progress' ), 'saved discovery progress cannot claim a batch is executing' );
+images_check( str_contains( $html, 'Recorded progress does not mean a batch is running now.' ), 'unfinished library work is explicitly waiting for cron' );
 list( $html, $xpath ) = images_render( [ 'active' => true, 'cursor' => 42, 'next_run' => 0 ] );
 images_check( 'Needs scheduling' === image_badge( $xpath ) && str_contains( $html, 'Resume the library scan to queue one.' ), 'retained work without a scheduled event exposes the existing recovery action' );
+list( $html, $xpath ) = images_render( [ 'active' => true, 'cursor' => 42, 'next_run' => time() - 600 ] );
+images_check( 'Scheduled batch overdue' === image_badge( $xpath ) && 1 === $xpath->query( '//span[contains(@class,"is-warning")]' )->length, 'an overdue event is not presented as a healthy running scan' );
+images_check( str_contains( $html, 'Check WordPress cron; pending work is preserved.' ), 'overdue scheduling names the responsible runtime without assuming cron failure' );
+list( $html, $xpath ) = images_render( [ 'active' => true, 'next_run' => time() - 120 ] );
+images_check( 'Scan queued' === image_badge( $xpath ), 'ordinary cron timing has a grace period before an overdue warning' );
 
 list( $html, $xpath ) = images_render( [ 'pending' => 1 ] );
 images_check( 'Images queued' === image_badge( $xpath ) && 'Scan media library' === image_action( $xpath ), 'upload-only queue does not imply that library discovery has started' );
@@ -107,10 +112,10 @@ images_check( str_contains( $html, '4 media items awaiting generation.' ), 'mult
 list( $html, $xpath ) = images_render( [ 'cursor' => 42, 'last_run' => 1800000000 ] );
 images_check( 'Library scan complete' === image_badge( $xpath ) && 'Scan media library' === image_action( $xpath ), 'completion requires exhausted discovery with no pending items and offers a new scan' );
 images_check( str_contains( $html, 'A completed scan does not mean every image has a new format.' ), 'completion preserves the minimum-saving and skipped-image boundary' );
-images_check( str_contains( $html, 'Last batch: ' ) && str_contains( $html, 'WordPress cron must run to process it.' ), 'saved last-run evidence is separate from an upcoming scheduled event' );
+images_check( str_contains( $html, 'Last batch: ' ) && ! str_contains( $html, 'Next batch scheduled for:' ), 'completed work keeps its last-run evidence without implying a further batch is required' );
 images_check( 1 === $xpath->query( '//p[contains(.,"Last batch:")][not(ancestor::details)]' )->length, 'recorded batch date remains visible beside the status without opening encoder evidence' );
 list( $html, $xpath ) = images_render( [ 'last_run' => 1800000000 ] );
-images_check( 'Ready' === image_badge( $xpath ), 'upload-only or empty-library history cannot prove a completed nonempty library scan' );
+images_check( 'No images queued' === image_badge( $xpath ), 'upload-only or empty-library history cannot prove a completed nonempty library scan' );
 
 list( $html, $xpath ) = images_render( [ 'failed' => 1, 'cursor' => 42, 'last_run' => 1800000000 ] );
 images_check( 'Needs attention' === image_badge( $xpath ) && 1 === $xpath->query( '//span[contains(@class,"is-error")]' )->length, 'failed conversion is a danger state rather than success or informational blue' );
@@ -119,6 +124,10 @@ list( $html, $xpath ) = images_render( [ 'active' => true, 'pending' => 2, 'fail
 images_check( str_contains( $html, '3 media items failed; their originals are unchanged.' ) && str_contains( $html, 'Finish the current scan, then scan again to retry failed items.' ), 'resume does not promise to revisit earlier failures behind its cursor' );
 images_check( 'Resume library scan' === image_action( $xpath ), 'failed items do not alter the existing current-cursor operation' );
 list( $html, $xpath ) = images_render( [ 'enabled' => false, 'pending' => 2, 'failed' => 1 ] );
-images_check( ! str_contains( $html, 'media item failed' ) && ! str_contains( $html, 'to retry failed items.' ) && 1 === $xpath->query( '//details//span[b="1" and contains(.,"Failed attachments")]' )->length, 'disabled operation retains failure count in evidence without an active warning or retry' );
+images_check( ! str_contains( $html, 'media item failed' ) && ! str_contains( $html, 'to retry failed items.' ) && 1 === $xpath->query( '//details//dl/div[dt="Failed media items" and dd="1"]' )->length, 'disabled operation retains failure count in evidence without an active warning or retry' );
+list( $html, $xpath ) = images_render( [ 'generated' => 37, 'pending' => 2 ] );
+images_check( 1 === $xpath->query( '//details//dl/div[dt="Successful encodes recorded" and dd="37"]' )->length && str_contains( $html, 'It is not a count of media items or files currently on disk.' ), 'existing generated count exposes historical proof without claiming present coverage' );
+images_check( str_contains( $html, 'Requires PHP GD or Imagick with AVIF or WebP encoding' ) && str_contains( $html, 'Node.js and Chromium are not required for images.' ), 'image prerequisites distinguish native PHP encoding from the CSS worker' );
+images_check( 1 === $xpath->query( '//details//dl/div[dt="AVIF encoder" and dd="Available"]' )->length && 1 === $xpath->query( '//details//dl/div[dt="WebP encoder" and dd="Available"]' )->length, 'each encoder capability has an explicit label and outcome' );
 
 echo 'PASS: ' . $checks . " modern-image overview assertions\n";

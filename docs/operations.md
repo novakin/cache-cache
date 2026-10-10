@@ -27,6 +27,10 @@ Optional stale refresh requires PHP page delivery. Disable direct page-cache HTM
 
 Modern images use `<picture>` sources with original fallback; the same HTML serves AVIF/WebP-capable and other browsers. Accept-based HTML variants are unnecessary for this mode. Check theme selectors affected by a picture wrapper and complete responsive derivative families. Other tools' legacy WebP cache variants remain a separate compatibility path.
 
+Image generation needs PHP GD or Imagick with AVIF/WebP encoding support, writable uploads and WordPress cron. Node.js, npm and Chromium are CSS-worker requirements, not image requirements. The image dashboard reports queued discovery and media items, last batch and historical successful encodes; encoder availability alone does not establish generated files. A scheduled batch over five minutes late warrants checking WordPress cron. Traffic-driven cron can be delayed on quiet sites; use the host's regular WordPress cron setup for reliable progress.
+
+Local CSS uses a separate Node.js/Chromium command. A passed `--check` records environment readiness but neither starts generation nor installs a schedule. For queued pages with no recent active worker report, check the actual process and service-account cron command in the [worker guide](../noobrocket/local-css/README.md). Off or paused generation shows worker history without an active setup warning; original styles remain available while results are pending.
+
 ## Rollout
 
 1. Record plugin/product engine versions, saved configuration, delivery mode and a staging backup. Exported settings/history exclude credentials; preserve those through the site's secure backup mechanism.

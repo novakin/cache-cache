@@ -21,6 +21,8 @@ Check the actual WordPress/PHP bridge and Chromium launch before enabling genera
 node worker.mjs --wordpress /var/www/site --php /usr/bin/php --browser /usr/bin/chromium --check
 ~~~
 
+`--check` exits after checking the environment. It does not process queued pages, start a persistent worker or install cron. The dashboard records this as a setup check; run or schedule the generation command below to process jobs.
+
 Select **Local critical CSS** or **Local used CSS** under **Settings → Cache-Cache → CSS & JavaScript**. Add selector substrings for menus, dialogs, AJAX content and other classes that appear only after interaction. Visit or preload public pages to queue generation, then run:
 
 ~~~bash

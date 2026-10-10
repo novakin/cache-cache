@@ -185,6 +185,7 @@
     // Detached notices cannot leave hidden controls in the page's keyboard order.
     notice.remove();
     requestAnimationFrame(() => {
+      if (notice.hidden) return;
       toasts.append(notice);
       if (focused && document.activeElement === document.body) focused.focus({ preventScroll: true });
       positionToasts();
@@ -497,6 +498,8 @@
       page?.querySelector('h1')?.focus({ preventScroll: true });
     });
 
+    const operationName = (owner, initiator) => owner?.dataset.noobrocketOperationName || initiator?.dataset.noobrocketOperationName
+      || initiator?.textContent.trim() || initiator?.value || '';
     const reviewOperation = (event, operation) => {
       if (operationConfirmed || (!dirty && (!unfinished() || operation.form === editor))) return false;
       event.preventDefault();
@@ -507,8 +510,7 @@
       pendingOperation = operation;
       const initiator = operation.link || operation.submitter;
       const owner = operation.form || operation.link;
-      const name = owner?.dataset.noobrocketOperationName || initiator?.dataset.noobrocketOperationName
-        || initiator?.textContent.trim() || initiator?.value || '';
+      const name = operationName(owner, initiator);
       const restore = owner?.querySelector('[name="command"]')?.value === 'restore';
       const evictsTarget = restore && owner.dataset.snapshotSaveEvicts === '1';
       const title = operationDialog.querySelector('#noobrocket-operation-title');
@@ -656,16 +658,28 @@
       form.setAttribute('aria-busy', 'true');
       button?.setAttribute('aria-disabled', 'true');
       if (cancel) cancel.disabled = true;
-      const status = document.createElement('p');
-      status.className = 'noobrocket-operation-pending';
-      status.setAttribute('role', 'status');
-      status.textContent = state.dataset.pending;
-      (button?.parentElement || form).append(status);
+      // Save already owns its footer/button feedback; independent actions use the shared tray.
+      let status = null;
+      if (form !== settings) {
+        status = document.createElement('div');
+        status.className = 'noobrocket-operation-pending notice notice-info';
+        status.setAttribute('role', 'status');
+        const message = document.createElement('p');
+        const name = operationName(form, button);
+        message.textContent = name ? `${name}: ${state.dataset.pending}` : state.dataset.pending;
+        status.append(message);
+        if (!renderToast(status)) (button?.parentElement || form).append(status);
+      }
       const reset = () => {
         delete form.dataset.noobrocketPending;
         form.removeAttribute('aria-busy');
         button?.removeAttribute('aria-disabled');
-        status.remove();
+        if (status) {
+          // A canceled submit can settle before the tray's announcement frame.
+          status.hidden = true;
+          status.remove();
+          positionToasts();
+        }
         window.removeEventListener('pageshow', resume);
         leaving = false;
         if (form === settings) {
