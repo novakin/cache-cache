@@ -77,6 +77,10 @@ python tools/check.py browser --chromium /absolute/path/to/chromium --wordpress 
 
 Keep Linux Chromium sandboxing enabled and run unprivileged. The default browser group needs an explicit WordPress core copy for native class readers without site bootstrap. Browser fixture prerequisites differ: some start synthetic loopback servers; others load WordPress classes or exercise the same-server generator. A focused fixture without `wordpress-core` can omit `--wordpress`. Select through the catalog instead of assuming every browser check needs a live site. [Worker documentation](../noobrocket/local-css/README.md) owns installation, origins, scheduling and recovery.
 
+`browser --fixture preload-links-browser` runs the maintained readable and served minified link runtimes. It proves detached intent activation and native document Eager activation under CSP: the destination loads with `document.prerendering=true`, navigation has `activationStart>0`, and activation reuses one eligible request carrying prerender `Sec-Purpose`. Excluded destinations remain unloaded. Document mode uses an owned loopback debugger, attaches to the native tab target, then supplies trusted hover through its child page session. No browser policy or prerender feature override is used. A separate direct page-target case records `PrerenderingDisabledByDevTools`; that restriction does not prevent the tab-target proof.
+
+Synthetic DOM mouse events do not establish native browser interest. [Chrome's prerender guide](https://developer.chrome.com/docs/web-platform/prerender-pages) documents Eager's 10 ms desktop hover since Chrome 143 and mobile viewport heuristics since January 2026. The desktop activation fixture does not prove mobile heuristics, every browser, or production-site activation.
+
 The `server` profile delegates to [linux-production-proof.sh](../tools/linux-production-proof.sh):
 
 ```sh

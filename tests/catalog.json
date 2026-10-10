@@ -674,7 +674,7 @@
     {
       "name": "preload-links-browser",
       "path": "tests/preload-links-browser.mjs",
-      "purpose": "Verify detached intent activation and native document candidates, exclusions and trusted-interest requests; DevTools blocks document activation.",
+      "purpose": "Verify detached intent and tab-target-aware document Eager prerender activation under CSP, native candidates/exclusions and the direct page-target DevTools negative boundary.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": [

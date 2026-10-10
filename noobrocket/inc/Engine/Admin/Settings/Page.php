@@ -1076,7 +1076,7 @@ class Page extends Abstract_Render {
 				'prerender_links_eagerness' => [
 					'type'              => 'select',
 					'label'             => __( 'Document rule eagerness', 'noobrocket' ),
-					'description'       => __( 'Applies to browser document rules. Conservative waits for a click or touch; moderate may prepare links on hover; eager may prepare visible links and uses more bandwidth.', 'noobrocket' ),
+					'description'       => __( 'Conservative waits for click or touch. Moderate and eager can prepare links on hover. Eager may also use mobile viewport heuristics; the browser decides which links to prepare. More eager loading can use more bandwidth.', 'noobrocket' ),
 					'choices'           => [ 'conservative' => __( 'Conservative', 'noobrocket' ), 'moderate' => __( 'Moderate', 'noobrocket' ), 'eager' => __( 'Eager', 'noobrocket' ) ],
 					'container_class'   => [ 'noobrocket-field--children' ],
 					'parent'            => 'prerender_links',

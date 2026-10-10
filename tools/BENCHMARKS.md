@@ -24,6 +24,31 @@ Browser metrics include buffered LCP, CLS using the maximum session window, tran
 
 Optional staging page `interactions` support `click`, `hover`, and `press` with a selector; `press` also needs `key`. `expectations` require `selector` and `visible`, with optional expected text. These can open menus, dialogs, tabs, or disposable cart states after initial LCP collection. Only configure interactions safe for disposable staging data. Scripted event latency is a lab measurement and is not field INP. Browser errors, failed resources, redirects, unproven cache hits and failed expectations stop a controlled run.
 
+## Inline runtime delivery — 2026-10-10
+
+Keep `browser-checker.min.js`, `preload-links.min.js` and `lazyload-css.min.js` inline. A controlled comparison used their maintained `0.1.0-beta.2` bodies, Chrome 154.0.8037.98, Node 26.7.0 and gzip level 6. Each delivery used equivalent HTML/configuration and an excluded anchor, preventing speculation traffic from affecting this measurement. Identical timing marks followed runtime execution. Twenty alternating pairs per timing scenario produced 160 navigations in 80 fresh browser contexts; each context visited a cold page, then an equivalent same-origin page.
+
+HTML was `no-store`; external assets had stable version queries and `public, max-age=31536000, immutable`. These are fixture conditions, not verified production directives. Server request logs confirmed delivery/cache reuse; browser transfer uses Resource Timing header accounting.
+
+| Delivery/state | HTML gzip | All response bodies gzip | Browser transfer | Server requests | Asset cache hits |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Inline cold/repeat | 4,434 B | 4,434 B | 4,734 B | 1 | 0 |
+| External cold | 971 B | 5,144 B | 6,344 B | 4 | 0 |
+| External repeat | 971 B | 971 B | 1,271 B | 1 | 3 |
+
+External delivery saved repeat transfer but added three cold requests and lost shared HTML gzip compression. Runtime-ready measures completion of the link runtime, not paint, interaction latency or navigation activation. External scripts used ordered classic `defer` delivery.
+
+| Scenario/state | Inline median | External median | Median paired external minus inline |
+| --- | ---: | ---: | ---: |
+| Loopback cold | 7.40 ms | 19.70 ms | +12.25 ms |
+| Loopback repeat | 5.90 ms | 5.95 ms | -0.10 ms |
+| Synthetic 40 ms response delay, cold | 55.10 ms | 101.35 ms | +45.20 ms |
+| Synthetic 40 ms response delay, repeat | 60.10 ms | 57.70 ms | -2.35 ms |
+
+Cold paired penalties ranged from +2.00 to +13.80 ms on loopback and +29.80 to +53.10 ms with delay. Repeat differences ranged from -2.20 to +1.90 ms and -8.20 to +9.60 ms respectively; they do not establish a scheduling improvement. All navigations passed execution-order, rule/configuration, network/cache-count and browser-error checks. Inline delivery preserves earlier cold initialization in this fixture; externalization would need production transport/cache and integration evidence before claiming a loading benefit.
+
+This synthetic HTTP/1.1 loopback test used no CPU/bandwidth throttling. The per-response 40 ms delay does not reproduce a mobile network. It does not prove WordPress hook/CSP compatibility, HTTP/2/3 scheduling, page-cache behavior, Lighthouse/Speed Index or noobunbox.net speed. Real prerender activation is covered separately by `preload-links-browser`: Chrome 154 passed 260 source/minified assertions with native tab-target trusted input, retained CSP and no feature overrides. That isolated proof does not establish live-site activation. Private comparison receipts are retained under `.artifacts/prerender-delivery-review-20261010/comparison/`; they are evidence, not public setup dependencies.
+
 ## Read-only public observation
 
 For a user-authorized public URL, set `observationOnly: true`, `staging: false`, omit cache evidence when unavailable, and use no interactions. This records response timings and browser metrics without claiming cache hits. Browser/network errors are retained in raw samples. Public observations cannot be fed into a controlled product comparison. Differences in deployment, browser, network, CDN and traffic remain uncontrolled.
