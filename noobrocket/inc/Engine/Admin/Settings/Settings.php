@@ -87,6 +87,8 @@ class Settings {
 	 */
 	private const ENUM_OPTIONS = [
 		'local_css_mode'              => [ 'off', 'critical', 'used' ],
+		'prerender_links_mode'        => [ 'intent', 'document' ],
+		'prerender_links_eagerness'   => [ 'conservative', 'moderate', 'eager' ],
 		'purge_cron_unit'             => [ 'HOUR_IN_SECONDS', 'DAY_IN_SECONDS' ],
 		'automatic_cleanup_frequency' => [ 'daily', 'weekly', 'monthly' ],
 		'heartbeat_site_behavior'     => [ '', 'reduce_periodicity', 'disable' ],
@@ -482,6 +484,13 @@ class Settings {
 
 		// Options: Activate bot preload.
 		$input['manual_preload'] = ! empty( $input['manual_preload'] ) ? 1 : 0;
+		foreach ( [ 'prerender_links_mode' => 'intent', 'prerender_links_eagerness' => 'conservative' ] as $name => $default ) {
+			$value = self::normalize_enum( $name, $input[ $name ] ?? $this->options->get( $name, $default ) );
+			$input[ $name ] = $value instanceof WP_Error ? $this->options->get( $name, $default ) : $value;
+			if ( $value instanceof WP_Error ) {
+				add_settings_error( 'general', 'invalid_choice_' . $name, $value->get_error_message(), 'error' );
+			}
+		}
 		$input = noobrocket_sanitize_prerender_options( $input );
 
 		// Options: Sucuri cache. And yeah, there's a typo, but now it's too late to fix ^^'.

@@ -50,7 +50,84 @@ class NoobRocketPreloadLinks {
 			return;
 		}
 
+		if ( this.usePrerender && this.config.mode === 'document' && this._initDocumentRules() ) {
+			return;
+		}
 		this._initListeners( this );
+	}
+
+	/** Let native document rules choose only destinations admitted by our URL owner. */
+	_initDocumentRules() {
+		if ( typeof URLPattern !== 'function' || typeof MutationObserver !== 'function' ) return false;
+		this.documentRulesScript = document.getElementById( 'noobrocket-document-speculation-rules' );
+		if ( ! this.documentRulesScript || this.documentRulesScript.type !== 'speculationrules' ) return false;
+		try {
+			this.documentExclusions = [
+				'a[download]', 'a[target]:not([target="_self" i], [target=""])', 'a[rel~="nofollow" i]',
+				'.no-prefetch, .no-prefetch a', '.no-prerender, .no-prerender a',
+				'[data-noobrocket-no-speculation], [data-noobrocket-no-speculation] a',
+				'html:has(base[target]:not([target="_self" i], [target=""])) a:not([target="_self" i])',
+				...( this.config.nativeExcludeSelectors || [] )
+			].join( ', ' );
+			document.documentElement.matches( this.documentExclusions );
+			this._refreshDocumentRules();
+		} catch ( error ) {
+			return false;
+		}
+
+		const containsLink = node => node instanceof Element
+			&& ( node.matches( 'a[href], base' ) || node.querySelector( 'a[href], base' ) );
+		this.documentObserver = new MutationObserver( records => {
+			const changed = records.some( record => record.type === 'attributes'
+				? record.target.matches( 'a, base' )
+				: [ ...record.addedNodes, ...record.removedNodes ].some( containsLink ) );
+			if ( ! changed ) return;
+			try {
+				this._refreshDocumentRules();
+			} catch ( error ) {
+				this.documentObserver.disconnect();
+				this.documentRulesScript.remove();
+				this._initListeners( this );
+			}
+		} );
+		this.documentObserver.observe( document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'href' ] } );
+		return true;
+	}
+
+	_refreshDocumentRules() {
+		const urls = new Map();
+		document.querySelectorAll( 'a[href]' ).forEach( link => {
+			let url;
+			try { url = new URL( link.href ); } catch ( error ) { return; }
+			if ( ! this._isLinkOk( url ) ) return;
+			// URLPattern syntax belongs to literal destinations, never to the site's
+			// regular-expression exclusions. All components, including empty ones, are exact.
+			const escape = value => value.replace( /[:*+?(){}\\]/g, '\\$&' );
+			const pattern = {};
+			for ( const name of [ 'protocol', 'username', 'password', 'hostname', 'port', 'pathname', 'search', 'hash' ] ) {
+				pattern[name] = escape( name === 'protocol' ? url.protocol.slice( 0, -1 ) : url[name] );
+			}
+			if ( ! new URLPattern( pattern ).test( url.href ) ) throw new Error( 'Unable to bind a literal document destination.' );
+			urls.set( url.href, pattern );
+		} );
+		const where = urls.size ? { and: [
+			{ href_matches: [ ...urls.values() ] },
+			{ selector_matches: 'a[href]' },
+			{ not: { selector_matches: this.documentExclusions } }
+		] } : { and: [ { selector_matches: 'a' }, { not: { selector_matches: 'a' } } ] };
+		const eagerness = [ 'conservative', 'moderate', 'eager' ].includes( this.config.eagerness ) ? this.config.eagerness : 'conservative';
+		const rules = JSON.stringify( { prerender: [ { source: 'document', where, eagerness } ] } );
+		if ( this.documentRulesScript.textContent === rules ) return;
+		// A parsed script clone keeps its already-started flag. Create a fresh script
+		// while retaining the core inline-tag attributes and hidden CSP nonce.
+		const replacement = document.createElement( 'script' );
+		for ( const attribute of this.documentRulesScript.attributes ) {
+			replacement.setAttribute( attribute.name, attribute.value );
+		}
+		if ( this.documentRulesScript.nonce ) replacement.nonce = this.documentRulesScript.nonce;
+		replacement.textContent = rules;
+		this.documentRulesScript.replaceWith( replacement );
+		this.documentRulesScript = replacement;
 	}
 
 	/**

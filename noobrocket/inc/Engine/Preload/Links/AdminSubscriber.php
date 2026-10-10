@@ -47,6 +47,8 @@ class AdminSubscriber implements Subscriber_Interface {
 
 		$options['preload_links'] = 1;
 		$options['prerender_links'] = 0;
+		$options['prerender_links_mode'] = 'intent';
+		$options['prerender_links_eagerness'] = 'conservative';
 		$options['prerender_excluded_uri'] = [];
 
 		return $options;

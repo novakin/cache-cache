@@ -11197,3 +11197,51 @@ msgid ""
 "Prepare Google Fonts in the background and serve them locally when ready. "
 "Pages keep the original fonts until preparation succeeds. %1$sMore info%2$s"
 msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1055
+msgid ""
+"Load resources and run JavaScript before a visitor navigates to a public "
+"page. Uses more bandwidth."
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1065
+msgid "Prerender trigger"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1066
+msgid ""
+"Link intent waits for hovering, focus or touch. Document rules let the "
+"browser choose among eligible public links. Unsupported browsers keep link "
+"preloading."
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1067
+msgid "Link intent"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1067
+msgid "Browser document rules"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1077
+msgid "Document rule eagerness"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1078
+msgid ""
+"Applies to browser document rules. Conservative waits for a click or touch; "
+"moderate may prepare links on hover; eager may prepare visible links and "
+"uses more bandwidth."
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Conservative"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Moderate"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid "Eager"
+msgstr ""

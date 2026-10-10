@@ -5,6 +5,7 @@ namespace NoobRocket\Engine\Abilities\Options;
 
 use NoobRocket\Admin\Options_Data;
 use NoobRocket\Engine\Abilities\AbilitiesInterface;
+use NoobRocket\Engine\Admin\Settings\Settings;
 use NoobRocket\Engine\Tracking\TrackingTrait;
 
 class GetOptions implements AbilitiesInterface {
@@ -258,6 +259,16 @@ class GetOptions implements AbilitiesInterface {
 				'type'        => 'array',
 				'items'       => [ 'type' => 'string' ],
 				'description' => 'URI patterns excluded from prerendering; use (.*) for multiple paths. Cache exclusions are also honored.',
+			],
+			'prerender_links_mode'                      => [
+				'type'        => 'string',
+				'description' => 'Use explicit link intent or native document speculation rules.',
+				'enum'        => Settings::get_allowed_values( 'prerender_links_mode' ),
+			],
+			'prerender_links_eagerness'                 => [
+				'type'        => 'string',
+				'description' => 'Browser eagerness for document speculation rules; eager uses more bandwidth.',
+				'enum'        => Settings::get_allowed_values( 'prerender_links_eagerness' ),
 			],
 			'preload_fonts'                             => [
 				'type'        => 'array',

@@ -603,7 +603,7 @@
     {
       "name": "preload-links-browser",
       "path": "tests/preload-links-browser.mjs",
-      "purpose": "Verify link intent, exclusions and real browser prerender activation on owned loopback pages.",
+      "purpose": "Verify detached intent activation and native document candidates, exclusions and trusted-interest requests; DevTools blocks document activation.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": [

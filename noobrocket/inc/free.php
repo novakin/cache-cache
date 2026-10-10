@@ -42,6 +42,8 @@ function noobrocket_sanitize_local_css_safelist( $value ) {
  */
 function noobrocket_sanitize_prerender_options( array $options ): array {
 	$options['prerender_links'] = in_array( $options['prerender_links'] ?? 0, [ true, 1, '1' ], true ) ? 1 : 0;
+	$options['prerender_links_mode'] = in_array( $options['prerender_links_mode'] ?? null, [ 'intent', 'document' ], true ) ? $options['prerender_links_mode'] : 'intent';
+	$options['prerender_links_eagerness'] = in_array( $options['prerender_links_eagerness'] ?? null, [ 'conservative', 'moderate', 'eager' ], true ) ? $options['prerender_links_eagerness'] : 'conservative';
 	$value = $options['prerender_excluded_uri'] ?? [];
 	if ( is_string( $value ) ) {
 		$value = [ $value ];
