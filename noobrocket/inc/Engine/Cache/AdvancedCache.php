@@ -109,7 +109,8 @@ class AdvancedCache implements ActivationInterface, DeactivationInterface {
 	 */
 	public function get_advanced_cache_content() {
 		$content = $this->filesystem->get_contents( $this->template_path . 'advanced-cache.php' );
-		$mobile  = is_noobrocket_generate_caching_mobile_files() ? '$1' : '';
+		// Every site shares this loader; one site's save cannot remove another site's detector.
+		$mobile  = ( is_multisite() || is_noobrocket_generate_caching_mobile_files() ) ? '$1' : '';
 		$content = preg_replace( "/'{{MOBILE_CACHE}}';(\X*)'{{\/MOBILE_CACHE}}';/", $mobile, $content );
 
 		$replacements = [

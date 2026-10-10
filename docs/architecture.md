@@ -31,6 +31,8 @@ flowchart TD
 
 The early hit bypasses normal plugin boot. PHP hits expose `Cache-Status: NoobRocket; hit`; static Apache/Nginx delivery uses server rules and does not execute that header path. Publication locks prevent competing file writers from publishing partial output; they do not serialize all cold WordPress renders.
 
+The shared multisite loader retains mobile detection independently of the site saving settings. After selecting the request's early configuration, it loads the detector only when both mobile caching and separate mobile files are enabled. Single-site loaders omit that block when separate mobile files are disabled.
+
 Revision and autosave housekeeping skips Performance Hints, preload deletion and local CSS URL capture/invalidation while the revision exists. Parent updates and deletions retain their own invalidation paths, including old/current local CSS URLs. Core page-cache cleanup already rejects nonpublic revision posts before generating purge URLs; downstream hosting callbacks follow that boundary. Retained RUCSS has the same defensive revision guard, with its cloud subscribers still disabled.
 
 BerlinDB query-result cache generations advance on each successful insert, update or deletion, including when a query instance is reused after another instance writes. Direct row reads and result-cache item priming populate item caches without changing the result generation. Query instances remain independent; repeated complete reads can reuse cached results without new table queries. The bundled `Database/Query.php` patch and its reconstruction recipe own this invariant.

@@ -983,6 +983,45 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-mobile-loader",
+      "path": "tests/wordpress-mobile-loader.php",
+      "purpose": "Actual generated early loader selects mobile dependency and device filename from request policy independently of the saving network site.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Owned temporary configuration/loader files and fresh PHP processes; no WordPress bootstrap, database or HTTP.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-mobile-loader-multisite",
+      "path": "tests/wordpress-mobile-loader-multisite.php",
+      "purpose": "Native network settings saves, pre-plugin detector loading and early device cache hits retain enabled-site mobile variants after a disabled sibling save.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "multisite"
+      ],
+      "mutation": "Two owned temporary sites/configs/cache variants and a temporary MU sample; native save effects; original shared loader and blog context restored.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-cache-ownership",
       "path": "tests/wordpress-cache-ownership.php",
       "purpose": "Standalone activation/deactivation ownership proof; no WordPress site writes.",
