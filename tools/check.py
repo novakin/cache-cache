@@ -15,7 +15,11 @@ from urllib.request import urlopen
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILES = ('docs', 'syntax', 'fast', 'generated', 'wordpress', 'browser', 'server', 'package')
+PROFILES = ('docs', 'syntax', 'quality', 'fast', 'generated', 'wordpress', 'browser', 'server', 'package')
+
+PHP_DEPENDENCIES = ('noobrocket/vendor/', 'noobrocket/inc/Dependencies/',
+                    'noobrocket/inc/classes/dependencies/', 'noobrocket/inc/vendors/',
+                    'noobrocket/inc/deprecated/vendors/')
 
 
 class CheckFailure(Exception):
@@ -96,7 +100,7 @@ def docs(root):
             relative = unquote(target.split('#', 1)[0])
             if not exact_case_exists(path.parent, relative):
                 raise CheckFailure(f'Broken local link: {path.relative_to(root)} -> {target}')
-    for path in [root / 'noobrocket/composer.json', root / 'tools/package.json', root / 'tools/package-lock.json', root / 'noobrocket/local-css/package.json', root / 'noobrocket/local-css/package-lock.json']:
+    for path in [root / 'noobrocket/composer.json', root / 'tools/php-quality/composer.json', root / 'tools/php-quality/composer.lock', root / 'tools/package.json', root / 'tools/package-lock.json', root / 'noobrocket/local-css/package.json', root / 'noobrocket/local-css/package-lock.json']:
         json.loads(path.read_text(encoding='utf-8-sig'))
     scripts = json.loads((root / 'noobrocket/composer.json').read_text(encoding='utf-8'))['scripts']
     if any(name.startswith('post-') for name in scripts):
@@ -109,7 +113,9 @@ def syntax(root, php, node, shell='sh'):
     node = executable(node, 'Node')
     files = []
     for folder in ('noobrocket', 'tests', 'tools', '.github/scripts'):
-        files.extend(path for path in (root / folder).rglob('*') if path.is_file() and 'node_modules' not in path.parts)
+        files.extend(path for path in (root / folder).rglob('*')
+                     if path.is_file() and 'node_modules' not in path.parts
+                     and not path.relative_to(root).as_posix().startswith('tools/php-quality/vendor/'))
     commands = []
     for path in files:
         relative = path.relative_to(root).as_posix()
@@ -138,6 +144,73 @@ def syntax(root, php, node, shell='sh'):
                 print('\n'.join(log.read_text(encoding='utf-8', errors='replace').splitlines()[-40:]), file=sys.stderr)
                 raise CheckFailure(f'Syntax {relative}: exit {result.returncode}; log {log.relative_to(root)}')
     print(f'PASS syntax; {sum(p.suffix == ".php" for p in files)} PHP, {sum(p.suffix in {".js", ".mjs", ".cjs"} for p in files)} Node, {sum(p.suffix == ".py" for p in files)} Python, {sum(p.suffix == ".sh" for p in files)} shell; log {log.relative_to(root)}')
+
+
+def quality_paths(root, base=None, head=None, files=None):
+    """Check full changed files; dependencies supply symbols but are not gate targets."""
+    if files and (base or head):
+        raise CheckFailure('Quality --file cannot be combined with --base/--head')
+    if head and not base:
+        raise CheckFailure('Quality --head requires --base')
+    if files:
+        paths = files
+    else:
+        git = executable('git', 'Git')
+        commands = [['diff', '--name-only', '--diff-filter=ACMR', '-z', base, head or 'HEAD', '--']] if base else [
+            ['diff', '--name-only', '--diff-filter=ACMR', '-z', 'HEAD', '--'],
+            ['ls-files', '--others', '--exclude-standard', '-z'],
+        ]
+        paths = []
+        for command in commands:
+            result = subprocess.run([git, *command], cwd=root, capture_output=True, timeout=60)
+            if result.returncode:
+                raise CheckFailure('Quality Git scope failed; use valid revisions or explicit --file paths')
+            paths.extend(result.stdout.decode('utf-8').strip('\0').split('\0'))
+    selected = set()
+    for value in paths:
+        path = Path(value)
+        if path.is_absolute() or '..' in path.parts:
+            raise CheckFailure(f'Quality path must stay relative to the checkout: {value!r}')
+        relative = path.as_posix()
+        maintained = relative.startswith('noobrocket/') and relative.endswith('.php') and not relative.startswith(PHP_DEPENDENCIES)
+        if not maintained:
+            if files:
+                raise CheckFailure(f'Quality --file is not maintained PHP: {relative}')
+            continue
+        if not (root / path).is_file():
+            raise CheckFailure(f'Quality selected file missing: {relative}')
+        if root.resolve() not in (root / path).resolve().parents:
+            raise CheckFailure(f'Quality path resolves outside the checkout: {relative}')
+        selected.add(relative)
+    return sorted(selected)
+
+
+def quality(root, php, base=None, head=None, files=None):
+    paths = quality_paths(root, base, head, files)
+    if not paths:
+        print('SKIP quality: no changed maintained PHP files; analyzers were not executed')
+        return
+    php = executable(php, 'PHP')
+    tools = root / 'tools/php-quality'
+    vendor = tools / 'vendor'
+    for name in ('phpcs', 'phpstan'):
+        if not (vendor / 'bin' / name).is_file():
+            raise CheckFailure('Quality tools missing; run composer install --working-dir=tools/php-quality --no-plugins --no-scripts')
+    standards = ','.join(str(vendor / name) for name in (
+        'wp-coding-standards/wpcs', 'phpcompatibility/php-compatibility',
+        'phpcompatibility/phpcompatibility-wp', 'phpcompatibility/phpcompatibility-paragonie',
+        'phpcsstandards/phpcsutils', 'phpcsstandards/phpcsextra'))
+    print(f'Quality scope: {len(paths)} full maintained PHP files; native PHP parser plus PHPStan level 1 / target 70400; no baseline')
+    for path in paths:
+        run([php, '-l', str(root / path)], root, 'quality-syntax')
+    with tempfile.TemporaryDirectory(prefix='cache-cache-quality-') as folder:
+        file_list = Path(folder) / 'phpcs-files.txt'
+        file_list.write_text('\n'.join(paths) + '\n', encoding='utf-8')
+        run([php, str(vendor / 'bin/phpcs'), '--runtime-set', 'installed_paths', standards,
+             f'--standard={tools / "phpcs.xml"}', '-s', f'--file-list={file_list}'], root, 'quality-phpcs')
+    run([php, str(vendor / 'bin/phpstan'), 'analyse', f'--configuration={tools / "phpstan.neon"}',
+         '--no-progress', '--error-format=table', '--memory-limit=512M', *paths], root, 'quality-phpstan')
+    print(f'PASS quality; native PHP parsing, PHPCS and PHPStan executed on {len(paths)} files')
 
 
 def generated(root, node):
@@ -318,11 +391,16 @@ def main(argv=None):
     parser.add_argument('--zip', type=Path, help='Existing package to verify (never overwritten)')
     parser.add_argument('--compare-source', action='store_true', help='Require ZIP bytes to equal maintained source')
     parser.add_argument('--wordpress-zip', type=Path, help='WordPress ZIP input for the owned Linux server proof')
+    parser.add_argument('--base', help='Quality Git diff base; omit to inspect local tracked/untracked changes')
+    parser.add_argument('--head', help='Quality Git diff head; defaults to HEAD when --base is given')
+    parser.add_argument('--file', action='append', help='Explicit maintained PHP path for quality; repeat as needed')
     args = parser.parse_args(argv)
     root = ROOT
     try:
         if args.fixture and args.profile not in {'fast', 'wordpress', 'browser'}:
             raise CheckFailure('--fixture is supported only by fast, wordpress and browser profiles')
+        if (args.base or args.head or args.file) and args.profile != 'quality':
+            raise CheckFailure('--base/--head/--file are supported only by quality')
         if args.list:
             for entry in catalog(root):
                 if entry['profile'] == args.profile:
@@ -331,6 +409,8 @@ def main(argv=None):
             docs(root)
         elif args.profile == 'syntax':
             syntax(root, args.php, args.node, args.shell)
+        elif args.profile == 'quality':
+            quality(root, args.php, args.base, args.head, args.file)
         elif args.profile == 'generated':
             generated(root, args.node)
         elif args.profile == 'package':

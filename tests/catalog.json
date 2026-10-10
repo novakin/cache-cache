@@ -8,6 +8,19 @@
   ],
   "fixtures": [
     {
+      "name": "php-quality",
+      "path": "tests/php-quality.py",
+      "purpose": "Real Git changed-file selection and installed PHPCS/PHPStan negative controls plus representative maintained owners.",
+      "profile": "fast",
+      "environment": "tooling-isolated",
+      "prerequisites": ["python", "php", "git", "php-quality-tools"],
+      "mutation": "Owned temporary Git repository and copied plugin/check tools only; source and live sites untouched.",
+      "args": [],
+      "default": false,
+      "minimum_php": "7.4",
+      "timeout": 300
+    },
+    {
       "name": "acceptance:activate",
       "path": "tests/wordpress-acceptance.php",
       "purpose": "Native WordPress activate acceptance assertions.",

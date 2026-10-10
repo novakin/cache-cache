@@ -19,6 +19,16 @@ Pass `--php /path/to/php`, `--node /path/to/node` or `--shell /path/to/sh` when 
 
 Runtime PHP dependencies ship in `noobrocket/vendor/` and prefixed `noobrocket/inc/Dependencies/`. The existing manifest does not reproduce the complete prefixed distribution from a clean Composer download. Use the bundled files for this checkout. Do not run Composer install/update over them. Changes to dependencies require a separate reproducible reconstruction task, license review and package/runtime proof. Composer check aliases delegate to the repository runner; they do not supply missing upstream PHPUnit, PHPCS or PHPStan suites.
 
+Install PHP check tools separately with Composer 2.8.12 or a compatible version; their lockfile targets PHP 7.4.33. Composer plugins and scripts stay disabled. Hosted installs use a job-owned Composer home so inherited runner authentication does not affect these public dependencies. This install does not change the shipped plugin dependencies:
+
+```sh
+composer install --working-dir=tools/php-quality --no-interaction --no-plugins --no-scripts --prefer-dist
+python tools/check.py quality --base origin/cache-cache
+python tools/check.py fast --fixture php-quality --php /path/to/php
+```
+
+With no revision arguments, `quality` selects tracked local changes and untracked maintained PHP files. `--base REF --head REF` checks the full files changed between those exact revisions; omitted head means `HEAD`. For a source copy without Git, pass repeated relative `--file noobrocket/inc/path.php` arguments. Deleted files, non-PHP files and bundled dependency paths are excluded. An empty scope explicitly skips analyzers; it is not an analyzer pass. The [verification guide](../tests/README.md#php-quality-gate) owns the staged rule scope and remaining limits. Never load the inherited `noobrocket/phpstan-baseline.neon` to hide changed-file errors.
+
 Install worker dependencies only for browser/local CSS work:
 
 ```sh
@@ -53,6 +63,7 @@ The hosted server job uses Ubuntu 24.04 so PHP 8.3/FPM is available from the sta
 | English gettext messages and `noobrocket/languages/*.po` | `python tools/update-translations.py` updates POT/MO and verifies placeholders/lookups; inspect PO changes. |
 | `noobrocket/local-css/package.json` and lockfile | Pinned worker dependencies. `node_modules` and browser binaries are local-only. |
 | Bundled `vendor/` and `inc/Dependencies/` | Shipped runtime inputs. Do not let implicit install scripts overwrite them. |
+| `tools/php-quality/composer.json` and lockfile | Isolated, pinned PHPCS/PHPStan tools. Its `vendor/` is ignored and never packaged. |
 | `tools/build.py` | Installable ZIP with one `noobrocket/` root. Building a changed beta uses a new version; preserve published ZIPs. |
 
 `check.py generated` runs generators in a disposable copy and compares the required tracked outputs. It does not repair source. Run the owning generator intentionally when inputs change, then inspect the diff. `check.py package --zip /path/to/package.zip` verifies an existing archive; add `--compare-source` only when that archive is meant to match the current source. An older immutable beta is allowed to differ from development.
@@ -61,7 +72,7 @@ Catalog text and the generated settings bundle use LF on every platform. The tra
 
 ## CI selection and evidence
 
-[CI](../.github/workflows/ci.yml) runs docs/syntax/fast/generated checks on every PR. The [scope selector](../.github/scripts/ci-scope.py) chooses WordPress, browser and server groups from the actual diff; infrastructure changes and explicit full rehearsal broaden the selection. The final **Required checks** aggregate evaluates each applicable result and records irrelevant heavy groups as skipped. Tokens are read-only; checkouts do not persist credentials, and ordinary jobs do not publish beta assets or deploy.
+[CI](../.github/workflows/ci.yml) runs docs/syntax/fast/generated checks, quality-tool negative controls and the changed-file PHP quality gate on every PR. The applicable PHP 7.4 job also executes the quality fixture and parses/checks changed maintained files at the product syntax floor; recent static tools alone do not guarantee that floor. Quality selection compares the recorded current base to the checked-out integration candidate: a base-side deletion or rename must not select a file absent from that candidate. The [scope selector](../.github/scripts/ci-scope.py) chooses WordPress, browser and server groups from the actual diff; infrastructure changes and explicit full rehearsal broaden the selection. The final **Required checks** aggregate evaluates each applicable result and records irrelevant heavy groups as skipped. Tokens are read-only; checkouts do not persist credentials, and ordinary jobs do not publish beta assets or deploy.
 
 The WordPress matrix uses PHP 7.4/WordPress 5.8 for selected native acceptance/lifecycle proof, and PHP 8.3/WordPress 7.1.3 for the broader catalog. Full source/dependency syntax runs in the PHP 8.3 fast job. The floor job executes native plugin paths and their loaded dependencies; it does not parse every bundled library or run every modeled fixture on old core. Browser fixtures verify actual maintained script/style bytes with synthetic/native-class boundaries; affected real WordPress page sizes/themes/locales remain part of UI review. Linux server proof covers its owned MariaDB/Apache/Nginx/PHP-FPM/worker/multisite installation. Workflow configuration alone does not prove these jobs executed or that GitHub enforces a merge gate; see [current acceptance](workflow-acceptance.md).
 

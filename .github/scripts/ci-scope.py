@@ -16,7 +16,7 @@ def select(paths, full=False):
                  'tools/generate-settings-assets.mjs', 'tools/update-translations.py',
                  'noobrocket/composer.json', 'noobrocket/composer.lock',
                  '.gitattributes', '.gitignore'}
-        or path.startswith(('.github/', 'tools/check', 'tools/verification'))
+        or path.startswith(('.github/', 'tools/check', 'tools/verification', 'tools/php-quality/'))
         for path in paths
     )
     native = infrastructure or any(
@@ -63,7 +63,8 @@ def main():
         assert select(['noobrocket/local-css/worker.mjs']) == dict(wordpress=False, browser=True, server=True)
         assert select(['noobrocket/inc/Engine/Optimization/DelayJS/Subscriber.php']) == dict(wordpress=True, browser=True, server=True)
         for path in ('tests/catalog.json', 'tools/requirements.txt', 'tools/package-lock.json',
-                     'tools/build.py', 'tools/check.py', 'noobrocket/composer.lock', '.gitattributes'):
+                     'tools/build.py', 'tools/check.py', 'tools/php-quality/phpstan.neon',
+                     'noobrocket/composer.lock', '.gitattributes'):
             assert all(select([path]).values()), f'Infrastructure check bypass: {path}'
         assert all(select([], True).values())
         print('PASS CI selection: docs, PHP/admin, cache, worker, catalog/toolchain and full checks')
