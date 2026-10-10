@@ -181,6 +181,7 @@ lifecycle_check( ! isset( $state['network_options'][5]['noobrocket_database_opti
 lifecycle_check( isset( $state['network_options'][5]['foreign_batch'], $state['network_options'][5]['noobrocket_database_optimization_999_batch_outside'], $state['network_options'][8]['noobrocket_database_optimization_batch_foreign_network'], $state['site_transients'][5]['foreign_process_lock'], $state['site_transients'][8]['foreign_process_lock'] ), 'foreign, out-of-scope and other-network storage is retained' );
 
 $empty = new ReflectionMethod( $process, 'is_queue_empty' );
+$empty->setAccessible( true );
 foreach ( $state['sites'] as $site_id ) {
 	switch_to_blog( $site_id );
 	try {

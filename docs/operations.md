@@ -19,6 +19,8 @@ Start from the failing layer:
 
 The dashboard's cache probe checks anonymous homepage delivery; it is not a whole-site benchmark. Object-cache diagnostics use the configured provider and an isolated temporary key, without a global flush. Provider action failure must remain distinct from an unsaved configuration or successful settings save.
 
+Database cleanup starts its transient-name keyset at the empty string; a numeric cursor can skip underscore-prefixed names under database collation. It counts stored transient values, excluding timeout companions and its own running/result state. Cleanup runs in the background; reload the Database page after completion to refresh its counts. WordPress and plugins can recreate temporary values immediately, so a later nonzero count does not establish deletion failure. With an external object cache, cleanup invalidates each selected cache key and removes its stored current-site timeout/value pair; an absent cache key or timeout is harmless, while SQL deletion errors remain failures. Arbitrary cache-only entries are not enumerated or flushed. Multisite cleanup preserves shared network transients and other sites' rows.
+
 ## Apache, Nginx and stale refresh
 
 PHP cache delivery evaluates generated site policy. Apache may use generated direct HTML rules; Nginx needs explicitly maintained server configuration matching the effective site/cache paths and exclusions. Do not blindly reuse another site's Rocket rules. Verify authenticated, query, cookie, mobile and HTTPS behavior against representative routes. Protect config/PHP files from public static exposure; public generated CSS/images have separate delivery needs.

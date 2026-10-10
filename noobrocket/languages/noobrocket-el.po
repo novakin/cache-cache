@@ -10378,3 +10378,13 @@ msgstr ""
 #: inc/Engine/Admin/Settings/Page.php:1079
 msgid "Eager"
 msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1353
+msgid "Database transients"
+msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1356
+msgid ""
+"Plugins can recreate temporary values. Reload after cleanup finishes to "
+"refresh the count."
+msgstr ""

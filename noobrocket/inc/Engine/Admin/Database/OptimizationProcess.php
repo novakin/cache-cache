@@ -54,7 +54,7 @@ class OptimizationProcess extends NoobRocket_WP_Background_Process {
 
 	public function dispatch() {
 		set_transient( 'noobrocket_database_optimization_process', 'running', HOUR_IN_SECONDS );
-		return parent::dispatch();
+		return parent::dispatch(); // @phpstan-ignore-line -- The bundled parent's void docblock conflicts with its actual wp_remote_post return.
 	}
 
 	/** Cancel every owned batch, rather than the inherited first-batch-only behavior. */
@@ -123,13 +123,18 @@ class OptimizationProcess extends NoobRocket_WP_Background_Process {
 			'database_trashed_comments' => "comment_approved IN ('trash','post-trashed')",
 		];
 		if ( isset( $post_conditions[ $type ] ) ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The condition comes only from the fixed post map above.
 			return $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE {$post_conditions[$type]} AND ID > %d ORDER BY ID ASC LIMIT %d", $cursor, self::BATCH_SIZE ) );
 		}
 		if ( isset( $comment_conditions[ $type ] ) ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The condition comes only from the fixed comment map above.
 			return $wpdb->get_col( $wpdb->prepare( "SELECT comment_ID FROM {$wpdb->comments} WHERE {$comment_conditions[$type]} AND comment_ID > %d ORDER BY comment_ID ASC LIMIT %d", $cursor, self::BATCH_SIZE ) );
 		}
 		if ( 'database_all_transients' === $type ) {
 			// Timeout rows belong to their value; native deletion removes both once.
+			// Names start with an underscore, which can sort before the initial numeric cursor.
+			$cursor = $cursor ? (string) $cursor : '';
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- The shared transient condition prepares its patterns; cursor and limit are prepared here.
 			return $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE " . Optimization::transient_condition() . " AND option_name > %s ORDER BY option_name ASC LIMIT %d", (string) $cursor, self::BATCH_SIZE ) );
 		}
 		return null;
@@ -147,10 +152,27 @@ class OptimizationProcess extends NoobRocket_WP_Background_Process {
 			return (bool) wp_delete_comment( (int) $id, true );
 		}
 		if ( 'database_all_transients' === $type ) {
-			return 0 === strpos( $id, '_site_transient_' ) ? delete_site_transient( substr( $id, 16 ) ) : delete_transient( substr( $id, 11 ) );
+			$site_transient = 0 === strpos( $id, '_site_transient_' );
+			$name = substr( $id, $site_transient ? 16 : 11 );
+			$deleted = $site_transient ? delete_site_transient( $name ) : delete_transient( $name );
+			if ( ! wp_using_ext_object_cache() ) {
+				return $deleted;
+			}
+			// Core deletes only the cache key in this mode; our scope is stored database values.
+			$timeout = ( $site_transient ? '_site_transient_timeout_' : '_transient_timeout_' ) . $name;
+			if ( ! delete_option( $timeout ) ) {
+				// Core cache invalidation can clear a failed DELETE's error; verify absence.
+				$remaining_timeout = $wpdb->get_var( $wpdb->prepare( "SELECT option_id FROM {$wpdb->options} WHERE option_name = %s", $timeout ) );
+				if ( null !== $remaining_timeout || ! empty( $wpdb->last_error ) ) {
+					return false;
+				}
+			}
+			// Keep the value selectable if its timeout could not be removed.
+			return delete_option( $id );
 		}
 		if ( 'database_optimize_tables' === $type ) {
 			// Names come only from the explicit native current-site table list.
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- The current-site native table allowlist owns this identifier; embedded backticks are escaped.
 			$messages = $wpdb->get_results( 'OPTIMIZE TABLE `' . str_replace( '`', '``', $id ) . '`' );
 			if ( ! $messages ) {
 				return false;

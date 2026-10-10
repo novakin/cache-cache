@@ -66,6 +66,8 @@ The runner installs an owned temporary MU HTTP guard before WordPress boot and r
 
 HTTP/stale/local CSS fixtures additionally require the configured loopback server and pretty permalinks, plus any browser/worker argument listed in the catalog. Run all site-mutating checks serially. Parallel environments need distinct databases, paths and ports. Preserve owned failure logs; do not restore shared runtime rows to an old baseline.
 
+`wordpress --fixture wordpress-database-transients` runs the actual database-cleanup worker with native WordPress option/transient APIs and a query boundary limited to uniquely owned names. It checks normal deletion, external-cache invalidation plus persisted timeout/value removal, absent timeout/cache keys, native hooks, matching displayed counts, SQL refusal and protected/unrelated rows. External-cache mode is toggled request-locally against WordPress's in-memory cache; this proves the native API branch, not a particular Redis/Memcached backend. `wordpress --fixture wordpress-database-transients-multisite` requires a real marked disposable network and adds one owned sibling site to verify site isolation; shared network option/cache entries remain intact. Both fixtures restore prior result storage and cache mode, remove only their owned rows/keys and never dispatch the cleanup queue. Existing `fast --fixture wordpress-database-cleanup --fixture wordpress-database-lifecycle` fixtures cover bounded resume, completion/cancellation and lifecycle ownership with modeled storage.
+
 ## Browser and server proof
 
 ```sh

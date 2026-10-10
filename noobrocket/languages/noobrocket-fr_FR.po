@@ -12490,3 +12490,13 @@ msgstr "Modéré"
 #: inc/Engine/Admin/Settings/Page.php:1079
 msgid "Eager"
 msgstr "Anticipé"
+
+msgid "Database transients"
+msgstr "Transients en base de données"
+
+msgid ""
+"Plugins can recreate temporary values. Reload after cleanup finishes to "
+"refresh the count."
+msgstr ""
+"Les extensions peuvent recréer les valeurs temporaires. Rechargez la page "
+"après la fin du nettoyage pour actualiser le nombre."
