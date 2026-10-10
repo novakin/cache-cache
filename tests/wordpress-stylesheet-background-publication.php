@@ -18,6 +18,10 @@ foreach ( [ 'inc/Engine/Common/Cache/FilesystemCache.php', 'inc/Engine/Media/Laz
 		exit( 2 );
 	}
 }
+$native_completed = false;
+register_shutdown_function( static function () use ( &$native_completed ) {
+	if ( ! $native_completed ) { fwrite( STDERR, "FAIL: native stylesheet fixture did not complete.\n" ); exit( 2 ); }
+} );
 $temporary = $wordpress . '/wp-content/cc-bg-' . bin2hex( random_bytes( 4 ) );
 if ( ! mkdir( $temporary ) ) { throw new RuntimeException( 'Cannot create the owned fixture directory.' ); }
 define( 'NOOBROCKET_CACHE_ROOT_PATH', $temporary . '/cache/' );
@@ -257,3 +261,4 @@ try {
 		rmdir( $temporary );
 	}
 }
+$native_completed = true;
