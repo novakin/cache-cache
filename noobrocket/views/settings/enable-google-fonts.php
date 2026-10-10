@@ -3,6 +3,8 @@
  * Enable Google Fonts template.
  *
  * @since 3.7
+ *
+ * @var array{beacon: array{url: string, id: string}} $data Beacon input supplied by Abstract_Render::generate().
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -35,7 +37,7 @@ defined( 'ABSPATH' ) || exit;
 			</div>
 		</div>
 		<div class="noobrocket-tools-col">
-			<button type="button" id="noobrocket-action-noobrocket_enable_google_fonts" class="noobrocket-button noobrocket-button--icon noobrocket-button--small noobrocket-button--purple noobrocket-icon-refresh">
+			<button type="button" id="noobrocket-action-noobrocket_enable_google_fonts" class="noobrocket-button noobrocket-button--icon noobrocket-button--small noobrocket-button--purple noobrocket-icon-refresh" data-error="<?php esc_attr_e( 'Google Fonts Optimization could not be enabled. Try again.', 'noobrocket' ); ?>">
 				<?php esc_html_e( 'Optimize Google Fonts', 'noobrocket' ); ?>
 			</button>
 		</div>

@@ -132,24 +132,49 @@ $(document).ready(function () {
   });
 
   /**
+   * Enable a Tools option only after the action confirms persisted settings.
+   */
+  function enableToolsOption(selector, action, onSuccess) {
+    $(selector).on('click', function (e) {
+      e.preventDefault();
+      var button = $(this);
+      if (button.prop('disabled')) return;
+      var hadFocus = button[0] === document.activeElement;
+      button.addClass('noobrocket-isLoading').prop('disabled', true).attr('aria-busy', 'true');
+      var showError = function () {
+        var notice = document.createElement('div');
+        notice.className = 'notice notice-error';
+        notice.setAttribute('role', 'alert');
+        var text = document.createElement('p');
+        text.textContent = button.attr('data-error');
+        notice.appendChild(text);
+        var feedback = document.querySelector('.noobrocket-global-feedback');
+        if (feedback) feedback.appendChild(notice);
+        else button[0].parentNode.appendChild(notice);
+        // The admin shell uses its existing tray; native feedback remains if it is unavailable.
+        document.dispatchEvent(new CustomEvent('noobrocketNoticeAdded', { detail: notice }));
+      };
+      $.post(ajaxurl, {
+        action: action,
+        _ajax_nonce: noobrocket_ajax_data.nonce
+      }).done(function (response) {
+        if (response && response.success === true) onSuccess(button);
+        else showError();
+      }).fail(showError).always(function () {
+        button.removeClass('noobrocket-isLoading').prop('disabled', false).removeAttr('aria-busy');
+        if (hadFocus && document.activeElement === document.body && button[0].getClientRects().length) button[0].focus();
+      });
+    });
+  }
+
+  /**
    * Save enable Google Fonts Optimization option.
    */
-  $('#noobrocket-action-noobrocket_enable_google_fonts').on('click', function (e) {
-    e.preventDefault();
-    $('#noobrocket-action-noobrocket_enable_google_fonts').addClass('noobrocket-isLoading');
-    $.post(ajaxurl, {
-      action: 'noobrocket_enable_google_fonts',
-      _ajax_nonce: noobrocket_ajax_data.nonce
-    }, function (response) {
-      if (response.success) {
-        // Hide Mobile CPCSS btn on success.
-        $('#noobrocket-action-noobrocket_enable_google_fonts').hide();
-        $('.noobrocket-hide-on-click').hide();
-        $('.noobrocket-show-on-click').show();
-        $('#noobrocket-action-noobrocket_enable_google_fonts').removeClass('noobrocket-isLoading');
-        $('#minify_google_fonts').val(1);
-      }
-    });
+  enableToolsOption('#noobrocket-action-noobrocket_enable_google_fonts', 'noobrocket_enable_google_fonts', function (button) {
+    button.hide();
+    $('#noobrocket-google-fonts-enabler .noobrocket-hide-on-click').hide();
+    $('#noobrocket-google-fonts-enabler .noobrocket-show-on-click').show();
+    $('#minify_google_fonts').val(1);
   });
   $('#noobrocket-dismiss-promotion').on('click', function (e) {
     e.preventDefault();
@@ -203,25 +228,12 @@ $(document).ready(function () {
   /**
    * Enable mobile cache option.
    */
-  $('#nbr_enable_mobile_cache').on('click', function (e) {
-    e.preventDefault();
-    $('#nbr_enable_mobile_cache').addClass('noobrocket-isLoading');
-    $.post(ajaxurl, {
-      action: 'noobrocket_enable_mobile_cache',
-      _ajax_nonce: noobrocket_ajax_data.nonce
-    }, function (response) {
-      if (response.success) {
-        // Hide Mobile cache enable button on success.
-        $('#nbr_enable_mobile_cache').hide();
-        $('#nbr_mobile_cache_default').hide();
-        $('#nbr_mobile_cache_response').show();
-        $('#nbr_enable_mobile_cache').removeClass('noobrocket-isLoading');
-
-        // Set values of mobile cache and separate cache files for mobiles option to 1.
-        $('#cache_mobile').val(1);
-        $('#do_caching_mobile_files').val(1);
-      }
-    });
+  enableToolsOption('#nbr_enable_mobile_cache', 'noobrocket_enable_mobile_cache', function (button) {
+    button.hide();
+    $('#nbr_mobile_cache_default').hide();
+    $('#nbr_mobile_cache_response').show();
+    $('#cache_mobile').val(1);
+    $('#do_caching_mobile_files').val(1);
   });
 });
 document.addEventListener('DOMContentLoaded', function () {
