@@ -103,7 +103,7 @@ $user_before = get_current_user_id();
 $posts = [];
 $terms = [];
 $block_http = function () { return new WP_Error( 'local_css_fixture_http', 'HTTP disabled by local CSS fixture.' ); };
-add_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+add_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 add_filter( 'noobrocket_generate_advanced_cache_file', '__return_false' );
 add_filter( 'noobrocket_disable_htaccess', '__return_true' );
 add_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
@@ -368,7 +368,7 @@ try {
 	remove_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
 	remove_filter( 'noobrocket_generate_advanced_cache_file', '__return_false' );
 	remove_filter( 'noobrocket_disable_htaccess', '__return_true' );
-	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 	foreach ( $globals_before as $name => $value ) {
 		$GLOBALS[ $name ] = $value;
 	}

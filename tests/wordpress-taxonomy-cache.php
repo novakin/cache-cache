@@ -42,7 +42,7 @@ $relationships = [
 ];
 $block_http = function () { return new WP_Error( 'taxonomy_fixture_http', 'HTTP disabled by taxonomy fixture.' ); };
 $permalinks = function () { return '/%category%/%postname%/'; };
-add_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+add_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 add_filter( 'pre_option_permalink_structure', $permalinks );
 add_filter( 'pre_get_noobrocket_option_manual_preload', '__return_true' );
 add_filter( 'noobrocket_is_importing', '__return_true' );
@@ -213,7 +213,7 @@ try {
 	remove_filter( 'noobrocket_is_importing', '__return_true' );
 	remove_filter( 'pre_get_noobrocket_option_manual_preload', '__return_true' );
 	remove_filter( 'pre_option_permalink_structure', $permalinks );
-	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX );
+	remove_filter( 'pre_http_request', $block_http, PHP_INT_MAX - 1 );
 	$GLOBALS['wp_rewrite'] = $rewrite_before;
 	$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $fixture, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
 	foreach ( $iterator as $file ) {

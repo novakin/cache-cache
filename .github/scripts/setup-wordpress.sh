@@ -27,4 +27,8 @@ define('AUTH_SALT', 'disposable-ci-auth-salt'); define('SECURE_AUTH_SALT', 'disp
 $table_prefix = 'wp_'; if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/'); require_once ABSPATH . 'wp-settings.php';
 EOF
 php "$workspace/.github/scripts/install-wordpress.php" "$wordpress"
+if [ -s "$wordpress/wp-content/http-audit-blocked.txt" ]; then
+  echo 'Unexpected HTTP blocked during disposable WordPress setup.' >&2
+  exit 1
+fi
 echo "Prepared marked copied-plugin site: $wordpress"

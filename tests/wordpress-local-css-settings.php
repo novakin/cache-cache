@@ -26,7 +26,7 @@ $GLOBALS['wp_filter']['query'][PHP_INT_MAX][] = [
 	},
 	'accepted_args' => 1,
 ];
-$GLOBALS['wp_filter']['pre_http_request'][PHP_INT_MAX][] = [
+$GLOBALS['wp_filter']['pre_http_request'][PHP_INT_MAX - 1][] = [
 	'function'      => static function () {
 		return new WP_Error( 'local_css_settings_read_only', 'External HTTP is disabled during read-only verification.' );
 	},

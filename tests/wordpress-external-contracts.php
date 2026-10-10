@@ -51,7 +51,7 @@ add_filter( 'pre_http_request', function ( $pre, $args, $url ) use ( &$requests,
 		'response' => [ 'code' => 200, 'message' => 'OK' ],
 		'cookies'  => [],
 	];
-}, PHP_INT_MAX, 3 );
+}, PHP_INT_MAX - 1, 3 );
 
 $options = new \NoobRocket\Admin\Options_Data( [ 'cloudflare_zone_id' => 'test-zone' ] );
 $client = new \NoobRocket\Addon\Cloudflare\API\Client( new \NoobRocket\Addon\Cloudflare\Auth\APIKey( 'test@example.test', 'fixture-only' ) );
