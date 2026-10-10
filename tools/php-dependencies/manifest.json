@@ -13,7 +13,7 @@
   },
   "output": {
     "files": 219,
-    "sha256": "7193db7dc92b8c62e02ae3cce6be874e3e9219f48ff74fdc50c9ab83c82cfa04",
+    "sha256": "d3962e939a4edf31746d5c801c6d589d57c72de9962a274cfc9191b2ec92d6b3",
     "hash_format": "SHA256 of sorted UTF-8 relative path + NUL + raw SHA256(file bytes) + LF for every file."
   },
   "omitted": [
@@ -41,6 +41,12 @@
       "reason": "Preserve the existing multisite creation fix: options tables do not exist yet during wp_initialize_site.",
       "before": "\t\tif ( ! $this->is_global() ) {\n\t\t\t$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );\n\t\t}",
       "after": "\t\tif ( ! $this->is_global() ) {\n\t\t\t// Site creation switches blogs before WordPress creates its options table.\n\t\t\tif ( doing_action( 'wp_initialize_site' ) && ! wp_is_site_initialized( $site_id ) ) {\n\t\t\t\t$this->db_version = false;\n\t\t\t} else {\n\t\t\t\t$this->db_version = get_blog_option( $site_id, $this->db_version_key, false );\n\t\t\t}\n\t\t}"
+    },
+    {
+      "path": "inc/Dependencies/NoobRocketLazyload/Image.php",
+      "reason": "Preserve complete inline background declarations: only a single URL is lazyloaded; layered, repeated and unsupported values remain unchanged (#8978).",
+      "before": "\t\t\tif ( $this->isExcluded( $attrs_no_style, $this->getExcludedAttributes() ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t/**\n\t\t\t * Regex to detect bg images inside CSS.\n\t\t\t *\n\t\t\t * @param string $regex regex to detect.\n\t\t\t * @return string\n\t\t\t */\n\t\t\t$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\((?<url>[^)]+)\\))\\s*;?' );\n\n\t\t\tif ( @preg_match( \"#$regex#is\", '' ) === false ) {// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged\n\t\t\t\t$regex = 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\((?<url>[^)]+)\\))\\s*;?';\n\t\t\t}\n",
+      "after": "\t\t\tif ( $this->isExcluded( $attrs_no_style, $this->getExcludedAttributes() ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t// One data-bg value cannot preserve the cascade of repeated declarations.\n\t\t\tif ( preg_match_all( '#background-image\\s*:#i', $element['styles'] ) > 1 ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t// Match a complete single URL; leave layered or unsupported CSS unchanged.\n\t\t\t$default_regex = 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\(\\s*(?<url>\"[^\"\\\\\\\\]*\"|\\'[^\\'\\\\\\\\]*\\'|[^()\\'\"\\\\\\\\\\s]+)\\s*\\))\\s*(?:;|$)';\n\n\t\t\t/**\n\t\t\t * Regex to detect bg images inside CSS.\n\t\t\t *\n\t\t\t * @param string $regex regex to detect.\n\t\t\t * @return string\n\t\t\t */\n\t\t\t$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', $default_regex );\n\n\t\t\tif ( @preg_match( \"#$regex#is\", '' ) === false ) {// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged\n\t\t\t\t$regex = $default_regex;\n\t\t\t}\n"
     }
   ],
   "locked_package_provenance": [

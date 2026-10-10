@@ -98,16 +98,24 @@ class Image {
 				continue;
 			}
 
+			// One data-bg value cannot preserve the cascade of repeated declarations.
+			if ( preg_match_all( '#background-image\s*:#i', $element['styles'] ) > 1 ) {
+				continue;
+			}
+
+			// Match a complete single URL; leave layered or unsupported CSS unchanged.
+			$default_regex = 'background-image\s*:\s*(?<attr>\s*url\s*\(\s*(?<url>"[^"\\\\]*"|\'[^\'\\\\]*\'|[^()\'"\\\\\s]+)\s*\))\s*(?:;|$)';
+
 			/**
 			 * Regex to detect bg images inside CSS.
 			 *
 			 * @param string $regex regex to detect.
 			 * @return string
 			 */
-			$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', 'background-image\s*:\s*(?<attr>\s*url\s*\((?<url>[^)]+)\))\s*;?' );
+			$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', $default_regex );
 
 			if ( @preg_match( "#$regex#is", '' ) === false ) {// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-				$regex = 'background-image\s*:\s*(?<attr>\s*url\s*\((?<url>[^)]+)\))\s*;?';
+				$regex = $default_regex;
 			}
 
 			if ( ! preg_match( "#$regex#is", $element['styles'], $url ) ) {
