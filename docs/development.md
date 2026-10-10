@@ -40,6 +40,8 @@ The default native group runs serially. Destructive lifecycle phases are explici
 
 Server rehearsal uses Linux with owned MariaDB/Apache/Nginx/PHP-FPM processes and a verified WordPress archive; [test setup](../tests/README.md) explains the entry point. `PHP_CLI`, `PHP_FPM` and optional `APACHE_MODULE_DIR` select the installed PHP binaries/module path for the server script. Nothing requires this workstation's `.artifacts/` directory.
 
+The hosted server job uses Ubuntu 24.04 so PHP 8.3/FPM is available from the standard package archives. Minimum-version native checks remain on their separate runner; changing the server OS does not change the declared product floor.
+
 ## Maintained and generated ownership
 
 | Input/owner | Output or rule |
@@ -52,6 +54,8 @@ Server rehearsal uses Linux with owned MariaDB/Apache/Nginx/PHP-FPM processes an
 | `tools/build.py` | Installable ZIP with one `noobrocket/` root. Building a changed beta uses a new version; preserve published ZIPs. |
 
 `check.py generated` runs generators in a disposable copy and compares the required tracked outputs. It does not repair source. Run the owning generator intentionally when inputs change, then inspect the diff. `check.py package --zip /path/to/package.zip` verifies an existing archive; add `--compare-source` only when that archive is meant to match the current source. An older immutable beta is allowed to differ from development.
+
+Catalog text and the generated settings bundle use LF on every platform. The translation writer requests LF explicitly; `.gitattributes` keeps those generated files consistent even with Windows `core.autocrlf` enabled. Other imported source bytes are preserved. Compiled MO files remain binary and are verified separately; the checker never hides drift by normalizing outputs.
 
 ## CI selection and evidence
 

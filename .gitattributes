@@ -1,0 +1,7 @@
+# Preserve imported distribution bytes across platform-specific Git settings.
+* -text
+
+# Generated text must match the same bytes on Windows and Linux.
+noobrocket/languages/*.po text eol=lf
+noobrocket/languages/*.pot text eol=lf
+noobrocket/assets/js/noobrocket-settings.min.js text eol=lf
