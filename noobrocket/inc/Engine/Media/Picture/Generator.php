@@ -102,12 +102,14 @@ class Generator implements Subscriber_Interface {
 				$pending = $this->pending();
 				if ( null === $pending ) {
 					$state['active'] = true;
+					$state['backfill_pending'] = true;
 					$this->retry_failed_read( $state );
 					return $this->status();
 				}
 				if ( ! $pending ) {
 					$state['cursor'] = 0;
 				}
+				$state['backfill_pending'] = false;
 			}
 			$state['active'] = true;
 			$state['last_error'] = '';
@@ -124,16 +126,25 @@ class Generator implements Subscriber_Interface {
 			wp_clear_scheduled_hook( self::CRON );
 			return;
 		}
-		$state = $this->state();
-		if ( $state['active'] ) {
+		$lock = $this->lock( false );
+		if ( ! $lock ) {
 			$this->schedule();
 			return;
 		}
-		$pending = $this->pending();
-		if ( null === $pending ) {
-			$this->retry_failed_read( $state );
-		} elseif ( $pending ) {
-			$this->schedule();
+		try {
+			$state = $this->state();
+			if ( $state['active'] ) {
+				$this->schedule();
+				return;
+			}
+			$pending = $this->pending();
+			if ( null === $pending ) {
+				$this->retry_failed_read( $state );
+			} elseif ( $pending ) {
+				$this->schedule();
+			}
+		} finally {
+			$this->unlock( $lock );
 		}
 	}
 
@@ -171,6 +182,14 @@ class Generator implements Subscriber_Interface {
 			if ( null === $pending ) {
 				$this->retry_failed_read( $state );
 				return;
+			}
+			if ( $state['backfill_pending'] ) {
+				// A healthy queue read decides whether the explicit request resumes or restarts.
+				if ( ! $pending ) {
+					$state['cursor'] = 0;
+				}
+				$state['backfill_pending'] = false;
+				update_option( self::STATE, $state, false );
 			}
 			$scanned_state = $state;
 			if ( ! $pending && $state['active'] ) {
@@ -452,7 +471,9 @@ class Generator implements Subscriber_Interface {
 
 	private function state(): array {
 		$state = get_option( self::STATE, [] );
-		return ( is_array( $state ) ? $state : [] ) + [ 'active' => false, 'cursor' => 0, 'generated' => 0, 'last_run' => 0, 'last_error' => '', 'dirty' => false ];
+		$state = ( is_array( $state ) ? $state : [] ) + [ 'active' => false, 'cursor' => 0, 'generated' => 0, 'last_run' => 0, 'last_error' => '', 'dirty' => false, 'backfill_pending' => false ];
+		$state['backfill_pending'] = in_array( $state['backfill_pending'], [ true, 1, '1' ], true );
+		return $state;
 	}
 
 	private function enabled(): bool {

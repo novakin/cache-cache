@@ -53,6 +53,20 @@ $check = static function ( $condition, $message ) use ( &$checks ) {
 	++$checks;
 };
 $ids = [];
+$make_attachment = static function ( $name, $seed ) use ( $temporary, &$ids ) {
+	$source_file = $temporary . '/uploads/' . $name . '.png';
+	$image = imagecreatetruecolor( 64, 64 );
+	mt_srand( $seed );
+	for ( $y = 0; $y < 64; ++$y ) { for ( $x = 0; $x < 64; ++$x ) { imagesetpixel( $image, $x, $y, mt_rand( 0, 0xffffff ) ); } }
+	if ( ! imagepng( $image, $source_file, 0 ) ) { throw new RuntimeException( 'Cannot write native PNG source.' ); }
+	imagedestroy( $image );
+	$id = wp_insert_attachment( [ 'post_mime_type' => 'image/png', 'post_title' => 'Owned picture query ' . $name, 'post_status' => 'inherit' ], $source_file, 0, true );
+	if ( is_wp_error( $id ) ) { throw new RuntimeException( 'Cannot create owned attachment.' ); }
+	$ids[] = $id;
+	wp_update_attachment_metadata( $id, [ 'file' => basename( $source_file ), 'width' => 64, 'height' => 64, 'sizes' => [] ] );
+	update_post_meta( $id, '_picture_query_owned', 'retained' );
+	return $id;
+};
 $refuse = null;
 $purge = null;
 try {
@@ -61,17 +75,7 @@ try {
 	$check( (bool) array_filter( $generator->capabilities() ), 'native image editor supports an actual modern format' );
 	$check( 0 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_noobrocket_image_pending'" ), 'disposable site has no unrelated pending image work' );
 	foreach ( [ 1 => 'initial pending', 2 => 'library scan', 3 => 'post-scan pending', 4 => 'completion pending' ] as $stage => $label ) {
-		$source_file = $temporary . '/uploads/r' . $stage . '.png';
-		$image = imagecreatetruecolor( 64, 64 );
-		mt_srand( 79 + $stage );
-		for ( $y = 0; $y < 64; ++$y ) { for ( $x = 0; $x < 64; ++$x ) { imagesetpixel( $image, $x, $y, mt_rand( 0, 0xffffff ) ); } }
-		if ( ! imagepng( $image, $source_file, 0 ) ) { throw new RuntimeException( 'Cannot write native PNG source.' ); }
-		imagedestroy( $image );
-		$id = wp_insert_attachment( [ 'post_mime_type' => 'image/png', 'post_title' => 'Owned picture query ' . $stage, 'post_status' => 'inherit' ], $source_file, 0, true );
-		if ( is_wp_error( $id ) ) { throw new RuntimeException( 'Cannot create owned attachment.' ); }
-		$ids[] = $id;
-		wp_update_attachment_metadata( $id, [ 'file' => basename( $source_file ), 'width' => 64, 'height' => 64, 'sizes' => [] ] );
-		update_post_meta( $id, '_picture_query_owned', 'retained' );
+		$id = $make_attachment( 'r' . $stage, 79 + $stage );
 		if ( 1 === $stage ) { update_post_meta( $id, '_noobrocket_image_pending', 2 ); }
 		$before_meta = get_post_meta( $id );
 		$state = [ 'active' => true, 'cursor' => $id - 1, 'generated' => 7, 'last_run' => 31, 'last_error' => '', 'dirty' => true ];
@@ -125,6 +129,50 @@ try {
 		$purge = null;
 		wp_delete_attachment( $id, true );
 	}
+	foreach ( [ 'empty', 'nonempty' ] as $queue ) {
+		$id = $make_attachment( 'backfill-' . $queue, 85 );
+		if ( 'nonempty' === $queue ) { update_post_meta( $id, '_noobrocket_image_pending', 2 ); }
+		$state = [ 'active' => false, 'cursor' => $id + 77, 'generated' => 7, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+		update_option( 'noobrocket_image_generation', $state, false );
+		$before_meta = get_post_meta( $id );
+		unset( $GLOBALS['wp_actions']['noobrocket_after_clean_domain'] );
+		$purges = 0;
+		$purge = static function () use ( &$purges ) { ++$purges; };
+		add_action( 'before_noobrocket_clean_domain', $purge );
+		$refuse = static function ( $query ) use ( $wpdb ) {
+			return 0 === strpos( $query, "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = " ) ? str_replace( "FROM {$wpdb->postmeta}", 'FROM ' . $wpdb->prefix . 'picture_query_missing', $query ) : $query;
+		};
+		add_filter( 'query', $refuse, PHP_INT_MAX );
+		$generator->queue_library();
+		remove_filter( 'query', $refuse, PHP_INT_MAX );
+		$refuse = null;
+		$requested = get_option( 'noobrocket_image_generation' );
+		$check( true === $requested['active'] && true === $requested['backfill_pending'] && $state['cursor'] === $requested['cursor'] && 7 === $requested['generated'] && 31 === $requested['last_run'], 'native explicit backfill retains history and deferred intent while the pending queue is unknown: ' . $queue );
+		$check( $before_meta === get_post_meta( $id ) && 'database_read_failed' === $requested['last_error'] && wp_next_scheduled( 'noobrocket_generate_images' ) && 0 === $purges, 'native failed backfill schedules retry without metadata mutation or purge: ' . $queue );
+		for ( $batch = 0; $batch < 5 && get_option( 'noobrocket_image_generation' )['active']; ++$batch ) {
+			wp_clear_scheduled_hook( 'noobrocket_generate_images' );
+			do_action( 'noobrocket_generate_images' );
+		}
+		$recovered = get_option( 'noobrocket_image_generation' );
+		$owned = get_post_meta( $id, '_noobrocket_image_files', true );
+		$published = count( array_filter( is_array( $owned ) ? $owned : [], static function ( $record ) { return is_array( $record ) && ! empty( $record['digest'] ); } ) );
+		$check( false === $recovered['active'] && false === $recovered['backfill_pending'] && ( 'empty' === $queue ? $id : $state['cursor'] ) === $recovered['cursor'] && $published > 0 && 7 + $published === $recovered['generated'], 'native healthy backfill chooses fresh full scan for empty work and existing resume cursor for pending work: ' . $queue );
+		$check( '' === $recovered['last_error'] && 1 === $purges && ! wp_next_scheduled( 'noobrocket_generate_images' ) && ! metadata_exists( 'post', $id, '_noobrocket_image_pending' ), 'native backfill recovery completes and publishes once: ' . $queue );
+		remove_action( 'before_noobrocket_clean_domain', $purge );
+		$purge = null;
+		wp_delete_attachment( $id, true );
+	}
+	$state = [ 'active' => false, 'cursor' => 77, 'generated' => 17, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+	update_option( 'noobrocket_image_generation', $state, false );
+	wp_clear_scheduled_hook( 'noobrocket_generate_images' );
+	$lock = fopen( $temporary . '/uploads/.noobrocket-image-generator.lock', 'c' );
+	if ( ! flock( $lock, LOCK_EX | LOCK_NB ) ) { throw new RuntimeException( 'Cannot hold owned native generator lock.' ); }
+	try {
+		$generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] );
+		$check( $state === get_option( 'noobrocket_image_generation' ) && wp_next_scheduled( 'noobrocket_generate_images' ), 'native contended settings activation schedules retry without overwriting worker state' );
+		$generator->settings_changed( [ 'image_delivery' => 1 ], [ 'image_delivery' => 0 ] );
+		$check( $state === get_option( 'noobrocket_image_generation' ) && ! wp_next_scheduled( 'noobrocket_generate_images' ), 'native disabled settings clear retry even when the generator lock is held' );
+	} finally { flock( $lock, LOCK_UN ); fclose( $lock ); }
 } finally {
 	if ( $refuse ) { remove_filter( 'query', $refuse, PHP_INT_MAX ); }
 	if ( $purge ) { remove_action( 'before_noobrocket_clean_domain', $purge ); }

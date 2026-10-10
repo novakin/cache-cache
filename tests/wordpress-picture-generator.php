@@ -43,10 +43,14 @@ class GeneratorDatabase {
 	public $last_error = '';
 	public $reads = 0;
 	public $fail_at = 0;
+	public $on_failed_read = null;
 	public function prepare( $sql, ...$args ) { return [ $sql, $args ]; }
 	public function get_col( $query ) {
 		$this->last_error = '';
 		if ( ++$this->reads === $this->fail_at ) {
+			$callback = $this->on_failed_read;
+			$this->on_failed_read = null;
+			if ( $callback ) { $callback(); }
 			$this->last_error = 'Lost connection during owned SELECT';
 			return [];
 		}
@@ -159,8 +163,48 @@ try {
 		generator_check( ( 'queue_library' === $caller ) === $failed['active'], $caller . ': only an explicit backfill request starts scan activity' );
 		$wpdb->fail_at = 0;
 		for ( $batch = 0; $batch < 5 && ( $options['noobrocket_image_generation']['active'] || metadata_exists( 'post', 21, '_noobrocket_image_pending' ) ); $batch++ ) { generator_batch( $generator ); }
-		generator_check( false === $options['noobrocket_image_generation']['active'] && 12 === $options['noobrocket_image_generation']['generated'] && '' === $options['noobrocket_image_generation']['last_error'] && 1 === $purges && ! $events, $caller . ': healthy retry completes retained work and invalidates once' );
+		generator_check( false === $options['noobrocket_image_generation']['active'] && 77 === $options['noobrocket_image_generation']['cursor'] && 12 === $options['noobrocket_image_generation']['generated'] && '' === $options['noobrocket_image_generation']['last_error'] && 1 === $purges && ! $events, $caller . ': healthy nonempty retry preserves the resume cursor, completes retained work and invalidates once' );
 	}
+	foreach ( [ 0, 1, 2, 3, 4 ] as $recovery_failure ) {
+		$attachments = $postmeta = $options = $events = [];
+		$encodes = $purges = 0;
+		$wpdb->reads = 0;
+		$wpdb->fail_at = 1;
+		generator_attachment( 21, 'empty-backfill-' . $recovery_failure . '.jpg' );
+		$options['noobrocket_image_generation'] = [ 'active' => false, 'cursor' => 77, 'generated' => 10, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+		$generator->queue_library();
+		$requested = $options['noobrocket_image_generation'];
+		generator_check( 77 === $requested['cursor'] && 10 === $requested['generated'] && 0 === $encodes, 'unknown explicit backfill preserves completed history before selecting resume or restart' );
+		$wpdb->reads = 0;
+		$wpdb->fail_at = $recovery_failure;
+		generator_batch( $generator );
+		$wpdb->fail_at = 0;
+		for ( $batch = 0; $batch < 5 && ( $options['noobrocket_image_generation']['active'] || metadata_exists( 'post', 21, '_noobrocket_image_pending' ) ); ++$batch ) { generator_batch( $generator ); }
+		$recovered = $options['noobrocket_image_generation'];
+		generator_check( false === $recovered['active'] && 21 === $recovered['cursor'] && 12 === $recovered['generated'] && 2 === $encodes && metadata_exists( 'post', 21, '_noobrocket_image_files' ), 'unknown then empty backfill visits attachments before the completed cursor, including repeated read failures at stage ' . $recovery_failure );
+		generator_check( empty( $recovered['backfill_pending'] ) && '' === $recovered['last_error'] && 1 === $purges && ! $events, 'completed explicit backfill clears deferred intent and publishes once' );
+	}
+	$attachments = $postmeta = $options = $events = [];
+	$encodes = $purges = 0;
+	$wpdb->reads = 0;
+	$wpdb->fail_at = 1;
+	generator_attachment( 21, 'settings-interleave.jpg' );
+	$state = [ 'active' => false, 'cursor' => 77, 'generated' => 10, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+	$options['noobrocket_image_generation'] = $state;
+	$postmeta[21] = [ '_noobrocket_image_pending' => 1 ];
+	$wpdb->on_failed_read = static function () use ( $generator ) { generator_batch( $generator ); };
+	$generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] );
+	generator_check( 0 === $encodes && 10 === $options['noobrocket_image_generation']['generated'] && 31 === $options['noobrocket_image_generation']['last_run'], 'settings failure holds the existing lock against a controlled actual-worker interleave' );
+	$wpdb->fail_at = 0;
+	generator_batch( $generator );
+	generator_check( 2 === $encodes && 12 === $options['noobrocket_image_generation']['generated'] && 1 === $purges && ! $events, 'healthy worker after settings failure retains actual progress and publishes once' );
+	$before = $options['noobrocket_image_generation'];
+	$wpdb->reads = 0;
+	$lock = fopen( $fixture . '/.noobrocket-image-generator.lock', 'c' );
+	flock( $lock, LOCK_EX );
+	try { $generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] ); }
+	finally { flock( $lock, LOCK_UN ); fclose( $lock ); }
+	generator_check( 0 === $wpdb->reads && $before === $options['noobrocket_image_generation'] && 1 === count( $events ), 'contended settings activation schedules retry without reading or rewriting worker state' );
 	$attachments = $postmeta = $options = $events = [];
 	$encodes = $purges = 0;
 	$wpdb->reads = $wpdb->fail_at = 0;
