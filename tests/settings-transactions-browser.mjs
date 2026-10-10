@@ -8,7 +8,8 @@ const { chromium } = createRequire(new URL('../noobrocket/local-css/generator.mj
 const executablePath = process.argv[2];
 if (!executablePath) throw new Error('Provide the Chromium executable.');
 const script = await readFile(new URL('../noobrocket/assets/js/noobrocket-admin.js', import.meta.url), 'utf8');
-const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><div class="noobrocket-app">
+const toastTray = '<div class="noobrocket-toasts" aria-live="polite" aria-relevant="additions" data-dismiss="Dismiss this notice" data-info-label="Information"></div>';
+const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><div class="noobrocket-app">${toastTray}
 <button type="button" class="noobrocket-menu-toggle" aria-expanded="false">Settings</button><nav id="noobrocket-navigation"><a class="noobrocket-menuItem" href="#database">Database</a><a class="noobrocket-menuItem" href="#heartbeat">Heartbeat</a><select id="noobrocket-appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></nav><main id="noobrocket-main">
 <form id="noobrocket_options" action="/saved" method="post">
 <div id="database" class="noobrocket-Page"><h1>Database</h1><div class="noobrocket-field"><label for="database_auto_drafts">Auto Drafts <span class="noobrocket-field-count">3 drafts in your database.</span></label><input id="database_auto_drafts" name="noobrocket_settings[database_auto_drafts]" type="checkbox" value="1"></div><label for="schedule_automatic_cleanup">Schedule Automatic Cleanup</label><input id="schedule_automatic_cleanup" name="noobrocket_settings[schedule_automatic_cleanup]" type="checkbox" value="1"><select id="automatic_cleanup_frequency" name="noobrocket_settings[automatic_cleanup_frequency]"><option value="daily">Daily</option><option value="weekly">Weekly</option></select><button id="cleanup" type="button" data-noobrocket-cleanup-review>Review and run cleanup</button></div>
@@ -44,7 +45,11 @@ const server = createServer((request, response) => {
       else setTimeout(finish, 500);
       posted?.();
     });
-  } else { gets.push(request.url); response.setHeader('Content-Type', 'text/html'); response.end(html); }
+  } else {
+    gets.push(request.url);
+    response.setHeader('Content-Type', 'text/html');
+    response.end(new URL(request.url, 'http://fixture').searchParams.has('no-tray') ? html.replace(toastTray, '') : html);
+  }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -201,17 +206,51 @@ try {
   await page.locator('[data-noobrocket-secret-toggle]').click();
   check(await page.locator('#qa-key').getAttribute('type') === 'password' && await page.locator('#noobrocket-options-submit').isDisabled(), 'Hide conceals credential without dirtying settings');
   await fresh();
+  holdNextResponse = true;
+  const operationsBeforePending = posts.length;
   const responseReceived = page.waitForURL(origin + '/operation').catch(error => error);
   const postReceived = new Promise(resolve => { posted = resolve; });
   const pending = await page.evaluate(() => {
     const form = document.querySelector('#diagnostic');
     form.requestSubmit(form.querySelector('button'));
-    return { busy: form.getAttribute('aria-busy'), label: form.querySelector('.noobrocket-operation-pending')?.textContent };
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const notice = document.querySelector('.noobrocket-toasts .noobrocket-operation-pending');
+      const feedback = {
+        busy: form.getAttribute('aria-busy'), localFeedback: form.querySelectorAll('.noobrocket-operation-pending').length,
+        label: notice?.querySelector('.noobrocket-toast-content p')?.textContent,
+        informational: notice?.classList.contains('notice-info'), role: notice?.getAttribute('role'), live: notice?.getAttribute('aria-live'),
+      };
+      notice?.querySelector('.noobrocket-toast-dismiss').click();
+      form.requestSubmit(form.querySelector('button'));
+      feedback.dismissed = !document.querySelector('.noobrocket-operation-pending');
+      feedback.stillBusy = form.getAttribute('aria-busy') === 'true' && form.querySelector('button').getAttribute('aria-disabled') === 'true';
+      resolve(feedback);
+    })));
   });
   await postReceived;
-  check(pending.busy === 'true' && pending.label === 'Working…', `delayed native operation shows local pending feedback: ${JSON.stringify(pending)}`);
+  check(pending.busy === 'true' && pending.localFeedback === 0 && pending.label === 'Check cache: Working…', 'delayed native operation uses one contextual shared toast without appending text beside its button');
+  check(pending.informational && pending.role === null && pending.live === null, 'pending action uses informational severity and the tray owns its live announcement');
+  check(pending.dismissed && pending.stillBusy && posts.length === operationsBeforePending + 1 && posts.at(-1).path === '/operation', 'dismissing progress leaves native form guards active and repeat submission sends no second request');
   check(new URLSearchParams(requestBody).get('scope') === 'homepage' && new URLSearchParams(requestBody).get('action') === 'check_cache', 'pending feedback preserves native submitter name and value');
+  releaseResponse();
+  releaseResponse = null;
   check(!((await responseReceived) instanceof Error), 'delayed native operation finishes navigation');
+
+  await page.goto(`${origin}/?no-tray=1`);
+  holdNextResponse = true;
+  const fallbackReceived = page.waitForURL(origin + '/operation');
+  const fallbackPost = new Promise(resolve => { posted = resolve; });
+  const fallback = await page.evaluate(() => {
+    const form = document.querySelector('#diagnostic');
+    form.requestSubmit(form.querySelector('button'));
+    const notice = form.querySelector('.noobrocket-operation-pending');
+    return { label: notice?.textContent, role: notice?.getAttribute('role') };
+  });
+  await fallbackPost;
+  check(fallback.label === 'Check cache: Working…' && fallback.role === 'status', 'a shell without a toast tray retains readable local progress feedback');
+  releaseResponse();
+  releaseResponse = null;
+  await fallbackReceived;
   await fresh();
   await page.locator('#database_auto_drafts').check();
   await page.locator('#cleanup').click();
@@ -228,6 +267,8 @@ try {
     document.querySelector('#diagnostic').requestSubmit(document.querySelector('#diagnostic button'));
   });
   check(await page.locator('#diagnostic').getAttribute('aria-busy') === null && await page.locator('.noobrocket-operation-pending').count() === 0, 'canceled submission recovers from pending state');
+  const lateCanceledFeedback = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.querySelectorAll('.noobrocket-operation-pending').length)))));
+  check(lateCanceledFeedback === 0, 'the deferred tray announcement cannot resurrect a canceled native action toast');
 
   await fresh();
   await page.locator('#heartbeat_admin_behavior').selectOption('disable');
@@ -271,7 +312,7 @@ try {
   check(posts.length === beforeCanceledSave + 1 && posts.at(-1).path === '/saved' && savedRetry.get('noobrocket_settings[heartbeat_admin_behavior]') === 'disable' && !savedRetry.has('noobrocket_settings[submit_optimize]') && !savedRetry.has('scope'), 'one pointer Save retry posts only the native settings payload to its owning endpoint');
   const navigationState = await pendingNavigation;
   check(navigationState.value === 'Saving…' && navigationState.disabled && navigationState.state === 'Saving…', 'navigation synchronization restores the pending Save label while its native response is held');
-  check(navigationState.busy === 'true' && navigationState.pending === 1 && posts.length === beforeCanceledSave + 1, 'pending navigation synchronization retains one in-flight request and its busy state');
+  check(navigationState.busy === 'true' && navigationState.pending === 0 && posts.length === beforeCanceledSave + 1, 'pending settings Save keeps its busy state without a redundant Working toast');
   check(navigationState.cancelDisabled, 'Cancel stays disabled while its owning native settings Save is in flight');
   releaseResponse();
   releaseResponse = null;

@@ -205,7 +205,7 @@ foreach ( [
 
 $html = overview_render( [ 'worker' => [ 'state' => 'ready', 'last_seen' => time() - 301, 'node' => 'v22.0.0' ] ] );
 overview_check( str_contains( $html, 'Environment check recorded' ) && str_contains( $html, 'Older than 5 min' ) && str_contains( $html, 'does not show a running or scheduled worker' ), 'historical ready report cannot imply current worker activity' );
-overview_check( 1 === overview_document( $html )->query( '//details[summary="Worker runtime details"]//span[contains(.,"Node.js v22.0.0")]' )->length, 'runtime versions remain available in disclosure' );
+overview_check( 1 === overview_document( $html )->query( '//details[contains(@class,"noobrocket-worker-details")]//dl/div[dt="Node.js" and dd="v22.0.0"]' )->length, 'runtime versions remain labeled in the worker disclosure' );
 $html = overview_render( [ 'worker' => [ 'state' => 'ready', 'last_seen' => time() ] ] );
 overview_check( str_contains( $html, 'Setup check only' ) && str_contains( $html, 'does not show a running or scheduled worker' ) && ! str_contains( $html, 'Recent worker activity is recorded.' ), 'fresh ready report still describes setup rather than liveness' );
 $html = overview_render( [ 'counts' => [ 'pending' => 2 ], 'worker' => [ 'state' => 'running', 'last_seen' => time() ] ] );
@@ -238,7 +238,7 @@ overview_check( 1 === overview_document( $html )->query( '//button[@form="noobro
 $html = image_render( [ 'enabled' => true ] );
 overview_check( 1 === overview_document( $html )->query( '//button[@form="noobrocket-image-actions"][not(@disabled)]' )->length && str_contains( $html, 'Scan media library' ) && str_contains( $html, 'Uses saved Media settings.' ), 'enabled fresh queue describes initial scan and saved setting boundary' );
 $resumed_html = image_render( [ 'enabled' => true, 'active' => true, 'cursor' => 42, 'next_run' => time() + 30 ] );
-overview_check( str_contains( $resumed_html, 'Scan in progress' ) && str_contains( $resumed_html, 'Resume library scan' ), 'saved discovery progress explains its resume action' );
+overview_check( str_contains( $resumed_html, 'Scan queued' ) && ! str_contains( $resumed_html, 'Scan in progress' ) && str_contains( $resumed_html, 'Resume library scan' ), 'saved discovery progress explains its resume action without implying live execution' );
 $html = image_render( [ 'enabled' => true, 'capabilities' => [ 'avif' => false, 'webp' => false ] ] );
 overview_check( 1 === overview_document( $html )->query( '//button[@disabled]' )->length && str_contains( $html, 'Ask your host to enable AVIF or WebP encoding' ), 'missing encoder preserves disabled queue and concrete setup explanation' );
 overview_check( Diagnostics::get_subscribed_events()['noobrocket_before_dashboard_content'][1] < Generator::get_subscribed_events()['noobrocket_before_dashboard_content'][1], 'native hook priorities put Site status before Modern images in DOM' );
