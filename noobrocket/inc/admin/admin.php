@@ -478,7 +478,13 @@ function noobrocket_handle_settings_import() {
 			'settings'           => $settings,
 			'regenerate_configs' => $regenerate_configs,
 		], 10 * MINUTE_IN_SECONDS );
-		wp_safe_redirect( admin_url( 'options-general.php?page=' . NOOBROCKET_PLUGIN_SLUG . '#tools' ) );
+		$redirect = admin_url( 'options-general.php?page=' . NOOBROCKET_PLUGIN_SLUG . '#tools' );
+		$errors   = get_settings_errors();
+		if ( $errors ) {
+			set_transient( 'settings_errors', $errors, 30 );
+			$redirect = add_query_arg( 'settings-updated', 'true', $redirect );
+		}
+		wp_safe_redirect( $redirect );
 		exit;
 	}
 }
