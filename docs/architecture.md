@@ -31,6 +31,8 @@ flowchart TD
 
 The early hit bypasses normal plugin boot. PHP hits expose `Cache-Status: NoobRocket; hit`; static Apache/Nginx delivery uses server rules and does not execute that header path. Publication locks prevent competing file writers from publishing partial output; they do not serialize all cold WordPress renders.
 
+Preload admission computes an adaptive total target within the configured maximum; without duration evidence the default target is five. Native database rows retain that total-target contract, while pending/running Action Scheduler work independently limits available slots. Matching active work consumes capacity once. Load-control caps, stale-row recovery and the existing request grace remain authoritative even when no new work can be admitted.
+
 ## Settings and admin transactions
 
 ```mermaid
