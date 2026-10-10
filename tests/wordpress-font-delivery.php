@@ -94,6 +94,10 @@ namespace {
 		font_check( 1 === count( $scheduled ), 'repeat cold visit does not duplicate pending page/sheet job' );
 		$data->prepare_font( ...array_values( current( $scheduled )[1] ) );
 		font_check( 2 === count( $requests ) && [ 'https://site.test/article' ] === $cleaned, 'background task prepares CSS/font and invalidates only waiting page' );
+		$published_css = file_get_contents( $fixture . '/fonts/1/google-fonts/css/' . $filesystem->hash_to_path( md5( $url ) ) . '.css' );
+		$font_url = NOOBROCKET_CACHE_ROOT_URL . 'fonts/1/google-fonts/fonts/' . md5( 'https://fonts.gstatic.com/fixture.woff2' ) . '.woff2';
+		font_check( false !== strpos( $published_css, 'url(' . $font_url . ')' ), 'prepared font binary uses configured public cache URL with an independent disk root' );
+		font_check( false === strpos( $published_css, $fixture ) && false === strpos( $published_css, basename( $fixture ) ), 'published CSS does not expose server cache paths' );
 		font_check( count( $events ) && 'noobrocket_font_css_prepared' === end( $events )[0], 'successful preparation announces font-hint invalidation' );
 		$prepared = $controller->rewrite_fonts_for_optimizations( $page );
 		font_check( false !== strpos( $prepared, '/google-fonts/css/' ) && false !== strpos( $prepared, 'id="fixture-font"' ) && false !== strpos( $prepared, 'media="all"' ) && false === strpos( $prepared, 'rel="preconnect"' ), 'prepared href changes while attributes survive and unused provider hint goes away' );
