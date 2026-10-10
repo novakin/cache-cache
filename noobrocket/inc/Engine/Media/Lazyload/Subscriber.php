@@ -52,6 +52,13 @@ class Subscriber implements Subscriber_Interface {
 	private $iframe;
 
 	/**
+	 * Original filtered runtime tag emitted by this request's footer.
+	 *
+	 * @var string
+	 */
+	private $runtime_script_tag = '';
+
+	/**
 	 * Constructor
 	 *
 	 * @since 3.3
@@ -83,7 +90,10 @@ class Subscriber implements Subscriber_Interface {
 			],
 			'wp_head'                                   => [ 'insert_nojs_style', PHP_INT_MAX ],
 			'wp_enqueue_scripts'                        => [ 'insert_youtube_thumbnail_style', PHP_INT_MAX ],
-			'noobrocket_buffer'                             => [ 'lazyload', 18 ],
+			'noobrocket_buffer'                             => [
+				[ 'lazyload', 18 ],
+				[ 'gate_lazyload_runtime', 19 ],
+			],
 			'noobrocket_lazyload_html'                      => 'lazyload_responsive',
 			'init'                                      => 'lazyload_smilies',
 			'wp'                                        => 'deactivate_lazyload_on_specific_posts',
@@ -117,7 +127,89 @@ class Subscriber implements Subscriber_Interface {
 		];
 
 		$this->add_inline_script();
-		$this->assets->insertLazyloadScript( $script_args );
+		$this->runtime_script_tag = $this->assets->getLazyloadScript( $script_args );
+		echo $this->runtime_script_tag; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Preserve the filtered runtime tag.
+	}
+
+	/**
+	 * Gate the emitted runtime after media conversion, when the full page is known.
+	 *
+	 * @param string $html Page buffer.
+	 * @return string
+	 */
+	public function gate_lazyload_runtime( string $html ): string {
+		if ( '' === $this->runtime_script_tag ) {
+			return $html;
+		}
+
+		/**
+		 * Opt into runtime gating only when the final response policy permits its bootstrap.
+		 *
+		 * @param bool $gate_runtime Gate runtime activation; original delivery is the default.
+		 */
+		if ( ! apply_filters( 'noobrocket_lazyload_gate_runtime', false ) ) {
+			return $html;
+		}
+
+		if ( false === strpos( $html, $this->runtime_script_tag ) ) {
+			return $html;
+		}
+
+		// The bootstrap needs inline execution. Preserve functional original markup
+		// under enforcing CSP instead of guessing allowed nonces or hashes.
+		foreach ( headers_list() as $header ) {
+			if ( 0 === stripos( $header, 'Content-Security-Policy:' ) ) {
+				return $html;
+			}
+		}
+		if ( preg_match( '#<meta\b[^>]*http-equiv\s*=\s*["\']?content-security-policy(?=["\'\s>])#i', $html ) ) {
+			return $html;
+		}
+
+		$bootstrap = $this->get_bootstrap_script( $this->runtime_script_tag );
+
+		if ( '' === $bootstrap ) {
+			return $html;
+		}
+
+		if ( ! noobrocket_get_constant( 'SCRIPT_DEBUG' ) ) {
+			$bootstrap = $this->minify_script( $bootstrap );
+		}
+
+		// Keep the filtered script parser-created, including under Trusted Types.
+		$replacement = '<template>' . $this->runtime_script_tag . '</template><script data-no-minify="1">' . $bootstrap . '</script>';
+		return str_replace( $this->runtime_script_tag, $replacement, $html );
+	}
+
+	/**
+	 * Gate the standard async runtime without changing custom script execution order.
+	 *
+	 * @param string $script_tag Filtered runtime markup.
+	 * @return string Empty when the original markup must be retained.
+	 */
+	private function get_bootstrap_script( string $script_tag ): string {
+		if ( ! preg_match( '/\A\s*<script(?=\s|>)(?<attributes>(?:"[^"]*"|\'[^\']*\'|[^\'">])*)>\s*<\/script>\s*\z/i', $script_tag, $matches ) ) {
+			return '';
+		}
+
+		// Ignore quoted values when checking attribute names. Explicit types and
+		// defer/non-async tags retain their original parser and execution semantics.
+		$attributes = preg_replace( '/"[^"]*"|\'[^\']*\'/', '""', $matches['attributes'] );
+		if (
+			! preg_match( '/(?:^|\s)async(?=\s|=|$)/i', $attributes )
+			|| ! preg_match( '/(?:^|\s)src\s*=/i', $attributes )
+			|| preg_match( '/(?:^|\s)(?:type|defer)(?=\s|=|$)/i', $attributes )
+		) {
+			return '';
+		}
+
+		$path = noobrocket_get_constant( 'NOOBROCKET_ASSETS_JS_PATH' ) . 'lazyload-bootstrap.js';
+		if ( ! is_readable( $path ) ) {
+			return '';
+		}
+
+		$bootstrap = file_get_contents( $path );
+		return $bootstrap ?: '';
 	}
 
 	/**
