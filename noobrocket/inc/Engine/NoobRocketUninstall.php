@@ -352,6 +352,9 @@ class NoobRocketUninstall {
 	 * @return void
 	 */
 	private function delete_cache_files() {
+		if ( is_dir( $this->cache_path ) && ! $this->is_owned_directory( $this->cache_path ) ) {
+			return;
+		}
 		foreach ( $this->cache_dirs as $dir ) {
 			$this->delete( $this->cache_path . $dir );
 		}
@@ -380,26 +383,44 @@ class NoobRocketUninstall {
 			wp_delete_file( $file );
 			return;
 		}
+		if ( ! $this->is_owned_directory( $file ) ) {
+			return;
+		}
 
 		try {
-			$iterator = new RecursiveIteratorIterator(
-				new RecursiveDirectoryIterator( $file, FilesystemIterator::SKIP_DOTS ),
-				RecursiveIteratorIterator::CHILD_FIRST
-			);
+			$iterator = new FilesystemIterator( $file, FilesystemIterator::SKIP_DOTS );
 		} catch ( UnexpectedValueException $e ) {
 			return;
 		}
 
 		foreach ( $iterator as $item ) {
-			if ( $item->isDir() ) {
-				@rmdir( $item ); //phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
-
-				continue;
-			}
-
-			wp_delete_file( $item );
+			$this->delete( $item->getPathname() );
 		}
 
 		@rmdir( $file ); //phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+	}
+
+	/**
+	 * Preserve redirected directory entries, including Windows junctions.
+	 *
+	 * @param string $directory Directory selected by this uninstall owner.
+	 * @return bool
+	 */
+	private function is_owned_directory( string $directory ): bool {
+		$directory = rtrim( $directory, '/\\' );
+		clearstatcache( true, $directory );
+		$resolved_directory = realpath( $directory );
+		$resolved_parent    = realpath( dirname( $directory ) );
+		if ( false === $resolved_directory || false === $resolved_parent ) {
+			return false;
+		}
+		$expected_directory = $resolved_parent . '/' . basename( $directory );
+		$resolved_directory = str_replace( '\\', '/', $resolved_directory );
+		$expected_directory = str_replace( '\\', '/', $expected_directory );
+		if ( 'Windows' === PHP_OS_FAMILY ) {
+			$resolved_directory = strtolower( $resolved_directory );
+			$expected_directory = strtolower( $expected_directory );
+		}
+		return $resolved_directory === $expected_directory;
 	}
 }

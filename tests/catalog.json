@@ -1922,6 +1922,44 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "uninstall-filesystem-boundaries",
+      "path": "tests/uninstall-filesystem-boundaries.php",
+      "purpose": "Uninstall directory containment, ordinary cleanup and preserved external Windows junction/Linux symlink targets.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [ "php", "proc-open" ],
+      "mutation": "Actual owner and owned temporary files; modeled WordPress deletion records external selection without deleting the sentinel. Windows junction or Linux symlink control is required.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "uninstall-filesystem-helper",
+      "path": "tests/uninstall-filesystem-helper.php",
+      "purpose": "Create and detach owned platform link controls for uninstall fixtures.",
+      "profile": "fast",
+      "environment": "modeled-helper",
+      "prerequisites": [ "php", "proc-open" ],
+      "mutation": "Owned directory entries and temporary files only; no site bootstrap.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-uninstall-filesystem",
+      "path": "tests/wordpress-uninstall-filesystem.php",
+      "purpose": "Native registered uninstall preserves external link targets and foreign settings/drop-in while clearing ordinary owned data.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [ "php", "wordpress-core", "disposable-site", "installed-plugin-copy", "proc-open" ],
+      "mutation": "Deactivates and uninstalls the copied plugin, removes its site data and owned fixture roots in a marked disposable installation. Run last after native lifecycle acceptance; Windows junction or Linux symlink control is required.",
+      "args": [ "{wordpress}" ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "cache-network-configs",
       "path": "tests/cache-network-configs.php",
       "purpose": "Network configuration and CSS directory preservation above 100 sites.",
