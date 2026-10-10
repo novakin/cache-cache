@@ -4,6 +4,8 @@ Read [AGENTS.md](AGENTS.md), [development setup](docs/development.md) and the [a
 
 ## Daily change process
 
+Apply this sequence to every coherent batch, including documentation-only changes: issue, task branch, intentional commit, PR, fresh review of the final diff, applicable checks on the current integration candidate, then authorized merge. Start the next dependent batch from the updated development branch. Keep skipped heavy checks explicit and identify agent review separately from human approval.
+
 1. Open a bounded issue: concrete trigger, current/expected behavior, reproduction and acceptance. Identify relevant data/cache/UI boundaries and excluded scope when useful.
 2. Inspect the base, worktree and index. Preserve unrelated changes. Create a task branch from the repository's current development branch; do not assume upstream `develop` is our release baseline.
 3. Trace the owner and invariant before editing. Implement the smallest coherent solution; update owning documentation and required generated output. Add meaningful regression proof where risk warrants it.

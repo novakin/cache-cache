@@ -1,6 +1,6 @@
 # Cache-Cache agents, documentation and development process
 
-Date: 2026-10-10 (Europe/Paris). Status: local implementation and process rehearsal pass; GitHub migration is in progress. [Workflow acceptance](../docs/workflow-acceptance.md) owns actual proof and remaining limits. Hosted proof and effective merge enforcement remain pending.
+Date: 2026-10-10 (Europe/Paris). Status: process implementation, hosted acceptance and GitHub migration complete. [Workflow acceptance](../docs/workflow-acceptance.md) owns executed proof, merged PRs, effective gates and remaining limits. Release and live deployment remain separate.
 
 ## Outcome
 
@@ -8,11 +8,11 @@ Prepare a repository that a senior WordPress developer or coding agent can under
 
 This plan combines [the agent-guidance audit](audits/UPSTREAM_AI_GUIDANCE_REVIEW_20261010.md), [the workflow comparison](audits/AI_WORKFLOW_COMPARISON_20261010.md) and [the six-PR delivery review](audits/RECENT_PR_PROCESS_AUDIT_20261010.md). Adopt WireGuard's state preservation and current acceptance record, plus WP Rocket's applicable PHP/WordPress checks. Successful upstream CI does not make its defective agent instructions suitable for copying.
 
-The existing beta.1 package is preserved. Contributor guidance, current docs, portable checks, templates and workflows are implemented locally. Development source is beta.2; no new beta is published. GitHub publication is a later step.
+The existing beta.1 package is preserved. Contributor guidance, current docs, portable checks, templates and workflows are published in the protected development branch of `novakin/cache-cache`. Development source is beta.2; no new beta is published.
 
 ## Preserve these invariants
 
-- Product: **Cache-Cache**. Current beta: `0.1.0-beta.1`; engine: `3.23.5.1`. Engine migrations remain independent of product releases. Stable `1.0.0` is reserved for later acceptance.
+- Product: **Cache-Cache**. Frozen package: `0.1.0-beta.1`; development source: `0.1.0-beta.2`; engine: `3.23.5.1`. Engine migrations remain independent of product releases. Stable `1.0.0` is reserved for later acceptance.
 - Compatibility identifiers stay: `noobrocket/`, `noobrocket.php`, `NoobRocket`, the `noobrocket` text domain, options, hooks and routes. GitHub preparation does not rename stored data or install a second plugin.
 - Preserve the maintained source, original reference distribution, downloaded upstream checkout, existing user edits and preview data. Lifecycle tests use separate marked disposable installations; localhost alone does not make a site disposable.
 - Preserve the beta ZIP and checksum. Its SHA-256 is `635b94d9d3deed6c6648fc9dc6d5534c975d65e0fada2748cffd9062b39a15da`. Do not replace its contents under the same version when later work changes shipped source.
@@ -121,7 +121,7 @@ Performance claims require a controlled before/after measurement for the changed
 
 | When | Checks |
 | --- | --- |
-| Every PR | Resolvable docs/config, applicable syntax and fast isolated regressions. Generated bundle/catalog consistency when their inputs change. |
+| Every PR | Resolvable docs/config, applicable syntax, fast isolated regressions and generated bundle/catalog consistency. |
 | Plugin behavior or lifecycle changes | Disposable native WordPress activation, product/engine update separation, saved settings, cache ownership and relevant privacy/invalidation/transaction fixtures. |
 | UI or browser optimization changes | Relevant Chromium fixtures and real output checks: light/dark, English/French, desktop/narrow, keyboard order/focus, validation, save/cancel and recovery states affected by the change. |
 | Cache/server/worker changes and beta releases | Relevant Linux/MariaDB, Apache/Nginx/PHP-FPM, worker and multisite cases. Add third-party scenarios for integrations actually changed. |
@@ -164,4 +164,4 @@ Stop at a usable, verified process. Do not assign a 100/100 quality score to unf
 
 Batches A–C are implemented and rehearsed locally. Current docs, fixture selection, generated outputs, native lifecycle, sandboxed browser/server execution and curated package inputs pass. A fresh agent review found concrete process defects; fixes and limits are recorded in [workflow acceptance](../docs/workflow-acceptance.md).
 
-Batch D is in progress: the selected public fork and [import issue #1](https://github.com/novakin/cache-cache/issues/1) exist. Publish each coherent commit/PR, execute hosted checks and read back applicable branch rules. The declared PHP 7.4/WordPress 5.8 pair still needs execution. Batch E remains separate; beta.1 is immutable and no beta.2 release is published. Local staging is not a completed GitHub migration.
+Batch D is complete: the standalone import and its portability repair are merged in the selected public fork. Applicable hosted checks passed on both current integration candidates, including the declared PHP 7.4/WordPress 5.8 pair. Effective strict merge gates are read back; [workflow acceptance](../docs/workflow-acceptance.md#hosted-acceptance-and-publication) records revisions and limits. Use the same issue/commit/PR/review/current-CI/authorized-merge sequence for each later coherent batch. Batch E remains separate; beta.1 is immutable and no beta.2 release is published.
