@@ -250,7 +250,7 @@ class PreloadUrl {
 		 *
 		 * @param int $args Maximum number of job size.
 		 */
-		$max_batch_size = ( (int) apply_filters( 'noobrocket_preload_cache_pending_jobs_cron_rows_count', 45 ) ) - $active_count;
+		$max_batch_size = (int) apply_filters( 'noobrocket_preload_cache_pending_jobs_cron_rows_count', 45 );
 
 		/**
 		 * Get the number of in progress cron job
@@ -271,6 +271,7 @@ class PreloadUrl {
 		$next_batch_size = max( $next_batch_size, $min_batch_size ); // Not lower than 5.
 		$next_batch_size = min( $next_batch_size, $max_batch_size ); // Not higher than 45.
 		$next_batch_size = max( $next_batch_size, 0 ); // Not lower than 0.
+		$available_slots = max( $next_batch_size - $active_count, 0 );
 
 		// Get all in-progress jobs with request sent and no results.
 		/**
@@ -288,7 +289,7 @@ class PreloadUrl {
 			 * @return int
 			 */
 			// Smaller load-control batches must not shorten the native request grace period.
-			max( 3, (int) ( $max_batch_size / 15 ) )
+			max( 3, (int) ( ( $max_batch_size - $active_count ) / 15 ) )
 		);
 		$stuck_rows = $this->query->get_outdated_in_progress_jobs( $delay );
 
@@ -304,9 +305,13 @@ class PreloadUrl {
 		foreach ( $stuck_rows as $row ) {
 			$this->query->make_status_failed_by_id( (int) $row->id );
 		}
+		if ( 0 === $available_slots ) {
+			return;
+		}
 
 		// Add new jobs in progress.
-		$rows = $this->query->get_pending_jobs( $next_batch_size );
+		// The query accepts a total row target; active actions bound the remaining slots separately.
+		$rows = array_slice( $this->query->get_pending_jobs( $next_batch_size ), 0, $available_slots );
 		foreach ( $rows as $row ) {
 
 			if ( $this->is_excluded_by_filter( $row->url ) ) {

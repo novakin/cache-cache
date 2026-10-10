@@ -1,5 +1,5 @@
 <?php
-/** Preload outcomes, staged refresh and exact discovery; native owners with in-memory boundaries. */
+/** Preload outcomes, admission, staged refresh and exact discovery; native owners with in-memory boundaries. */
 declare(strict_types=1);
 
 define( 'ABSPATH', rtrim( getenv( 'NOOBROCKET_WORDPRESS_SOURCE' ) ?: dirname( __DIR__ ) . '/.artifacts/wordpress', '/\\' ) . '/' );
@@ -12,11 +12,12 @@ require dirname( __DIR__ ) . '/noobrocket/vendor/autoload.php';
 
 $fixture = [ 'paused' => false, 'status' => 200, 'publish' => [], 'requests' => [], 'actions' => [], 'count_queries' => [], 'request_filter' => false, 'events' => [] ];
 function get_option( $name, $default = false ) { return 'noobrocket_preload_paused' === $name ? $GLOBALS['fixture']['paused'] : $default; }
-function get_transient( $name ) { return true; }
+function get_transient( $name ) { return 'noobrocket_preload_previous_requests_durations' === $name ? ( $GLOBALS['fixture']['average_duration'] ?? true ) : true; }
 function set_transient( $name, $value, $expiration ) {}
 function current_time( $type, $gmt = false ) { return gmdate( 'Y-m-d H:i:s' ); }
 function apply_filters( $name, $value, ...$args ) {
 	if ( 'noobrocket_preload_delay_between_requests' === $name ) { return 1; }
+	if ( 'noobrocket_preload_cache_pending_jobs_cron_rows_count' === $name && isset( $GLOBALS['fixture']['preload_cap'] ) ) { return $GLOBALS['fixture']['preload_cap']; }
 	if ( 'noobrocket_preload_url_request_args' === $name && $GLOBALS['fixture']['request_filter'] ) {
 		$value['blocking'] = false; $value['redirection'] = 5; $value['timeout'] = 90;
 	}
@@ -47,6 +48,10 @@ function as_has_scheduled_action( $hook, $args, $group ) {
 		if ( $hook === $action['hook'] && $group === $action['group'] && ( [] === $args || $args === $action['args'] ) && in_array( $action['status'], [ 'pending', 'in-progress' ], true ) ) { return true; }
 	}
 	return false;
+}
+function as_enqueue_async_action( $hook, $args, $group, $unique = false ) {
+	$GLOBALS['fixture']['actions'][] = [ 'hook' => $hook, 'group' => $group, 'args' => $args, 'status' => 'pending' ];
+	return count( $GLOBALS['fixture']['actions'] );
 }
 class ActionScheduler_Store {
 	const STATUS_PENDING = 'pending';
@@ -83,6 +88,25 @@ class OutcomeQuery extends NoobRocket\Engine\Preload\Database\Queries\Cache {
 	public function get_pending_jobs( int $total = 45 ) { $this->pending_batch = $total; return []; }
 	public function get_outdated_in_progress_jobs( int $delay = 3 ) { return $this->stuck; }
 	public function create_or_update( array $resource ) { $this->row->status = $resource['status'] ?? $this->row->status; return 1; }
+}
+/** Keep native pending admission; model only the database storage boundary. */
+class AdmissionQuery extends NoobRocket\Engine\Preload\Database\Queries\Cache {
+	public $rows = [];
+	public $updates = [];
+	public $queries = [];
+	public $stuck = [];
+	public function __construct() {}
+	public function query( $query = [], bool $use_cache = true ) {
+		$this->queries[] = $query;
+		if ( isset( $query['date_query'] ) ) { return $this->stuck; }
+		$rows = array_values( array_filter( $this->rows, static function ( $row ) use ( $query ) { return $row->status === $query['status']; } ) );
+		return ! empty( $query['count'] ) ? count( $rows ) : array_slice( $rows, 0, $query['number'] );
+	}
+	public function update_item( $id = 0, $data = [] ) {
+		$this->updates[] = $id;
+		foreach ( $data as $key => $value ) { $this->rows[ $id ]->$key = $value; }
+		return true;
+	}
 }
 class DiscoveryFixture {
 	use NoobRocket\Engine\Preload\Controller\CheckExcludedTrait;
@@ -139,7 +163,7 @@ try {
 	outcome_check( 1 === $queue->get_active_preload_count() && 2 === count( $fixture['count_queries'] ), 'active count uses two native count operations and includes running work' );
 	$query->stuck = [ $query->row ];
 	$controller->process_pending_jobs();
-	outcome_check( 'in-progress' === $query->row->status && $query->pending_batch <= 44, 'running URL stays alive and consumes staging capacity' );
+	outcome_check( 'in-progress' === $query->row->status && 45 === $query->pending_batch, 'running URL stays alive while the query retains its total row target' );
 	$fixture['actions'][0]['status'] = 'complete';
 	outcome_check( ! $queue->has_remaining_tasks() && 0 === $queue->get_active_preload_count(), 'completed actions neither block finish nor consume capacity' );
 	$controller->process_pending_jobs();
@@ -209,6 +233,66 @@ try {
 	foreach ( [ 'https://example.test.evil/blog/article', 'https://evil.test/https://example.test/blog/article', 'https://user@example.test/blog/article', '/blog-other/article', '/other/article', '/blog/../private', '/blog/%2e%2e/private', 'https://example.test:444/blog/article', 'http://example.test/blog/article', '/blog/article#fragment' ] as $page ) {
 		outcome_check( '' === $discovery->resolve( $page ), 'automatic discovery rejects ' . $page );
 	}
+
+	// Integrated admission exercises the real Queue, controller and Cache query
+	// together: existing single-row outcome doubles bypass get_pending_jobs().
+	$requests_before_admission = count( $fixture['requests'] );
+	foreach ( [
+		// label, duration, AS active, DB in-progress, configured cap, expected admissions.
+		[ 'matching active work', 1, 20, 20, 45, 25 ],
+		[ 'previous admission stall', 1, 23, 23, 45, 22 ],
+		[ 'no duration on first batch', false, 0, 0, 45, 5 ],
+		[ 'no duration with active work', false, 4, 4, 45, 1 ],
+		[ 'slow request target', 10, 4, 4, 45, 1 ],
+		[ 'CSS load cap', 1, 4, 4, 5, 1 ],
+		[ 'custom maximum request grace', 1, 30, 30, 90, 20 ],
+		[ 'configured cap below minimum', 1, 1, 1, 3, 2 ],
+		[ 'running actions outlive completed rows', 1, 7, 2, 10, 3 ],
+		[ 'orphan rows still reserve capacity', 1, 2, 7, 10, 3 ],
+		[ 'database occupancy reaches target', 1, 0, 10, 10, 0 ],
+		[ 'scheduler occupancy reaches target', 1, 10, 0, 10, 0 ],
+		[ 'scheduler occupancy exceeds target', 1, 11, 0, 10, 0 ],
+		[ 'active work exceeds slow target', 10, 6, 0, 45, 0 ],
+		[ 'zero configured cap', 1, 0, 0, 0, 0 ],
+		[ 'negative configured cap', 1, 0, 0, -1, 0 ],
+	] as [ $label, $duration, $active, $in_progress, $cap, $expected ] ) {
+		$fixture['average_duration'] = $duration;
+		$fixture['preload_cap'] = $cap;
+		$fixture['actions'] = [];
+		$fixture['count_queries'] = [];
+		$admission_query = new AdmissionQuery();
+		for ( $id = 1; $id <= 100; ++$id ) {
+			$page_url = 'https://example.test/blog/admission-' . $id;
+			$admission_query->rows[ $id ] = (object) [ 'id' => $id, 'url' => $page_url, 'status' => $id <= $in_progress ? 'in-progress' : ( $id <= $active ? 'completed' : 'pending' ) ];
+			if ( $id <= $active ) {
+				$fixture['actions'][] = [ 'hook' => 'noobrocket_preload_job_preload_url', 'group' => 'noobrocket-preload', 'args' => [ $page_url ], 'status' => $id % 2 ? 'pending' : 'in-progress' ];
+			}
+		}
+		$admission = new NoobRocket\Engine\Preload\Controller\PreloadUrl( $options, $queue, $admission_query, new WP_Filesystem_Direct() );
+		$admission->process_pending_jobs();
+		$admitted = count( $fixture['actions'] ) - $active;
+		outcome_check( $expected === $admitted, $label . ': expected ' . $expected . ' admissions, got ' . $admitted );
+		outcome_check( $expected === count( $admission_query->updates ), $label . ': only admitted rows become in-progress' );
+		outcome_check( 2 === count( $fixture['count_queries'] ), $label . ': native pending/running action counts own scheduler occupancy' );
+		if ( 'custom maximum request grace' === $label ) {
+			outcome_check( '4 minute ago' === $admission_query->queries[0]['date_query'][0]['before'], 'custom maximum keeps the existing request grace calculation' );
+		}
+	}
+	$fixture['average_duration'] = 1;
+	$fixture['preload_cap'] = 5;
+	$fixture['actions'] = [];
+	for ( $id = 1; $id <= 5; ++$id ) {
+		$fixture['actions'][] = [ 'hook' => 'noobrocket_preload_job_preload_url', 'group' => 'noobrocket-preload', 'args' => [ 'https://example.test/blog/active-' . $id ], 'status' => 'in-progress' ];
+	}
+	$admission_query = new AdmissionQuery();
+	$admission_query->rows[1] = (object) [ 'id' => 1, 'url' => 'https://example.test/blog/orphan', 'status' => 'in-progress' ];
+	$admission_query->stuck = [ $admission_query->rows[1] ];
+	$admission = new NoobRocket\Engine\Preload\Controller\PreloadUrl( $options, $queue, $admission_query, new WP_Filesystem_Direct() );
+	$admission->process_pending_jobs();
+	outcome_check( 'failed' === $admission_query->rows[1]->status, 'exhausted admission budget still recovers a genuinely stuck row' );
+	outcome_check( 1 === count( $admission_query->queries ), 'exhausted admission budget skips pending selection after stuck-row recovery' );
+	unset( $fixture['average_duration'], $fixture['preload_cap'] );
+	outcome_check( $requests_before_admission === count( $fixture['requests'] ), 'staging admission makes no HTTP requests' );
 	echo 'PASS: ', $checks, ' preload outcome and discovery assertions.', PHP_EOL;
 } finally {
 	$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $temporary, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
