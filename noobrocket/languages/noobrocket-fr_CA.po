@@ -11601,3 +11601,17 @@ msgstr "Dernière erreur enregistrée"
 #: views/settings/partials/image-generation.php:12
 msgid "No images queued"
 msgstr "Aucune image en attente"
+
+#: views/settings/partials/local-css-diagnostics.php:36
+#: views/settings/partials/local-css-diagnostics.php:140
+#: views/settings/partials/local-css-diagnostics.php:146
+msgid "In progress"
+msgstr "En cours"
+
+#: views/settings/partials/local-css-diagnostics.php:37
+msgid ""
+"Preload work is recorded as in progress. Check WordPress scheduled tasks if "
+"it does not advance."
+msgstr ""
+"Le préchargement est enregistré comme en cours. Vérifiez les tâches "
+"planifiées de WordPress s’il ne progresse pas."
