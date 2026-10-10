@@ -177,14 +177,20 @@ try {
 		local_css_http_check( $row && 'local-completed' === $row->status, $mode . ': worker publication persists the completed database row' );
 		$results = json_decode( $row->css, true )['results'];
 		local_css_http_check( 2 === count( $results ) && array_column( $results, 'href' ) === $hrefs, $mode . ': publication preserves per-sheet manifest and cascade order' );
+		$result_bodies = [];
 		foreach ( $results as $index => $result ) {
-			local_css_http_check( is_file( $result['path'] ) && file_get_contents( $result['path'] ) === $result['css'], $mode . ': published sheet ' . $index . ' contains the actual browser result' );
+			local_css_http_check( is_file( $result['path'] ) && is_readable( $result['path'] ) && filesize( $result['path'] ) > 0, $mode . ': published sheet ' . $index . ' is readable and nonempty' );
+			$result_bodies[ $index ] = file_get_contents( $result['path'] );
+			local_css_http_check( ( 'critical' === $mode ) === array_key_exists( 'css', $result ), $mode . ': only inline critical delivery stores its body in the job row' );
+			if ( 'critical' === $mode ) {
+				local_css_http_check( $result_bodies[ $index ] === $result['css'], 'critical: published file matches the stored inline body' );
+			}
 			$public = local_css_http_request( $result['uri'] );
-			local_css_http_check( 200 === wp_remote_retrieve_response_code( $public ) && wp_remote_retrieve_body( $public ) === $result['css'], $mode . ': sheet ' . $index . ' is publicly served at its generated URI' );
-			local_css_http_check( false !== strpos( $result['css'], '.hero' ) && false === strpos( $result['css'], $index ? '.unused-secondary-fixture' : '.unused-noobrocket-fixture' ) && strlen( $result['css'] ) < strlen( $source_css[ $index ] ), $mode . ': sheet ' . $index . ' retains hero styling and removes its unused selector' );
+			local_css_http_check( 200 === wp_remote_retrieve_response_code( $public ) && wp_remote_retrieve_body( $public ) === $result_bodies[ $index ], $mode . ': sheet ' . $index . ' is publicly served at its generated URI' );
+			local_css_http_check( false !== strpos( $result_bodies[ $index ], '.hero' ) && false === strpos( $result_bodies[ $index ], $index ? '.unused-secondary-fixture' : '.unused-noobrocket-fixture' ) && strlen( $result_bodies[ $index ] ) < strlen( $source_css[ $index ] ), $mode . ': sheet ' . $index . ' retains hero styling and removes its unused selector' );
 		}
-		local_css_http_check( false !== strpos( $results[0]['css'], '.hidden-menu' ), $mode . ': hidden navigation retains its initial hiding rule' );
-		local_css_http_check( ( 'used' === $mode ) === ( false !== strpos( $results[0]['css'], '.below-fold' ) ), $mode . ': below-fold rules follow the selected whole-page or initial-viewport mode' );
+		local_css_http_check( false !== strpos( $result_bodies[0], '.hidden-menu' ), $mode . ': hidden navigation retains its initial hiding rule' );
+		local_css_http_check( ( 'used' === $mode ) === ( false !== strpos( $result_bodies[0], '.below-fold' ) ), $mode . ': below-fold rules follow the selected whole-page or initial-viewport mode' );
 		clearstatcache( true, $cache_file );
 		local_css_http_check( ! is_file( $cache_file ), $mode . ': worker publication purges the cached original fallback' );
 		$fresh = local_css_http_request( $url );

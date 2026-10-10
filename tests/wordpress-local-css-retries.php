@@ -10,6 +10,7 @@ namespace {
 	define( 'MB_IN_BYTES', 1048576 );
 	$checks = 0;
 	$options = [];
+	$css_mode = 'used';
 	function css_retry_check( $condition, $message ) { if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); } ++$GLOBALS['checks']; }
 	function home_url() { return 'https://site.test/'; }
 	function wp_parse_url( $url ) { return parse_url( $url ); }
@@ -20,7 +21,7 @@ namespace {
 	function get_option( $key, $default = false ) { return $GLOBALS['options'][ $key ] ?? $default; }
 	function add_option( $key, $value ) { if ( isset( $GLOBALS['options'][ $key ] ) ) { return false; } $GLOBALS['options'][ $key ] = $value; return true; }
 	function wp_cache_delete() {}
-	function get_noobrocket_option( $key, $default = false ) { return 'local_css_mode' === $key ? 'used' : $default; }
+	function get_noobrocket_option( $key, $default = false ) { return 'local_css_mode' === $key ? $GLOBALS['css_mode'] : $default; }
 	function is_noobrocket_generate_caching_mobile_files() { return false; }
 	function wp_generate_uuid4() { return 'aaaaaaaa-bbbb-cccc-dddd-' . bin2hex( random_bytes( 6 ) ); }
 	function wp_json_encode( $value ) { return json_encode( $value ); }
@@ -127,11 +128,19 @@ namespace {
 		css_retry_check( $jobs->complete( 1, $job['token'], $job['fingerprint'], $results ), 'manual recovery publishes usable files and preserves native token policy' );
 		$data = json_decode( $row->css, true );
 		css_retry_check( $results[0]['source_hash'] === $data['results'][0]['source_hash'] && is_readable( $data['results'][0]['path'] ), 'ready result retains the worker-computed stylesheet source identity' );
+		css_retry_check( ! array_key_exists( 'css', $data['results'][0] ), 'used CSS stores delivery metadata without duplicating the published body' );
+		css_retry_check( $results[0]['css'] === file_get_contents( $data['results'][0]['path'] ), 'used CSS file retains the exact validated worker body' );
 		css_retry_check( [ 'https://site.test/a' ] === $GLOBALS['published_urls'], 'publication retains targeted purge of the affected URL' );
 		css_retry_check( ! $jobs->complete( 1, $job['token'], $job['fingerprint'], $results ), 'completed attempt cannot publish again' );
 		$jobs->enqueue( 'https://site.test/b/', false, 'used', md5( 'b' ), $styles, [] );
 		$crashed = $wpdb->rows[2]; $crashed->status = 'local-running'; $crashed->retries = 3; $crashed->modified = '2000-01-01 00:00:00';
 		css_retry_check( null === $jobs->claim() && 'local-failed' === $crashed->status && 'exhausted' === $crashed->error_code, 'killed final attempt becomes a visible stopped failure' );
+		$css_mode = 'critical';
+		css_retry_check( $jobs->enqueue( 'https://site.test/critical/', false, 'critical', md5( 'critical' ), $styles, [] ), 'critical CSS retains its separate queue and fingerprint' );
+		$critical_job = $jobs->claim();
+		css_retry_check( $jobs->complete( $critical_job['id'], $critical_job['token'], $critical_job['fingerprint'], $results ), 'critical CSS publishes through the same validated owner' );
+		$critical_data = json_decode( $wpdb->rows[ $critical_job['id'] ]->css, true );
+		css_retry_check( $critical_data['results'][0]['css'] === $results[0]['css'] && file_get_contents( $critical_data['results'][0]['path'] ) === $results[0]['css'], 'critical CSS retains its body for inline delivery and its published artifact' );
 		echo 'PASS: local CSS retries/source identity (', $checks, " assertions; isolated native contracts/files)\n";
 	} finally { noobrocket_rrmdir( $fixture ); }
 }

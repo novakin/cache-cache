@@ -119,9 +119,11 @@ class Frontend {
 		$data    = json_decode( $row->css, true );
 		$results = array_column( $data['results'] ?? [], null, 'href' );
 		foreach ( $manifest as $sheet ) {
-			if ( empty( $results[ $sheet['href'] ]['css'] )
-				|| empty( $results[ $sheet['href'] ]['path'] )
-				|| ! is_readable( $results[ $sheet['href'] ]['path'] )
+			$result = $results[ $sheet['href'] ] ?? [];
+			if ( empty( $result['path'] )
+				|| ! is_readable( $result['path'] )
+				|| ( 'critical' === $mode && empty( $result['css'] ) )
+				|| ( 'used' === $mode && ( empty( $result['uri'] ) || ! is_file( $result['path'] ) || filesize( $result['path'] ) <= 0 ) )
 			) {
 				$this->jobs->invalidate_urls( [ $url ] );
 				return $html;

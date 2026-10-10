@@ -227,6 +227,11 @@ try {
 	$frontend->optimize( $html );
 	$render_job = local_css_claim( $post_url );
 	local_css_check( $jobs->complete( $render_job['id'], $render_job['token'], $render_job['fingerprint'], local_css_results( $render_job ) ), 'used CSS rendering fixture completes' );
+	$used_row = $jobs->find( $post_url, false );
+	$used_data = json_decode( $used_row->css, true );
+	foreach ( $used_data['results'] as $result ) {
+		local_css_check( ! array_key_exists( 'css', $result ) && is_readable( $result['path'] ) && filesize( $result['path'] ) > 0 && ! empty( $result['uri'] ), 'used CSS persists complete file metadata without the unused body' );
+	}
 	$used_html = $frontend->optimize( $html );
 	local_css_check( $used_html !== $html && strpos( $used_html, $styles[0]['href'] ) === false && strpos( $used_html, $styles[1]['href'] ) === false, 'used mode replaces both processed stylesheet URLs' );
 	local_css_check( strpos( $used_html, 'id="local-first"' ) < strpos( $used_html, 'id="local-inline"' ) && strpos( $used_html, 'id="local-inline"' ) < strpos( $used_html, 'id="local-second"' ), 'used CSS preserves link/inline/link cascade positions' );
@@ -234,6 +239,14 @@ try {
 	foreach ( $excluded_tags as $tag ) {
 		local_css_check( strpos( $used_html, $tag ) !== false, 'used CSS preserves unsupported/excluded stylesheet tag' );
 	}
+	$legacy_data = $used_data;
+	foreach ( $legacy_data['results'] as &$result ) {
+		$result['css'] = file_get_contents( $result['path'] );
+	}
+	unset( $result );
+	$wpdb->update( $table, [ 'css' => wp_json_encode( $legacy_data ) ], [ 'id' => $used_row->id ] );
+	local_css_check( $frontend->optimize( $html ) === $used_html, 'older used CSS rows with stored bodies retain identical delivery' );
+	$wpdb->update( $table, [ 'css' => wp_json_encode( $used_data ) ], [ 'id' => $used_row->id ] );
 	$edge_first = '<link id="edge-first" data-href="do-not-rewrite.css" data-note="href=&quot;literal.css&quot; media=&quot;print&quot;" rel=stylesheet href=' . $styles[0]['href'] . ' media=screen>';
 	$edge_second = '<link id="edge-second" rel=stylesheet href=' . $styles[1]['href'] . ' media=all>';
 	$edge_html = local_css_page( [ $edge_first, $inline_tag, $edge_second ] );
@@ -246,6 +259,23 @@ try {
 	$edge_node = $edge_document->getElementById( 'edge-first' );
 	local_css_check( $edge_node && $edge_node->getAttribute( 'href' ) !== $styles[0]['href'] && $edge_node->getAttribute( 'media' ) === 'screen', 'unquoted native href/media attributes are rewritten correctly' );
 	local_css_check( $edge_node->getAttribute( 'data-href' ) === 'do-not-rewrite.css' && $edge_node->getAttribute( 'data-note' ) === 'href="literal.css" media="print"', 'native href rewrite preserves data-href and attribute text' );
+	foreach ( [ 'missing_uri', 'empty_file', 'missing_file' ] as $damage ) {
+		$damaged_row = $jobs->find( $post_url, false );
+		$damaged_data = json_decode( $damaged_row->css, true );
+		if ( 'missing_uri' === $damage ) {
+			unset( $damaged_data['results'][0]['uri'] );
+		} elseif ( 'empty_file' === $damage ) {
+			file_put_contents( $damaged_data['results'][0]['path'], '' );
+			clearstatcache( true, $damaged_data['results'][0]['path'] );
+		} else {
+			unlink( $damaged_data['results'][0]['path'] );
+		}
+		$wpdb->update( $table, [ 'css' => wp_json_encode( $damaged_data ) ], [ 'id' => $damaged_row->id ] );
+		local_css_check( $frontend->optimize( $html ) === $html && ! $jobs->find( $post_url, false ), 'unusable used CSS metadata preserves all originals and invalidates the result: ' . $damage );
+		local_css_check( $frontend->optimize( $html ) === $html, 'used CSS recovery queues generation with originals active: ' . $damage );
+		$recovery_job = local_css_claim( $post_url );
+		local_css_check( $jobs->complete( $recovery_job['id'], $recovery_job['token'], $recovery_job['fingerprint'], local_css_results( $recovery_job ) ), 'used CSS recovery publishes a fresh complete artifact: ' . $damage );
+	}
 
 	local_css_settings( 'critical' );
 	$csp_html = str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy" content="default-src \'self\'">', $html );
@@ -254,6 +284,8 @@ try {
 	$critical_job = local_css_claim( $post_url );
 	local_css_check( $critical_job['mode'] === 'critical' && $critical_job['fingerprint'] !== $render_job['fingerprint'], 'critical mode gets a distinct generation fingerprint' );
 	local_css_check( $jobs->complete( $critical_job['id'], $critical_job['token'], $critical_job['fingerprint'], local_css_results( $critical_job ) ), 'critical CSS rendering fixture completes' );
+	$critical_data = json_decode( $jobs->find( $post_url, false )->css, true );
+	local_css_check( array_column( $critical_data['results'], 'css' ) === array_column( local_css_results( $critical_job ), 'css' ), 'critical results retain exact worker bodies for inline delivery' );
 	$critical_html = $frontend->optimize( $html );
 	local_css_check( strpos( $critical_html, '.fixture-0{color:red}' ) !== false && strpos( $critical_html, '.fixture-1{color:blue}' ) !== false, 'critical mode inlines both generated stylesheet results' );
 	local_css_check( substr_count( $critical_html, '<noscript>' ) === 3 && strpos( $critical_html, $first_tag ) !== false && strpos( $critical_html, $second_tag ) !== false, 'critical CSS retains original styles in per-sheet noscript fallbacks' );
