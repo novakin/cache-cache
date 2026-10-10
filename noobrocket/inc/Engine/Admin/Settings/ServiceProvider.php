@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace NoobRocket\Engine\Admin\Settings;
 
 use NoobRocket\Dependencies\League\Container\Argument\Literal\{ArrayArgument, StringArgument};
+use NoobRocket\Dependencies\League\Container\Argument\LiteralArgument;
 use NoobRocket\Dependencies\League\Container\ServiceProvider\AbstractServiceProvider;
 use NoobRocket\Dependencies\WPMedia\PluginFamily\Model\PluginFamily as PluginFamilyModel;
 use NoobRocket\Dependencies\WPMedia\PluginFamily\Controller\PluginFamily as PluginFamilyController;
@@ -73,8 +74,8 @@ class ServiceProvider extends AbstractServiceProvider {
 					'delay_js_sitelist',
 					'template_path',
 					'options',
-					'ri_context',
-					'noobrocketcdn_subscription_controller',
+					new LiteralArgument( null ),
+					new LiteralArgument( null ),
 				]
 			);
 		$this->getContainer()->addShared( 'settings_page_subscriber', Subscriber::class )

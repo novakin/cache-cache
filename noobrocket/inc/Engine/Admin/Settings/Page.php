@@ -103,16 +103,16 @@ class Page extends Abstract_Render {
 	private $options;
 
 	/**
-	 * Performance monitoring context instance
+	 * Legacy performance context; optional for existing constructor callers.
 	 *
-	 * @var Context
+	 * @var Context|null
 	 */
 	private $ri_context;
 
 	/**
-	 * Subscription controller instance.
+	 * Legacy subscription controller; optional for existing constructor callers.
 	 *
-	 * @var SubscriptionController
+	 * @var SubscriptionController|null
 	 */
 	private $subscription_controller;
 
@@ -128,8 +128,8 @@ class Page extends Abstract_Render {
 	 * @param SiteList               $delayjs_sitelist User client instance.
 	 * @param string                 $template_path Path to views.
 	 * @param Options_Data           $options       NoobRocket options instance.
-	 * @param Context                $ri_context   Performance monitoring context instance.
-	 * @param SubscriptionController $subscription_controller Subscription controller instance.
+	 * @param Context|null           $ri_context Unused legacy argument; retained for positional callers.
+	 * @param SubscriptionController|null $subscription_controller Unused legacy argument; retained for positional callers.
 	 * @since 3.0
 	 */
 	public function __construct(
@@ -142,8 +142,8 @@ class Page extends Abstract_Render {
 		SiteList $delayjs_sitelist,
 		$template_path,
 		Options_Data $options,
-		Context $ri_context,
-		SubscriptionController $subscription_controller
+		?Context $ri_context = null,
+		?SubscriptionController $subscription_controller = null
 	) {
 		parent::__construct( $template_path );
 		$args = array_merge(
@@ -409,6 +409,7 @@ class Page extends Abstract_Render {
 		$css_worker      = get_option( 'noobrocket_local_css_worker', [] );
 		$css_worker_seen = is_array( $css_worker ) ? (int) ( $css_worker['last_seen'] ?? 0 ) : 0;
 		$css_report      = $css_worker_seen
+			// translators: %s is the timestamp of the last worker environment report.
 			? sprintf( __( 'Last environment report: %s. This does not confirm the worker is currently scheduled.', 'noobrocket' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $css_worker_seen ) )
 			: __( 'No worker report yet. Set up the worker before expecting generated styles.', 'noobrocket' );
 		$css_setup       = '<div class="noobrocket-css-setup"><h3>' . esc_html__( 'Worker setup', 'noobrocket' ) . '</h3><p>' .
@@ -811,8 +812,8 @@ class Page extends Abstract_Render {
 						'url' => $lazyload_beacon['url'],
 					],
 					'page'        => 'media',
-					// translators: %1$s = “NoobRocket”, %2$s = a list of plugin names.
 					'helper'      => [
+						// translators: %2$s is a list of plugin names.
 						! empty( $disable_lazyload ) ? sprintf( __( 'LazyLoad is currently activated in %2$s. If you want to use Cache-Cache’s LazyLoad, disable this option in %2$s.', 'noobrocket' ), NOOBROCKET_PLUGIN_NAME, $disable_lazyload ) : '',
 						'<div class="noobrocket-status-navigation"><a href="#dashboard">' . esc_html__( 'Open media generation status', 'noobrocket' ) . '</a></div>',
 					],
@@ -1136,7 +1137,7 @@ class Page extends Abstract_Render {
 			$ecommerce_plugin = _x( 'iThemes Exchange', 'plugin name', 'noobrocket' );
 		} elseif ( defined( 'JIGOSHOP_VERSION' ) && function_exists( 'jigoshop_get_page_id' ) ) {
 			$ecommerce_plugin = _x( 'Jigoshop', 'plugin name', 'noobrocket' );
-		} elseif ( defined( 'WPSHOP_VERSION' ) && class_exists( 'wpshop_tools' ) && method_exists( 'wpshop_tools', 'get_page_id' ) ) { // @phpstan-ignore-line
+		} elseif ( defined( 'WPSHOP_VERSION' ) && class_exists( 'wpshop_tools' ) && method_exists( 'wpshop_tools', 'get_page_id' ) ) {
 			$ecommerce_plugin = _x( 'WP-Shop', 'plugin name', 'noobrocket' );
 		}
 
@@ -2053,7 +2054,7 @@ class Page extends Abstract_Render {
 
 		if ( ! current_user_can( 'noobrocket_manage_options' ) ) {
 			wp_send_json_error();
-			return; // @phpstan-ignore-line
+			return;
 		}
 
 		$this->options->set( 'cache_mobile', 1 );

@@ -1944,6 +1944,48 @@
       ],
       "default": true,
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-bootstrap-construction",
+      "path": "tests/wordpress-bootstrap-construction.php",
+      "purpose": "Native schema template sanitization/reuse, mutation isolation, custom-filter fallback, nested independent queries and startup registration.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Request-local schema/filter/database metadata changes restored in the marked copied-plugin site; read-only native preload queries.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-bootstrap-construction-multisite",
+      "path": "tests/wordpress-bootstrap-construction.php",
+      "purpose": "Native startup proof plus shared preload-table and independent-query behavior across real blog switch/restore.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "multisite"
+      ],
+      "mutation": "Creates and removes one owned temporary blog in a marked disposable network; restores blog/filter/database metadata context.",
+      "args": [
+        "{wordpress}",
+        "multisite"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
     }
   ]
 }

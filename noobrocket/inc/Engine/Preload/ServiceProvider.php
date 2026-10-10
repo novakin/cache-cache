@@ -69,7 +69,7 @@ class ServiceProvider extends AbstractServiceProvider {
 	 */
 	public function register(): void {
 		$this->getContainer()->add( 'mobile_detect', MobileDetect::class );
-		$this->getContainer()->add( 'preload_caches_table', CacheTable::class );
+		$this->getContainer()->addShared( 'preload_caches_table', CacheTable::class );
 		$this->getContainer()->add( 'preload_caches_query', CacheQuery::class )
 			->addArgument( 'logger' );
 		$this->getContainer()->get( 'preload_caches_table' );
