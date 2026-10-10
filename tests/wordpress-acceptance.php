@@ -19,6 +19,10 @@ $_SERVER['REQUEST_URI'] = '/';
 // Bypass early homepage delivery so a warm cache cannot skip the assertions.
 $_SERVER['REQUEST_METHOD'] = 'POST';
 define( 'WP_ADMIN', true );
+$acceptance_completed = false;
+register_shutdown_function( static function () use ( &$acceptance_completed ) {
+	if ( ! $acceptance_completed ) { fwrite( STDERR, "FAIL: native acceptance phase did not complete.\n" ); exit( 2 ); }
+} );
 require $wordpress . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/admin.php';
 wp_set_current_user( 1 );
@@ -43,9 +47,11 @@ function acceptance_run_import_worker( $wordpress, $phase ) {
 		throw new RuntimeException( 'Cannot start native import worker.' );
 	}
 	fclose( $pipes[0] );
-	echo stream_get_contents( $pipes[1] );
+	$output = stream_get_contents( $pipes[1] );
+	echo $output;
 	fclose( $pipes[1] );
 	acceptance_check( 0 === proc_close( $worker ), 'native import worker completes: ' . $phase );
+	acceptance_check( in_array( 'Acceptance phase complete: ' . $phase, explode( "\n", str_replace( "\r", '', $output ) ), true ), 'native import worker reached assertions: ' . $phase );
 }
 $plugin = 'noobrocket/noobrocket.php';
 $sentinel_settings = [ 'acceptance_sentinel' => 'original-wp-rocket' ];
@@ -576,4 +582,5 @@ switch ( $phase ) {
 	default:
 		throw new RuntimeException( 'Unknown acceptance phase.' );
 }
+$acceptance_completed = true;
 echo 'Acceptance phase complete: ', $phase, PHP_EOL;
