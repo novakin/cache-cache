@@ -103,6 +103,9 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 */
 	protected $filesystem;
 
+	/** Revisions belong to the exact source URLs used in this render. */
+	private $asset_revisions = [];
+
 	/**
 	 * Instantiate class.
 	 *
@@ -159,7 +162,8 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 * @return string
 	 */
 	public function maybe_replace_css_images( string $html ): string {
-		if ( ! $this->context->is_allowed() ) {
+		$this->asset_revisions = [];
+		if ( ! $this->context->is_allowed() || ! $this->find_html_tag( $html, 'head', true ) ) {
 			return $html;
 		}
 
@@ -176,7 +180,7 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 			]
 		);
 
-		if ( ! key_exists( 'html', $output ) ) {
+		if ( ! key_exists( 'html', $output ) || ! $this->find_html_tag( $output['html'], 'head', true ) ) {
 			$this->logger::debug( 'Lazyload CSS bailed out' );
 
 			return $html;
@@ -279,8 +283,8 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 				continue;
 			}
 
-			$url_key = $this->format_url( $url );
-			if ( ! $this->cache->has( $url_key ) ) {
+			$file_mapping = $this->load_existing_mapping( $url );
+			if ( ! $file_mapping ) {
 				$file_mapping = $this->generate_css_file( $url );
 				if ( empty( $file_mapping ) ) {
 					$this->logger::debug(
@@ -289,12 +293,8 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 						);
 					continue;
 				}
-
-				$mapping = array_merge( $mapping, $file_mapping );
-
-			} else {
-				$mapping = array_merge( $mapping, $this->load_existing_mapping( $url ) );
 			}
+			$mapping = array_merge( $mapping, $file_mapping );
 
 			$cached_url = $this->generate_asset_url( $url );
 
@@ -348,8 +348,12 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 		 */
 		$loaded = apply_filters( 'noobrocket_css_image_lazyload_images_load', [], $lazyload_images );
 
+		$head = $this->find_html_tag( $data['html'], 'head', true );
+		if ( ! $head ) {
+			return $data;
+		}
 		$tags         = $this->tag_generator->generate( $lazyload_images, $loaded );
-		$data['html'] = str_replace( '</head>', "$tags</head>", $data['html'] );
+		$data['html'] = substr_replace( $data['html'], $tags, $head[1], 0 );
 
 		return $data;
 	}
@@ -361,10 +365,11 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 * @return array
 	 */
 	protected function generate_css_file( string $url ) {
-		$path = $this->file_resolver->resolve( $url );
+		$fetch_url = html_entity_decode( $url, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$path = $this->file_resolver->resolve( $fetch_url );
 
 		if ( ! $path ) {
-			$path = $url;
+			$path = $fetch_url;
 		}
 
 		$content = $this->fetcher->fetch( $path, $this->cache->generate_path( $url ) );
@@ -379,13 +384,21 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 			return [];
 		}
 
-		if ( ! $this->cache->set( $this->format_url( $url ), $output->get_content() ) ) {
+		$content = $output->get_content();
+		$mapping = $output->get_urls();
+		if ( ! $content || ! $this->is_valid_mapping( $mapping ) ) {
 			return [];
 		}
-
-		$this->cache->set( $this->get_mapping_file_url( $url ), json_encode( $output->get_urls() ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode
-
-		return $output->get_urls();
+		$revision = hash( 'sha256', $content );
+		$record = wp_json_encode( [ 'source' => $url, 'revision' => $revision, 'mapping' => $mapping ] );
+		// Publish immutable bytes first. Concurrent renderers may replace the pointer,
+		// but every page keeps the exact stylesheet and mapping it selected.
+		if ( ! $record || ! $this->cache->set( $this->get_asset_key( $url, $revision ), $content )
+			|| ! $this->cache->set( $this->get_mapping_file_url( $url ), $record ) ) {
+			return [];
+		}
+		$this->asset_revisions[ $url ] = $revision;
+		return $mapping;
 	}
 
 	/**
@@ -414,12 +427,48 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 * @return array
 	 */
 	protected function load_existing_mapping( string $url ) {
+		unset( $this->asset_revisions[ $url ] );
 		$content = $this->cache->get( $this->get_mapping_file_url( $url ) );
-		$urls    = json_decode( $content, true );
-		if ( ! $urls ) {
+		if ( ! is_string( $content ) || '' === $content ) {
 			return [];
 		}
-		return $urls;
+		$record = json_decode( $content, true );
+		// Incomplete publications regenerate. Legacy array-only metadata remains
+		// separate so older code and previously cached pages can still consume it.
+		if ( ! is_array( $record ) || ( $record['source'] ?? null ) !== $url
+			|| ! is_string( $record['revision'] ?? null ) || ! preg_match( '/^[a-f0-9]{64}$/D', $record['revision'] )
+			|| ! $this->is_valid_mapping( $record['mapping'] ?? null ) ) {
+			return [];
+		}
+		$path = $this->cache->generate_path( $this->get_asset_key( $url, $record['revision'] ) );
+		if ( ! $this->filesystem->is_file( $path ) || ! $this->filesystem->is_readable( $path ) || ! $this->filesystem->size( $path ) ) {
+			return [];
+		}
+		$this->asset_revisions[ $url ] = $record['revision'];
+		return $record['mapping'];
+	}
+
+	/** A complete mapping is required before a stylesheet can lose its original URLs. */
+	private function is_valid_mapping( $mapping ): bool {
+		if ( ! is_array( $mapping ) || ! $mapping ) {
+			return false;
+		}
+		foreach ( $mapping as $item ) {
+			if ( ! is_array( $item ) ) {
+				return false;
+			}
+			foreach ( [ 'selector', 'style', 'hash', 'url' ] as $field ) {
+				if ( ! is_string( $item[ $field ] ?? null ) || '' === $item[ $field ] ) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/** Same directory preserves relative CSS resource resolution. */
+	private function get_asset_key( string $url, string $revision ): string {
+		return $this->format_url( $url ) . '.' . $revision . '.css';
 	}
 
 	/**
@@ -469,7 +518,7 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 * @return string
 	 */
 	protected function format_url( string $url ): string {
-		return strtok( $url, '?' );
+		return strtok( html_entity_decode( $url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), '?#' );
 	}
 
 	/**
@@ -580,33 +629,34 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	}
 
 	/**
-	 * Return mapping file URL.
+	 * Return the query-aware publication URL without overwriting legacy mappings.
 	 *
 	 * @param string $url Resource URL.
 	 * @return string
 	 */
 	protected function get_mapping_file_url( string $url ): string {
-		return $this->format_url( $url ) . '.json';
+		return $this->format_url( $url ) . '.noobrocket-' . hash( 'sha256', $url ) . '.json';
 	}
 
 	/**
-	 * Add timestamp to URL.
+	 * Preserve source query arguments on the selected immutable stylesheet URL.
 	 *
 	 * @param string $url Asset Url.
 	 *
 	 * @return string
 	 */
 	protected function generate_asset_url( string $url ): string {
-		$parsed_query = wp_parse_url( $url, PHP_URL_QUERY );
+		if ( ! isset( $this->asset_revisions[ $url ] ) ) {
+			return $url;
+		}
+		$parsed_query = wp_parse_url( html_entity_decode( $url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), PHP_URL_QUERY );
 		$queries      = [];
 
 		if ( $parsed_query ) {
 			parse_str( $parsed_query, $queries );
 		}
 
-		$queries['nbr_t'] = current_time( 'timestamp' ); // phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
-
-		$cached_url = $this->cache->generate_url( $this->format_url( $url ) );
+		$cached_url = $this->cache->generate_url( $this->get_asset_key( $url, $this->asset_revisions[ $url ] ) );
 
 		return add_query_arg( $queries, $cached_url );
 	}

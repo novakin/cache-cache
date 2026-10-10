@@ -44,7 +44,7 @@ class FilesystemCache implements CacheInterface {
 	public function get( string $key, $default = null ) {
 		$path = $this->generate_path( $key );
 
-		if ( ! $this->filesystem->exists( $path ) ) {
+		if ( ! $this->filesystem->is_file( $path ) || ! $this->filesystem->is_readable( $path ) ) {
 			return $default;
 		}
 
@@ -65,8 +65,31 @@ class FilesystemCache implements CacheInterface {
 	public function set( string $key, $value, $ttl = null ): bool {
 		$path      = $this->generate_path( $key );
 		$directory = dirname( $path );
-		noobrocket_mkdir_p( $directory, $this->filesystem );
-		return $this->filesystem->put_contents( $path, $value, noobrocket_get_filesystem_perms( 'file' ) );
+		if ( ! noobrocket_mkdir_p( $directory, $this->filesystem ) ) {
+			return false;
+		}
+		$temporary = @tempnam( $directory, '.nbr-css-' );
+		if ( false === $temporary || realpath( dirname( $temporary ) ) !== realpath( $directory ) ) {
+			if ( $temporary ) {
+				@unlink( $temporary );
+			}
+			return false;
+		}
+		try {
+			if ( ! $this->filesystem->put_contents( $temporary, $value, noobrocket_get_filesystem_perms( 'file' ) ) ) {
+				return false;
+			}
+			clearstatcache( true, $temporary );
+			if ( filesize( $temporary ) !== strlen( $value ) || ! @rename( $temporary, $path ) ) {
+				return false;
+			}
+			clearstatcache( true, $path );
+			return true;
+		} finally {
+			if ( is_file( $temporary ) ) {
+				@unlink( $temporary );
+			}
+		}
 	}
 
 	/**
@@ -203,9 +226,9 @@ class FilesystemCache implements CacheInterface {
 	 * @return string
 	 */
 	public function generate_url( string $url ): string {
-		$path = $this->generate_path( $url );
+		$path = wp_normalize_path( $this->generate_path( $url ) );
 
-		$wp_content_dir = noobrocket_get_constant( 'WP_CONTENT_DIR' );
+		$wp_content_dir = wp_normalize_path( noobrocket_get_constant( 'WP_CONTENT_DIR' ) );
 
 		$wp_content_url = noobrocket_get_constant( 'WP_CONTENT_URL' );
 
