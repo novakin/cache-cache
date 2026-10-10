@@ -1,6 +1,6 @@
 # Development-process acceptance
 
-Date: 2026-10-10. Status: local implementation and curated-checkout rehearsal pass. The public `novakin/cache-cache` fork exists; the first import issue is [#1](https://github.com/novakin/cache-cache/issues/1). Hosted checks and effective merge gates remain pending.
+Date: 2026-10-10. Status: local rehearsal, hosted acceptance and GitHub import complete. The standalone import is merged into the protected `cache-cache` branch of [novakin/cache-cache](https://github.com/novakin/cache-cache). Current integration candidates passed applicable hosted checks; effective merge gates were read back. Release and live deployment remain separate.
 
 ## Scope
 
@@ -21,7 +21,7 @@ No cache algorithm, optional optimizer behavior or site design is changed in thi
 
 ## Publication boundary
 
-The user selected `novakin/cache-cache`, a fork of `wp-media/wp-rocket`, and requested commit/PR rehearsal followed by sequential publication. Finish correcting and verifying the process first. Record each published PR's head, base, tested integration candidate, checks and review scope. Merge, release and live deployment remain separate actions.
+The user selected `novakin/cache-cache`, a fork of `wp-media/wp-rocket`, and authorized sequential issue/commit/PR publication and merge after current review and applicable checks. Apply that sequence to every later coherent batch, including documentation. Record each PR's head, base, tested integration candidate, checks and review scope. Release and live deployment remain separate actions.
 
 ## Executed local proof
 
@@ -51,21 +51,35 @@ A separate agent reviewed runner, packaging, migration preparation, CI selection
 
 A further review checked whether the process is usable before the first commit/PR, rather than pursuing a perfect score. The contributor recipe has clear ownership, focused checks, optional review roles and separate publication/merge/release boundaries. It needs no additional process framework.
 
-Two executable gaps were corrected: the minimum-version job attempted full syntax parsing of bundled PHP 8 libraries under PHP 7.4, and settings PHP owners under `inc/Engine/Admin/Settings/` did not select browser checks. Full bundled-source syntax remains mandatory on PHP 8.3; the minimum pair retains actual native activation/settings/render/update/ownership checks and loaded dependencies. Scope self-tests now cover both `Page.php` and `Settings.php`. Local actionlint, docs, selection controls and the previous-selector negative control pass after these changes. This does not establish that the minimum pair has executed successfully.
+Two executable gaps were corrected: the minimum-version job attempted full syntax parsing of bundled PHP 8 libraries under PHP 7.4, and settings PHP owners under `inc/Engine/Admin/Settings/` did not select browser checks. Full bundled-source syntax remains mandatory on PHP 8.3; the minimum pair retains actual native activation/settings/render/update/ownership checks and loaded dependencies. Scope self-tests now cover both `Page.php` and `Settings.php`. Local actionlint, docs, selection controls and the previous-selector negative control passed at this checkpoint; the hosted record below now establishes selected native execution on the minimum pair.
 
-The process is ready for the first coherent local batch and draft PR. Before merge, require successful applicable hosted checks on the current integration candidate and verify effective repository gates; use an explicit manual gate if enforcement is unavailable. Releases still need their separate version, package and compatibility acceptance.
+The local checkpoint made the process ready for its first coherent batch and draft PR. Before every merge, require successful applicable hosted checks on the current integration candidate and verified effective repository gates; use an explicit manual gate if enforcement is unavailable. Releases still need separate version, package and compatibility acceptance.
 
-This is pre-commit local evidence, not acceptance for a committed PR head. Each PR starts its own head/base/candidate/reviewed-revision record. Recurring actionlint, useful configured static analysis and dependency reconstruction can improve the base later; none requires another layer or blocks local contributor work now.
+The local table is historical rehearsal evidence, not acceptance for a committed PR head. Each PR starts its own head/base/candidate/reviewed-revision record. Recurring actionlint, useful configured static analysis and dependency reconstruction can improve the base later; none requires another layer or blocks contributor work now.
 
 ## GitHub import setup
 
-The user authorized the fork and sequential issue/commit/PR publication. `novakin/cache-cache` is a public fork of `wp-media/wp-rocket`; its default `cache-cache` branch starts at the recorded engine release. Issues are enabled. Merge commits preserve individual commit ancestry; automatic merge, squash and rebase merge are disabled. Effective check enforcement is verified after the first hosted run, not inferred from these settings.
+`novakin/cache-cache` is a public fork of `wp-media/wp-rocket`. Its default `cache-cache` branch was anchored to the recorded engine release before the import and retains that ancestry. Issues are enabled. Merge commits preserve individual commit ancestry; automatic merge, squash and rebase merge are disabled. Effective check enforcement is recorded below from actual readback.
 
 Migration-focused fresh agent review checked source/index byte preservation, private/runtime exclusions, generated assets, dependencies and license notices. It found an omitted `cron-expression` MIT license; the exact release-baseline notice is restored. Other shipped dependency notice lines remain preserved. This review does not substitute for a new full product audit or human approval. The import PR owns revision-bound acceptance; known product gaps remain open.
 
-## Remaining proof and action boundaries
+## Hosted acceptance and publication
 
-- PHP 7.4/WordPress 5.8 execution and the hosted PHP 8.3 matrix remain unverified. Newer local PHP passes do not prove either hosted pair.
-- Hosted GitHub CI, final PR integration revisions and effective branch rules are recorded in the import PR after execution and readback. Workflow files alone do not establish enforcement.
+The first import run [38035586839](https://github.com/novakin/cache-cache/actions/runs/38035586839) failed correctly: Ubuntu 22.04 could not install `php8.3-fpm`, and Linux catalog regeneration changed CRLF text to LF. No failed head was merged. [Issue #3](https://github.com/novakin/cache-cache/issues/3) and [PR #4](https://github.com/novakin/cache-cache/pull/4) repaired the runner and canonical generated bytes without changing plugin behavior or weakening comparison.
+
+| Batch | Head / base / tested candidate | Hosted result and publication |
+| --- | --- | --- |
+| CI portability repair, PR #4 | Head `2e50196013501c847caee3eb1decae42a5773b51`; base `5615fc3658edad1da9b4b9e4f9ea93df8599b170`; candidate `1ed740d6ad5e5190fcb511000255635155fed69e`. | [Run 38036372557](https://github.com/novakin/cache-cache/actions/runs/38036372557): all seven jobs pass. Merged into the import branch as `ade41965aa09b7a4418c48fbf9d3b33b0ffa665f`; the stacked branch used an explicit current-review/current-CI manual gate. |
+| Standalone import, [PR #2](https://github.com/novakin/cache-cache/pull/2) | Head `ade41965aa09b7a4418c48fbf9d3b33b0ffa665f`; base `8e89a5917009777d51669c9f3e76cf8f85401a6b`; candidate `c47032e117beca71d72b12e4114635092782beb4`. | [Run 38036608304](https://github.com/novakin/cache-cache/actions/runs/38036608304): all seven jobs pass. Merged into protected `cache-cache` as `81385baa64caa99842cef5e569c4e77ec729169e`; import issue #1 closed. |
+
+Both runs verified exact candidate parents and selected every heavy group. PHP 7.4.33/WordPress 5.8 passed 17 selected native acceptance phases; PHP 8.3.35/WordPress 7.1.3 passed 30 default fixtures plus five lifecycle phases. Fast checks passed syntax, 32 fixtures and all 74 generated outputs. Thirteen browser fixtures and the full Ubuntu 24.04 MariaDB/Apache/Nginx/PHP-FPM/local CSS worker/multisite proof passed, using Node 22.23.3 and Chrome 154. The minimum pair does not claim to parse every bundled PHP 8 library; browser fixtures do not establish every production layout.
+
+Fresh agent reviews were posted for the [repair head](https://github.com/novakin/cache-cache/pull/4#pullrequestreview-5478252191) and [synchronized import head](https://github.com/novakin/cache-cache/pull/2#pullrequestreview-5478261468). They found no remaining blocker in import/portability scope, confirmed all 1,842 committed files against maintained inputs, preserved ancestry and exclusions, and checked all 37 catalog text changes are newline-only with 36 unchanged MOs. Windows and Linux regenerated outputs matched; a real `core.autocrlf=true` clone preserved every tracked byte. Reviews are agent analysis under solo-maintainer ownership, not independent human approval or a new full product audit.
+
+Before the protected import merge, API readback verified required GitHub Actions `Required checks` (app ID 15368), strict current-base integration, enforcement for admins, resolved conversations and disabled force-push/deletion. Required human approvals are zero, matching the disclosed solo-maintainer process. Source workflows alone are not this evidence. The frozen beta.1 ZIP retains its recorded SHA-256; the preview and upstream checkout remain untouched.
+
+## Remaining limits and action boundaries
+
+- Hosted proof covers the selected compatibility pairs and fixtures above. New changes require their own applicable current-candidate checks; these results do not establish all environments or full product/UI acceptance.
 - Bundled Composer dependencies are preserved; a complete reconstruction pipeline, PHPCS/PHPStan and new product/UI improvements remain outside this process checkpoint.
-- The fork and import issue are created. No merge, release or live deployment occurred. The existing preview, reference distributions and beta.1 ZIP remain unchanged.
+- The import and repair are merged. No release or live deployment occurred. The existing preview, reference distributions and beta.1 ZIP remain unchanged.
