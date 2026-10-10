@@ -33,8 +33,8 @@ if ( ! $data['preload_enabled'] ) {
 	/* translators: %d: failed preload URL count. */
 	$preload_message = sprintf( __( '%d pages could not be warmed. Check page availability and WordPress scheduled tasks before starting another preload.', 'noobrocket' ), $preload_failed );
 } elseif ( $preload_running ) {
-	$preload_label = __( 'Warming the cache', 'noobrocket' );
-	$preload_message = __( 'Public pages are loading in small batches to prepare their cache before visitors arrive.', 'noobrocket' );
+	$preload_label = __( 'In progress', 'noobrocket' );
+	$preload_message = __( 'Preload work is recorded as in progress. Check WordPress scheduled tasks if it does not advance.', 'noobrocket' );
 } elseif ( $preload_pending ) {
 	$preload_label = __( 'Pages queued', 'noobrocket' );
 	$preload_message = __( 'Pages are waiting for an automatic batch. WordPress scheduled tasks must run to continue.', 'noobrocket' );
@@ -113,13 +113,19 @@ $button = static function ( $operation, $label, $disabled = false ) {
 				</div>
 				<div class="noobrocket-status-actions"><?php $button( 'probe', __( 'Check homepage cache', 'noobrocket' ) ); ?></div>
 			</div>
-			<p class="noobrocket-helper noobrocket-cache-checked"><?php esc_html_e( 'Last check', 'noobrocket' ); ?>: <?php
+			<div class="noobrocket-cache-result">
+				<p><?php echo esc_html( $probe ? \NoobRocket\Engine\Optimization\LocalCSS\Diagnostics::probe_message( $probe ) : __( 'Check whether your homepage is served from cache to logged-out visitors.', 'noobrocket' ) ); ?></p>
+				<?php if ( $probe_failed ) : ?><p><?php esc_html_e( 'A failed check does not prove visitor caching is broken.', 'noobrocket' ); ?></p><?php endif; ?>
+			</div>
+			<div class="noobrocket-cache-meta">
+				<?php if ( $probe_time ) : ?>
+				<p class="noobrocket-helper"><?php esc_html_e( 'Last check', 'noobrocket' ); ?>: <?php
 					/* translators: 1: check date and time, 2: elapsed time. */
-					echo esc_html( $probe_time ? sprintf( __( '%1$s (%2$s ago)', 'noobrocket' ), wp_date( $date_format, $probe_time ), human_time_diff( $probe_time ) ) : __( 'Not checked', 'noobrocket' ) );
-			?></p>
-			<p><?php echo esc_html( $probe ? \NoobRocket\Engine\Optimization\LocalCSS\Diagnostics::probe_message( $probe ) : __( 'Check whether your homepage is served from cache to logged-out visitors.', 'noobrocket' ) ); ?></p>
-			<p class="noobrocket-helper"><?php esc_html_e( 'This check covers the homepage only; it does not measure site speed.', 'noobrocket' ); ?></p>
-			<?php if ( $probe_failed ) : ?><p><?php esc_html_e( 'A failed check does not prove visitor caching is broken.', 'noobrocket' ); ?></p><?php endif; ?>
+					echo esc_html( sprintf( __( '%1$s (%2$s ago)', 'noobrocket' ), wp_date( $date_format, $probe_time ), human_time_diff( $probe_time ) ) );
+				?></p>
+				<?php endif; ?>
+				<p class="noobrocket-helper"><?php esc_html_e( 'This check covers the homepage only; it does not measure site speed.', 'noobrocket' ); ?></p>
+			</div>
 			<details class="noobrocket-status-evidence noobrocket-cache-evidence">
 				<summary><?php esc_html_e( 'Cache check details', 'noobrocket' ); ?></summary>
 				<dl class="noobrocket-key-values"><div><dt><?php esc_html_e( 'Delivery result', 'noobrocket' ); ?></dt><dd><?php echo esc_html( ! $probe ? __( 'Not checked', 'noobrocket' ) : ( $probe_hit ? 'HIT' : ( 0 === $probe_status || 'transport_error' === ( $probe['code'] ?? '' ) ? __( 'No response', 'noobrocket' ) : sprintf( __( 'HTTP %d', 'noobrocket' ), $probe_status ) ) ) ); ?></dd></div></dl>
@@ -131,13 +137,13 @@ $button = static function ( $operation, $label, $disabled = false ) {
 			<div class="noobrocket-status-heading"><h3 class="noobrocket-status-label"><svg class="noobrocket-icon" aria-hidden="true"><use href="#nbr-icon-clock"/></svg><?php esc_html_e( 'Preloading', 'noobrocket' ); ?></h3><span class="noobrocket-badge <?php echo $preload_error ? 'is-error' : 'is-neutral'; ?>"><?php echo esc_html( $preload_label ); ?></span></div>
 			<p><?php echo esc_html( $preload_message ); ?></p>
 			<?php if ( $data['preload_enabled'] || $data['preload_paused'] ) : ?>
-				<dl class="noobrocket-queue-summary"><div><dt><?php esc_html_e( 'Waiting', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $preload_pending ) ); ?></dd></div><div><dt><?php esc_html_e( 'Running', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $preload_running ) ); ?></dd></div></dl>
+				<dl class="noobrocket-queue-summary"><div><dt><?php esc_html_e( 'Waiting', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $preload_pending ) ); ?></dd></div><div><dt><?php esc_html_e( 'In progress', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $preload_running ) ); ?></dd></div></dl>
 			<?php endif; ?>
 			<?php if ( $data['preload_enabled'] && $data['preload_paused'] ) : ?>
 				<div class="noobrocket-status-actions"><?php $button( 'resume_preload', __( 'Resume preloading', 'noobrocket' ) ); ?></div>
 			<?php endif; ?>
 			<details class="noobrocket-status-evidence"><summary><?php esc_html_e( 'Preload queue counts', 'noobrocket' ); ?></summary><div class="noobrocket-status-detail">
-				<?php foreach ( [ 'completed' => __( 'Completed', 'noobrocket' ), 'pending' => __( 'Pending', 'noobrocket' ), 'in-progress' => __( 'Running', 'noobrocket' ), 'failed' => __( 'Failed', 'noobrocket' ) ] as $key => $label ) : ?><span><b><?php echo esc_html( number_format_i18n( (int) ( $data['preload_counts'][ $key ] ?? 0 ) ) ); ?></b><?php echo esc_html( $label ); ?></span><?php endforeach; ?>
+				<?php foreach ( [ 'completed' => __( 'Completed', 'noobrocket' ), 'pending' => __( 'Pending', 'noobrocket' ), 'in-progress' => __( 'In progress', 'noobrocket' ), 'failed' => __( 'Failed', 'noobrocket' ) ] as $key => $label ) : ?><span><b><?php echo esc_html( number_format_i18n( (int) ( $data['preload_counts'][ $key ] ?? 0 ) ) ); ?></b><?php echo esc_html( $label ); ?></span><?php endforeach; ?>
 			</div><p class="noobrocket-helper"><?php esc_html_e( 'Completed counts describe recorded jobs, not current coverage of every page.', 'noobrocket' ); ?></p>
 			<?php if ( $data['preload_enabled'] && ! $data['preload_paused'] ) : ?><div class="noobrocket-status-actions"><?php $button( 'pause_preload', __( 'Pause preloading', 'noobrocket' ) ); ?></div><?php endif; ?>
 			</details>
@@ -146,8 +152,8 @@ $button = static function ( $operation, $label, $disabled = false ) {
 		</section>
 		<section class="noobrocket-status-panel noobrocket-css-status<?php echo $css_error ? ' is-error' : ( $css_attention ? ' is-attention' : '' ); ?>">
 			<div class="noobrocket-status-content">
-			<h3 class="noobrocket-status-label"><svg class="noobrocket-icon" aria-hidden="true"><use href="#nbr-icon-code"/></svg><?php esc_html_e( 'Local CSS generation', 'noobrocket' ); ?></h3>
-			<div class="noobrocket-status-line"><strong><?php echo esc_html( $mode_labels[ $data['mode'] ] ?? $mode_labels['off'] ); ?></strong><span class="noobrocket-badge <?php echo $css_error ? 'is-error' : ( $css_attention ? 'is-warning' : 'is-neutral' ); ?>"><?php echo esc_html( $css_label ); ?></span></div>
+			<div class="noobrocket-status-heading"><h3 class="noobrocket-status-label"><svg class="noobrocket-icon" aria-hidden="true"><use href="#nbr-icon-code"/></svg><?php esc_html_e( 'Local CSS generation', 'noobrocket' ); ?></h3><span class="noobrocket-badge <?php echo $css_error ? 'is-error' : ( $css_attention ? 'is-warning' : 'is-neutral' ); ?>"><?php echo esc_html( $css_label ); ?></span></div>
+			<p class="noobrocket-helper noobrocket-css-mode"><?php esc_html_e( 'CSS delivery', 'noobrocket' ); ?>: <?php echo esc_html( $mode_labels[ $data['mode'] ] ?? $mode_labels['off'] ); ?></p>
 			<p><?php echo esc_html( $css_message ); ?></p>
 			<?php if ( $css_enabled ) : ?>
 			<dl class="noobrocket-queue-summary"><div><dt><?php esc_html_e( 'Waiting', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $data['counts']['pending'] ) ); ?></dd></div><div><dt><?php esc_html_e( 'Running', 'noobrocket' ); ?></dt><dd><?php echo esc_html( number_format_i18n( $data['counts']['running'] ) ); ?></dd></div></dl>

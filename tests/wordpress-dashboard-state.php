@@ -42,6 +42,7 @@ namespace {
 		return [ $html, new \DOMXPath( $document ) ];
 	}
 	[ $html, $xpath ] = render_dashboard();
+	dashboard_check( 0 === $xpath->query( '//div[contains(@class,"noobrocket-cache-meta")]/p[contains(text(),"Last check")]' )->length, 'initial cache summary does not repeat the unchecked badge as a dated result' );
 	dashboard_check( false !== strpos( $html, 'No queued pages' ) && false === strpos( $html, 'Queue complete' ), 'zero-count preload cannot claim completion' );
 	dashboard_check( 0 === $xpath->query( '//details[contains(@class,"noobrocket-recovery")]' )->length, 'Original CSS has no unexplained disabled recovery action' );
 	dashboard_check( 0 === $xpath->query( '//section[contains(@class,"noobrocket-css-status")]//details[contains(@class,"noobrocket-worker-details")]' )->length, 'deep worker evidence cannot stretch the neighboring preload summary' );
@@ -76,8 +77,14 @@ namespace {
 	[ $html, $xpath ] = render_dashboard( [ 'mode' => 'used', 'worker' => [ 'state' => 'error', 'last_seen' => time() ], 'counts' => [ 'pending' => 2, 'running' => 0, 'failed' => 0, 'ready' => 0 ] ] );
 	dashboard_check( false !== strpos( $html, 'The last CSS worker run failed.' ) && false === strpos( $html, 'Waiting for server worker' ), 'known worker failure takes precedence over a generic waiting state' );
 	[ $html, $xpath ] = render_dashboard( [ 'preload_counts' => [ 'pending' => 2, 'in-progress' => 1, 'failed' => 0, 'completed' => 7 ] ] );
-	dashboard_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//dl[not(ancestor::details)]/div[dt="Waiting" and dd="2"]' )->length && 1 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//dl[not(ancestor::details)]/div[dt="Running" and dd="1"]' )->length, 'current waiting/running work is visible without expanding evidence' );
+	dashboard_check( false !== strpos( $html, 'Preload work is recorded as in progress.' ) && false === strpos( $html, 'Warming the cache' ) && false === strpos( $html, 'Public pages are loading' ), 'dispatched preload rows do not imply scheduled requests are executing' );
+	dashboard_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//dl[not(ancestor::details)]/div[dt="Waiting" and dd="2"]' )->length && 1 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//dl[not(ancestor::details)]/div[dt="In progress" and dd="1"]' )->length, 'recorded waiting/in-progress work is visible without expanding evidence' );
+	dashboard_check( 0 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//*[text()="Running"]' )->length, 'preload evidence uses the same recorded in-progress label' );
 	dashboard_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//details//button[@value="pause_preload"]' )->length && 0 === $xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//button[@value="pause_preload" and not(ancestor::details)]' )->length, 'routine pause action stays secondary to useful status and settings' );
+	[ $html, $xpath ] = render_dashboard( [ 'probe' => [ 'hit' => true, 'status' => 200, 'checked_at' => time() - 60 ] ] );
+	dashboard_check( 1 === $xpath->query( '//div[contains(@class,"noobrocket-cache-meta")]/p[contains(text(),"Last check")]' )->length && false !== strpos( $html, 'This check covers the homepage only; it does not measure site speed.' ), 'recorded delivery keeps its date and visible scope beside the outcome' );
+	[ $html, $xpath ] = render_dashboard( [ 'probe' => [ 'hit' => false, 'status' => 0, 'code' => 'transport_error', 'checked_at' => time() ] ] );
+	dashboard_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-cache-status") and contains(@class,"is-error")]' )->length && false !== strpos( $html, 'A failed check does not prove visitor caching is broken.' ), 'failed probes retain error severity and do not claim visitor-cache failure' );
 	[ $html, $xpath ] = render_dashboard( [ 'object_cache' => [ 'health' => false, 'external' => true, 'provider' => 'Redis', 'connected' => false, 'message' => 'Native health check failed.' ] ], 'object-cache-diagnostics' );
 	dashboard_check( 1 === $xpath->query( '//span[contains(@class,"is-error")]' )->length && 1 === $xpath->query( '//div[contains(@class,"noobrocket-status-navigation")]/a' )->length, 'object-cache failure severity and help placement use shared components' );
 	echo 'PASS: dashboard status ownership (', $checks, " assertions; isolated native templates)\n";
