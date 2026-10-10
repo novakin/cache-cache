@@ -751,13 +751,15 @@ function noobrocket_notice_html( $args ) {
 		</p>
 			<?php
 		endif;
-		if ( $args['action'] || $args['dismiss_button'] ) :
+		if ( $args['action'] ) :
 			?>
 		<p>
 			<?php echo $args['action']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			<?php if ( $args['dismiss_button'] ) : ?>
+		</p>
+		<?php endif; ?>
+		<?php if ( $args['dismiss_button'] ) : ?>
+		<p>
 			<a class="noobrocket-dismiss <?php echo $args['dismiss_button_class'] ?? ''; ?>" href="<?php echo wp_nonce_url( admin_url( 'admin-post.php?action=noobrocket_ignore&box=' . $args['dismiss_button'] ), 'noobrocket_ignore_' . $args['dismiss_button'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"><?php echo esc_html( $args['dismiss_button_message'] ); ?></a>
-			<?php endif; ?>
 		</p>
 		<?php endif; ?>
 	</div>

@@ -510,6 +510,8 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
 .noobrocket-dialog li { margin-bottom: 6px; }
 .noobrocket-operation-pending { cursor: progress !important; }
 .noobrocket-operation-pending[aria-disabled="true"] { opacity: .75; }
+.noobrocket-app button.noobrocket-operation-pending::before { display: block; content: ''; flex-shrink: 0; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: noobrocket-spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .noobrocket-app button.noobrocket-operation-pending::before { animation: none; } }
 
 /* Integration identity sits beside its name rather than between control and purpose. */
 .noobrocket-app #addons .noobrocket-addon-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 44px; font-size: 16px; }

@@ -214,23 +214,22 @@ try {
     const form = document.querySelector('#diagnostic');
     form.requestSubmit(form.querySelector('button'));
     return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
-      const notice = document.querySelector('.noobrocket-toasts .noobrocket-operation-pending');
+      const button = form.querySelector('button');
       const feedback = {
-        busy: form.getAttribute('aria-busy'), localFeedback: form.querySelectorAll('.noobrocket-operation-pending').length,
-        label: notice?.querySelector('.noobrocket-toast-content p')?.textContent,
-        informational: notice?.classList.contains('notice-info'), role: notice?.getAttribute('role'), live: notice?.getAttribute('aria-live'),
+        busy: form.getAttribute('aria-busy'), label: button.textContent,
+        accessibleLabel: button.getAttribute('aria-label'), role: button.querySelector('span')?.getAttribute('role'),
+        pendingButtons: form.querySelectorAll('button.noobrocket-operation-pending').length,
+        pendingToasts: document.querySelectorAll('.noobrocket-toasts .noobrocket-operation-pending').length,
       };
-      notice?.querySelector('.noobrocket-toast-dismiss').click();
       form.requestSubmit(form.querySelector('button'));
-      feedback.dismissed = !document.querySelector('.noobrocket-operation-pending');
       feedback.stillBusy = form.getAttribute('aria-busy') === 'true' && form.querySelector('button').getAttribute('aria-disabled') === 'true';
       resolve(feedback);
     })));
   });
   await postReceived;
-  check(pending.busy === 'true' && pending.localFeedback === 0 && pending.label === 'Check cache: Working…', 'delayed native operation uses one contextual shared toast without appending text beside its button');
-  check(pending.informational && pending.role === null && pending.live === null, 'pending action uses informational severity and the tray owns its live announcement');
-  check(pending.dismissed && pending.stillBusy && posts.length === operationsBeforePending + 1 && posts.at(-1).path === '/operation', 'dismissing progress leaves native form guards active and repeat submission sends no second request');
+  check(pending.busy === 'true' && pending.pendingButtons === 1 && pending.label === 'Working…' && pending.pendingToasts === 0, 'delayed native operation keeps progress inside its button without a duplicate toast');
+  check(pending.accessibleLabel === 'Check cache: Working…' && pending.role === 'status', 'busy button retains its action context and status semantics');
+  check(pending.stillBusy && posts.length === operationsBeforePending + 1 && posts.at(-1).path === '/operation', 'button-owned progress preserves guards and repeat submission sends no second request');
   check(new URLSearchParams(requestBody).get('scope') === 'homepage' && new URLSearchParams(requestBody).get('action') === 'check_cache', 'pending feedback preserves native submitter name and value');
   releaseResponse();
   releaseResponse = null;
@@ -242,15 +241,46 @@ try {
   const fallbackPost = new Promise(resolve => { posted = resolve; });
   const fallback = await page.evaluate(() => {
     const form = document.querySelector('#diagnostic');
-    form.requestSubmit(form.querySelector('button'));
+    const input = document.createElement('input');
+    input.type = 'submit'; input.name = 'scope'; input.value = 'homepage';
+    form.append(input);
+    form.requestSubmit(input);
     const notice = form.querySelector('.noobrocket-operation-pending');
-    return { label: notice?.textContent, role: notice?.getAttribute('role') };
+    return { label: notice?.textContent, role: notice?.getAttribute('role'), value: input.value };
   });
   await fallbackPost;
-  check(fallback.label === 'Check cache: Working…' && fallback.role === 'status', 'a shell without a toast tray retains readable local progress feedback');
+  check(fallback.label === 'homepage: Working…' && fallback.role === 'status' && fallback.value === 'homepage' && new URLSearchParams(requestBody).get('scope') === 'homepage', 'input submitter fallback keeps readable feedback without altering submitted values');
   releaseResponse();
   releaseResponse = null;
   await fallbackReceived;
+  await fresh();
+  const restoredButton = await page.evaluate(() => {
+    const form = document.querySelector('#diagnostic');
+    const button = form.querySelector('button');
+    const original = document.createElement('span');
+    original.textContent = 'Check cache';
+    button.replaceChildren(original);
+    button.setAttribute('aria-label', 'Check homepage cache');
+    button.style.minWidth = '150px';
+    window.addEventListener('submit', event => event.preventDefault(), { once: true });
+    form.requestSubmit(button);
+    const pendingLabel = button.getAttribute('aria-label');
+    return new Promise(resolve => setTimeout(() => {
+      resolve({ sameChild: button.firstChild === original, label: button.getAttribute('aria-label'), pendingLabel, minWidth: button.style.minWidth, pending: button.classList.contains('noobrocket-operation-pending') });
+    }, 0));
+  });
+  check(restoredButton.sameChild && restoredButton.label === 'Check homepage cache' && restoredButton.pendingLabel === 'Check homepage cache: Working…' && restoredButton.minWidth === '150px' && !restoredButton.pending, 'canceled action preserves contextual accessible name and restores original child nodes and sizing');
+  await fresh();
+  const restoredPage = await page.evaluate(() => {
+    const form = document.querySelector('#diagnostic');
+    const button = form.querySelector('button');
+    // Model restoration after a previously submitted document returns from bfcache.
+    form.requestSubmit(button);
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    return { content: button.textContent, label: button.getAttribute('aria-label'), busy: form.getAttribute('aria-busy'), pending: !!form.dataset.noobrocketPending };
+  });
+  check(restoredPage.content === 'Check cache' && restoredPage.label === null && restoredPage.busy === null && !restoredPage.pending, 'persisted pageshow restores original action and clears its busy guard');
+  await page.waitForURL(origin + '/operation');
   await fresh();
   await page.locator('#database_auto_drafts').check();
   await page.locator('#cleanup').click();
