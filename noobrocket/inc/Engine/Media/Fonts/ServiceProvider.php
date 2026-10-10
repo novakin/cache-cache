@@ -63,7 +63,7 @@ class ServiceProvider extends AbstractServiceProvider {
 
 		$this->getContainer()->add( 'media_fonts_settings', Settings::class );
 		$this->getContainer()->add( 'media_fonts_data', Data::class )
-			->addArgument( 'options' );
+			->addArguments( [ 'options', 'media_fonts_filesystem' ] );
 		$this->getContainer()->addShared( 'media_fonts_admin_subscriber', AdminSubscriber::class )
 			->addArguments(
 				[
@@ -89,6 +89,7 @@ class ServiceProvider extends AbstractServiceProvider {
 					'media_fonts_optimization_context',
 					'media_fonts_saas_context',
 					'media_fonts_filesystem',
+					'media_fonts_data',
 				]
 			);
 		$this->getContainer()->addShared( 'media_fonts_frontend_subscriber', FrontendSubscriber::class )

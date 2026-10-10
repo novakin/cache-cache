@@ -12423,3 +12423,12 @@ msgstr ""
 "préchargement HTML en secours. Activez uniquement le préchargement des liens"
 " pour précharger le HTML sans prérendu. Les navigateurs qui ne prennent en "
 "charge aucune de ces fonctions conservent une navigation normale."
+
+#: inc/Engine/Admin/Settings/Page.php:958
+msgid ""
+"Prepare Google Fonts in the background and serve them locally when ready. "
+"Pages keep the original fonts until preparation succeeds. %1$sMore info%2$s"
+msgstr ""
+"Prépare les polices Google en arrière-plan et les sert localement "
+"lorsqu’elles sont prêtes. Les pages conservent les polices d’origine jusqu’à"
+" la réussite de la préparation. %1$sEn savoir plus%2$s"

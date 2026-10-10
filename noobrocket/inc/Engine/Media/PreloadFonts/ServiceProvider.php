@@ -100,6 +100,8 @@ class ServiceProvider extends AbstractServiceProvider {
 				[
 					'options',
 					'options_api',
+					'preload_fonts_table',
+					'preload_fonts_query',
 				]
 			);
 		$this->getContainer()->add( 'preload_fonts_admin_subscriber', AdminSubscriber::class )
