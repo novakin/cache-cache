@@ -7,7 +7,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = '8e89a5917009777d51669c9f3e76cf8f85401a6b'
 CONTENT = (
-    '.gitignore', '.github', 'AGENTS.md', 'CONTRIBUTING.md', 'README.md',
+    '.gitignore', '.gitattributes', '.github', 'AGENTS.md', 'CONTRIBUTING.md', 'README.md',
     'docs', 'noobrocket', 'tests', 'tools',
 )
 

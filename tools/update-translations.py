@@ -146,7 +146,7 @@ def main():
             template.append(polib.POEntry(msgid=msgid, msgid_plural=plural, occurrences=occurrences))
     template.metadata['Project-Id-Version'] = f'{product} {version}'
     template.metadata['X-Generator'] = f'{product} translation updater (polib {polib.__version__})'
-    template.save()
+    template.save(newline='\n')
     catalogs = sorted(LANGUAGES.glob('*.po'))
     verified = 0
     for path in catalogs:
@@ -161,7 +161,7 @@ def main():
         catalog.metadata['Project-Id-Version'] = f'{product} {version}'
         catalog.metadata['X-Generator'] = template.metadata['X-Generator']
         validate_placeholders(catalog, path)
-        catalog.save()
+        catalog.save(newline='\n')
         mo_path = path.with_suffix('.mo')
         catalog.save_as_mofile(str(mo_path))
         with mo_path.open('rb') as file:
