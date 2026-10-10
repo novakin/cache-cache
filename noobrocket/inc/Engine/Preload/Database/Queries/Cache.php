@@ -244,7 +244,7 @@ class Cache extends AbstractQuery {
 	}
 
 	/**
-	 * Get all rows with the same url (desktop and mobile versions).
+	 * Get all preload rows with the same normalized URL.
 	 *
 	 * @param string $url Page url.
 	 *
@@ -256,8 +256,10 @@ class Cache extends AbstractQuery {
 
 		$query = $this->query(
 			[
-				'url' => untrailingslashit( $url ),
-			]
+				'url'    => untrailingslashit( $url ),
+				'number' => 0,
+			],
+			false
 		);
 
 		if ( empty( $query ) ) {
@@ -283,8 +285,8 @@ class Cache extends AbstractQuery {
 
 		$deleted = true;
 		foreach ( $items as $item ) {
-			if ( ! is_bool( $item ) ) {
-				$deleted = $deleted && $this->delete_item( $item->id );
+			if ( ! is_bool( $item ) && ! $this->delete_item( $item->id ) ) {
+				$deleted = false;
 			}
 		}
 
@@ -399,7 +401,7 @@ class Cache extends AbstractQuery {
 	}
 
 	/**
-	 * Make the status from the task to complete.
+	 * Complete every preload row for a successfully cached URL.
 	 *
 	 * @param string $url url from the task.
 	 * @return bool
@@ -411,15 +413,37 @@ class Cache extends AbstractQuery {
 			return false;
 		}
 
-		$task = array_pop( $tasks );
+		$modified  = current_time( 'mysql', true );
+		$completed = true;
 
-		return $this->update_item(
-			$task->id,
-			[
-				'status'   => 'completed',
-				'modified' => current_time( 'mysql', true ),
-			]
-		);
+		foreach ( $tasks as $task ) {
+			if ( $this->update_item(
+				$task->id,
+				[
+					'status'   => 'completed',
+					'modified' => $modified,
+				]
+			) ) {
+				continue;
+			}
+
+			// Identical writes return false; verify current storage without cached items.
+			$matching = $this->query(
+				[
+					'id'       => $task->id,
+					'status'   => 'completed',
+					'modified' => $modified,
+					'count'    => true,
+				],
+				false
+			);
+
+			if ( 0 === (int) $matching ) {
+				$completed = false;
+			}
+		}
+
+		return $completed;
 	}
 
 	/**

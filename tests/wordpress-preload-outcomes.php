@@ -14,7 +14,7 @@ $fixture = [ 'paused' => false, 'status' => 200, 'publish' => [], 'requests' => 
 function get_option( $name, $default = false ) { return 'noobrocket_preload_paused' === $name ? $GLOBALS['fixture']['paused'] : $default; }
 function get_transient( $name ) { return 'noobrocket_preload_previous_requests_durations' === $name ? ( $GLOBALS['fixture']['average_duration'] ?? true ) : true; }
 function set_transient( $name, $value, $expiration ) {}
-function current_time( $type, $gmt = false ) { return gmdate( 'Y-m-d H:i:s' ); }
+function current_time( $type, $gmt = false ) { return $GLOBALS['fixture']['now'] ?? gmdate( 'Y-m-d H:i:s' ); }
 function apply_filters( $name, $value, ...$args ) {
 	if ( 'noobrocket_preload_delay_between_requests' === $name ) { return 1; }
 	if ( 'noobrocket_preload_cache_pending_jobs_cron_rows_count' === $name && isset( $GLOBALS['fixture']['preload_cap'] ) ) { return $GLOBALS['fixture']['preload_cap']; }
@@ -108,6 +108,48 @@ class AdmissionQuery extends NoobRocket\Engine\Preload\Database\Queries\Cache {
 		return true;
 	}
 }
+/** Keep native completion/deletion; model storage limits, no-op writes and failures. */
+class CompletionQuery extends NoobRocket\Engine\Preload\Database\Queries\Cache {
+	public $rows = [];
+	public $cached_rows = [];
+	public $updates = [];
+	public $deletions = [];
+	public $count_queries = [];
+	public $failed_update = 0;
+	public $failed_deletion = 0;
+	public $last_use_cache;
+	public function __construct() {}
+	public function query( $query = [], bool $use_cache = true ) {
+		$this->last_use_cache = $use_cache;
+		$rows = array_values( array_filter( $this->rows, static function ( $row ) use ( $query ) {
+			foreach ( [ 'id', 'url', 'status', 'modified' ] as $field ) {
+				if ( isset( $query[ $field ] ) && $row->$field !== $query[ $field ] ) { return false; }
+			}
+			return true;
+		} ) );
+		if ( ! empty( $query['count'] ) ) {
+			$this->count_queries[] = [ $query, $use_cache ];
+			return count( $rows );
+		}
+		$number = $query['number'] ?? 100;
+		$rows = $number ? array_slice( $rows, 0, $number ) : $rows;
+		return array_map( function ( $row ) { return new NoobRocket\Engine\Preload\Database\Rows\CacheRow( $this->cached_rows[ $row->id ] ?? $row ); }, $rows );
+	}
+	public function update_item( $id = 0, $data = [] ) {
+		$this->updates[] = $id;
+		if ( $id === $this->failed_update || ! array_diff_assoc( $data, (array) $this->rows[ $id ] ) ) { return false; }
+		foreach ( $data as $key => $value ) { $this->rows[ $id ]->$key = $value; }
+		$this->cached_rows[ $id ] = clone $this->rows[ $id ];
+		return true;
+	}
+	public function delete_item( $id = 0 ) {
+		$this->deletions[] = $id;
+		if ( $id === $this->failed_deletion ) { return false; }
+		unset( $this->rows[ $id ] );
+		unset( $this->cached_rows[ $id ] );
+		return true;
+	}
+}
 class DiscoveryFixture {
 	use NoobRocket\Engine\Preload\Controller\CheckExcludedTrait;
 	public function resolve( $url ) { return $this->get_site_page_url( $url ); }
@@ -158,6 +200,63 @@ try {
 	$controller->preload_url( $url );
 	outcome_check( 'in-progress' === $query->row->status && $before === count( $fixture['requests'] ), 'paused work preserves state and makes no request' );
 	$fixture['paused'] = false;
+
+	// Matching duplicate rows own the same cache outcome; unrelated URLs and metadata do not.
+	$fixture['now'] = '2026-10-10 12:00:00';
+	$completion = new CompletionQuery();
+	outcome_check( false === $completion->make_status_complete( $url ) && false === $completion->delete_by_url( $url ), 'missing URL completion and deletion report no work' );
+	for ( $id = 1; $id <= 3; ++$id ) {
+		$completion->rows[ $id ] = (object) [ 'id' => $id, 'url' => $id < 3 ? $url : $url . '-other', 'status' => $id < 3 ? 'pending' : 'failed', 'modified' => '2026-10-10 11:00:00', 'last_accessed' => '2026-10-09 10:00:00', 'is_locked' => 1 ];
+	}
+	$unrelated = clone $completion->rows[3];
+	$completion->rows[2]->status = 'in-progress';
+	outcome_check( $completion->make_status_complete( $url . '/?ignored=1' ), 'duplicate completion accepts existing query and trailing-slash normalization' );
+	outcome_check( 'completed' === $completion->rows[1]->status && 'completed' === $completion->rows[2]->status, 'one completion finishes every duplicate row' );
+	outcome_check( $fixture['now'] === $completion->rows[1]->modified && $fixture['now'] === $completion->rows[2]->modified, 'duplicate completion records one current timestamp' );
+	outcome_check( $unrelated == $completion->rows[3] && '2026-10-09 10:00:00' === $completion->rows[1]->last_accessed && 1 === $completion->rows[1]->is_locked, 'completion preserves unrelated URL and access/lock metadata' );
+	$stale_completion = new CompletionQuery();
+	$stale_completion->rows[1] = clone $completion->rows[1];
+	$stale_completion->cached_rows[1] = clone $completion->rows[1];
+	$stale_completion->rows[1]->status = 'pending';
+	outcome_check( 'completed' === $stale_completion->get_rows_by_url( $url )[0]->status, 'fresh ID membership can still hydrate a stale completed item snapshot' );
+	outcome_check( $stale_completion->make_status_complete( $url ) && 'completed' === $stale_completion->rows[1]->status, 'completion updates backing pending state despite stale completed item cache' );
+	$stale_completion->rows[1]->status = 'pending';
+	$stale_completion->failed_update = 1;
+	outcome_check( false === $stale_completion->make_status_complete( $url ), 'stale completed item cache cannot conceal a real pending-state write failure' );
+	$completion->updates = [];
+	outcome_check( $completion->make_status_complete( $url ) && [ 1, 2 ] === $completion->updates, 'repeated same-second completion succeeds after native no-op writes' );
+	outcome_check( 2 === count( $completion->count_queries ) && false === $completion->count_queries[0][1] && false === $completion->count_queries[1][1], 'no-op completion verifies each row through fresh scalar counts' );
+	$fixture['now'] = '2026-10-10 12:00:01';
+	$completion->updates = [];
+	outcome_check( $completion->make_status_complete( $url ) && [ 1, 2 ] === $completion->updates && $fixture['now'] === $completion->rows[1]->modified, 'later completion refreshes completed-row timestamps' );
+	$completion->rows[1]->status = 'pending';
+	$completion->rows[2]->status = 'pending';
+	$completion->updates = [];
+	$completion->failed_update = 1;
+	outcome_check( false === $completion->make_status_complete( $url ) && [ 1, 2 ] === $completion->updates, 'completion attempts later duplicates after an early write failure' );
+	outcome_check( 'pending' === $completion->rows[1]->status && 'completed' === $completion->rows[2]->status, 'completion failure preserves failed work and completes recoverable duplicates' );
+	$completion->failed_update = 0;
+	outcome_check( $completion->make_status_complete( $url ), 'subsequent completion recovers the failed duplicate' );
+	$completion->failed_deletion = 1;
+	outcome_check( false === $completion->delete_by_url( $url ) && [ 1, 2 ] === $completion->deletions, 'deletion attempts later duplicates after an early failure' );
+	outcome_check( isset( $completion->rows[1] ) && ! isset( $completion->rows[2] ) && $unrelated == $completion->rows[3], 'failed deletion retains only failed work and preserves unrelated URL' );
+	$completion->failed_deletion = 0;
+	outcome_check( $completion->delete_by_url( $url ) && [ 3 ] === array_keys( $completion->rows ), 'subsequent deletion recovers the remaining duplicate' );
+	$completion = new CompletionQuery();
+	for ( $id = 1; $id <= 105; ++$id ) {
+		$completion->rows[ $id ] = (object) [ 'id' => $id, 'url' => $url, 'status' => 'pending', 'modified' => '2026-10-10 11:00:00' ];
+	}
+	$completion->rows[104]->status = 'completed';
+	$completion->rows[104]->modified = $fixture['now'];
+	$completion->rows[105]->status = 'completed';
+	outcome_check( 105 === count( $completion->get_rows_by_url( $url ) ), 'URL lookup includes duplicates beyond the native 100-row default' );
+	outcome_check( false === $completion->last_use_cache, 'mutation-critical URL lookup reads current membership instead of stale cached IDs' );
+	outcome_check( $completion->make_status_complete( $url ) && 105 === count( $completion->updates ), 'completion attempts every duplicate beyond 100 rows and accepts verified identical state' );
+	outcome_check( 1 === count( $completion->count_queries ) && 104 === $completion->count_queries[0][0]['id'] && false === $completion->count_queries[0][1], 'large duplicate completion verifies only its genuine no-op through a fresh scalar count' );
+	outcome_check( [] === array_filter( $completion->rows, static function ( $row ) use ( $fixture ) { return 'completed' !== $row->status || $fixture['now'] !== $row->modified; } ), 'large duplicate set has no remaining pending or stale completion state' );
+	outcome_check( $completion->delete_by_url( $url ) && 105 === count( $completion->deletions ) && [] === $completion->rows, 'deletion includes every duplicate beyond the native 100-row default' );
+	unset( $fixture['now'] );
+
 	$fixture['actions'] = [ [ 'hook' => 'noobrocket_preload_job_preload_url', 'group' => 'noobrocket-preload', 'args' => [ $url ], 'status' => 'in-progress' ] ];
 	outcome_check( $queue->has_remaining_tasks(), 'a running-only native action prevents premature completion' );
 	outcome_check( 1 === $queue->get_active_preload_count() && 2 === count( $fixture['count_queries'] ), 'active count uses two native count operations and includes running work' );

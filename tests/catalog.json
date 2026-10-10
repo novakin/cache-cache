@@ -1412,6 +1412,26 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-preload-completion",
+      "path": "tests/wordpress-preload-completion.php",
+      "purpose": "Native registered preload completion and deletion recover more than 100 duplicate URL rows without HTTP.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Owned temporary cache paths and seeded preload rows in a marked copied-plugin site; no settings or external requests.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-preload-outcomes",
       "path": "tests/wordpress-preload-outcomes.php",
       "purpose": "Preload outcomes, staged refresh and exact discovery; native owners with in-memory boundaries.",
