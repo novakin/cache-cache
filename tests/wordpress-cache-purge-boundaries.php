@@ -69,6 +69,7 @@ try {
 		$result = noobrocket_clean_files( $url );
 		native_purge_check( ! is_link( $link ) && is_file( $sentinel ) && $result[ $url ], 'native recursion unlinks directory link and preserves target' );
 	} else {
+		if ( 'Windows' !== PHP_OS_FAMILY ) { throw new RuntimeException( 'Native directory-link control requires symlink support on this platform.' ); }
 		echo "SKIP directory-link native control: OS denied symlink creation; Linux CI required.\n";
 	}
 } finally {

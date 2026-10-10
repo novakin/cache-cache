@@ -144,6 +144,7 @@ try {
 		purge_check( symlink( $root . '/outside-owned', dirname( $nested ) . '/link' ), 'owned nested link created' );
 		purge_check( purge_url( 'nested/' ) && is_file( $sentinel ), 'recursive helper unlinks nested link without following target' );
 	} else {
+		if ( 'Windows' !== PHP_OS_FAMILY ) { throw new RuntimeException( 'Directory-link controls require symlink support on this platform.' ); }
 		echo "SKIP directory-link control: OS denied symlink creation; Linux CI required.\n";
 	}
 	$preserved = purge_file( 'pages/example.test/preserve/keep/index.html' );
