@@ -12511,3 +12511,11 @@ msgstr ""
 "tenir compte des liens visibles sur mobile ; le navigateur choisit les liens"
 " à préparer. Une préparation plus anticipée peut consommer davantage de "
 "bande passante."
+
+#: views/settings/enable-google-fonts.php:38
+msgid "Google Fonts Optimization could not be enabled. Try again."
+msgstr "L’optimisation Google Fonts n’a pas pu être activée. Réessayez."
+
+#: views/settings/mobile-cache.php:33
+msgid "Mobile Cache could not be enabled. Try again."
+msgstr "Le cache mobile n’a pas pu être activé. Réessayez."

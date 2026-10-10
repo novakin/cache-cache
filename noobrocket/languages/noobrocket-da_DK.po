@@ -11227,3 +11227,11 @@ msgid ""
 "on hover. Eager may also use mobile viewport heuristics; the browser decides"
 " which links to prepare. More eager loading can use more bandwidth."
 msgstr ""
+
+#: views/settings/enable-google-fonts.php:38
+msgid "Google Fonts Optimization could not be enabled. Try again."
+msgstr ""
+
+#: views/settings/mobile-cache.php:33
+msgid "Mobile Cache could not be enabled. Try again."
+msgstr ""
