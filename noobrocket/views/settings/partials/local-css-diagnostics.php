@@ -120,10 +120,10 @@ $button = static function ( $operation, $label, $disabled = false ) {
 			<p><?php echo esc_html( $probe ? \NoobRocket\Engine\Optimization\LocalCSS\Diagnostics::probe_message( $probe ) : __( 'Check whether your homepage is served from cache to logged-out visitors.', 'noobrocket' ) ); ?></p>
 			<p class="noobrocket-helper"><?php esc_html_e( 'This check covers the homepage only; it does not measure site speed.', 'noobrocket' ); ?></p>
 			<?php if ( $probe_failed ) : ?><p><?php esc_html_e( 'A failed check does not prove visitor caching is broken.', 'noobrocket' ); ?></p><?php endif; ?>
-			<details class="noobrocket-status-evidence">
+			<details class="noobrocket-status-evidence noobrocket-cache-evidence">
 				<summary><?php esc_html_e( 'Cache check details', 'noobrocket' ); ?></summary>
-				<p class="noobrocket-probe-scope"><?php esc_html_e( 'Two anonymous homepage requests check the Cache-Cache PHP cache header. Other pages and site speed are not tested.', 'noobrocket' ); ?></p>
 				<dl class="noobrocket-key-values"><div><dt><?php esc_html_e( 'Delivery result', 'noobrocket' ); ?></dt><dd><?php echo esc_html( ! $probe ? __( 'Not checked', 'noobrocket' ) : ( $probe_hit ? 'HIT' : ( 0 === $probe_status || 'transport_error' === ( $probe['code'] ?? '' ) ? __( 'No response', 'noobrocket' ) : sprintf( __( 'HTTP %d', 'noobrocket' ), $probe_status ) ) ) ); ?></dd></div></dl>
+				<p class="noobrocket-helper noobrocket-probe-scope"><?php esc_html_e( 'Two anonymous homepage requests check the Cache-Cache PHP cache header. Other pages and site speed are not tested.', 'noobrocket' ); ?></p>
 			</details>
 		</section>
 		<section class="noobrocket-status-panel noobrocket-preload-status<?php echo $preload_error ? ' is-error' : ''; ?>">

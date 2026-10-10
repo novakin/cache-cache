@@ -95,6 +95,8 @@ Without JavaScript, retain static navigation and native forms/results. Hide cont
 
 Overview cards use one operational state, a short explanation, current count or recorded time where meaningful, then the useful action and secondary evidence. "Enabled" is a configuration fact, not proof that a feature completed work. Completed jobs do not prove current coverage of the whole site; a scheduled batch does not prove that it ran. Never show percentages, ETAs or whole-site health grades without the corresponding coverage data. Long translated headings and status badges wrap at narrow widths instead of competing for the same line. [Overview content review](batches/OVERVIEW_CONTENT_REVIEW.md) records the current card contracts and evidence limits.
 
+For a single evidence fact, keep its label and value together at their natural width, wrapping when necessary. Show the result before secondary methodology or scope copy; reserve the full-width facts grid for multi-row evidence. Homepage cache details use this compact treatment without adding another card or repeating the outcome badge.
+
 - Review all 14 routes at real output sizes in light and dark. Compare alignment, row spacing, surface hierarchy and warning placement across pages, not only against the mockup.
 - Operate every changed switch, radio, select, disclosure and dismiss control with keyboard. Check focus after navigation, invalid submission, cancellation and dismissal; test Back and direct hash links. Cancel must make no document request and restore categorized selection badges/parent state as well as child controls.
 - Check off/on/disabled, empty/configured, clean/dirty, pending/success/error and recovery states. Verify saved settings, private drafts and published rules remain distinct.
