@@ -2157,6 +2157,31 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "preload-sitemap-traversal",
+      "path": "tests/preload-sitemap-traversal.php",
+      "purpose": "Actual sitemap owners skip exact self references and duplicate children within one document while preserving case, query and existing page admission.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Actual parser/fetch/queue owners with modeled HTTP, scheduler and page storage; no native site or external requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-preload-sitemap-traversal",
+      "path": "tests/wordpress-preload-sitemap-traversal.php",
+      "purpose": "Registered sitemap parsing uses native scheduler/storage without recreating self jobs or duplicate children from one document.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Uniquely owned scheduler actions and one page row on a marked copied-plugin site; owned data removed, HTTP mocked, no external requests.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
     }
   ]
 }

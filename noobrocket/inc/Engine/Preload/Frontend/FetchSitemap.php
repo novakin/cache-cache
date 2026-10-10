@@ -79,7 +79,10 @@ class FetchSitemap {
 
 		$children = $this->sitemap_parser->get_children();
 
-		foreach ( $children as $child ) {
+		foreach ( array_unique( $children ) as $child ) {
+			if ( $url === $child ) {
+				continue;
+			}
 			$this->queue->add_job_preload_job_parse_sitemap_async( $child );
 		}
 	}
