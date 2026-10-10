@@ -1913,10 +1913,10 @@
     {
       "name": "stylesheet-background-publication",
       "path": "tests/stylesheet-background-publication.php",
-      "purpose": "Immutable stylesheet-background publication, query-variant reuse, atomic failure recovery and structural head boundaries.",
+      "purpose": "Safe stylesheet fetching, local/PHP/query/CDN preservation, immutable publication, atomic failure recovery and structural head boundaries.",
       "profile": "fast",
       "environment": "modeled-standalone",
-      "prerequisites": ["php"],
+      "prerequisites": ["php", "php-mbstring"],
       "mutation": "Actual owners with modeled hooks/HTTP and owned temporary files; no WordPress bootstrap or provider requests.",
       "args": [],
       "default": true,
@@ -1928,7 +1928,7 @@
       "purpose": "Actual PHP publication output and runtime bytes: browser-cache reuse, background visibility and no-JS recovery.",
       "profile": "browser",
       "environment": "synthetic-browser",
-      "prerequisites": ["node22", "php", "chromium", "worker-dependencies"],
+      "prerequisites": ["node22", "php", "php-mbstring", "chromium", "worker-dependencies"],
       "mutation": "Owned loopback server/Chromium profiles and generated fixture bytes; no WordPress or providers.",
       "args": ["{chromium}", "{php}"],
       "default": true
@@ -1936,7 +1936,7 @@
     {
       "name": "wordpress-stylesheet-background-publication",
       "path": "tests/wordpress-stylesheet-background-publication.php",
-      "purpose": "Registered native stylesheet-background extraction, transformation, tags and real publication reuse.",
+      "purpose": "Registered native stylesheet-background fetching, safe URL/redirect policy, local imports, PHP queries, development origins and publication reuse.",
       "profile": "wordpress",
       "environment": "native-wordpress",
       "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
