@@ -2120,6 +2120,56 @@
       "default": false,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "tools-action-feedback",
+      "path": "tests/tools-action-feedback.php",
+      "purpose": "Actual Tools AJAX owners reject refused/partial writes and preserve enabled no-op, retry and authorization behavior.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Modeled option storage only; no WordPress bootstrap, network or source writes.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "tools-action-feedback-render",
+      "path": "tests/tools-action-feedback-render.php",
+      "purpose": "Render actual Tools templates and compiled gettext catalog through the native MO reader for the browser fixture.",
+      "profile": "browser",
+      "environment": "native-core-reader",
+      "prerequisites": ["php", "wordpress-core"],
+      "mutation": "Read-only helper; no WordPress site bootstrap.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "tools-action-feedback-browser",
+      "path": "tests/tools-action-feedback-browser.mjs",
+      "purpose": "Generated settings bundle, actual Tools templates/catalogs and native jQuery preserve retriable failure feedback in EN/FR light/dark desktop/narrow keyboard states.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": ["node22", "php", "chromium", "worker-dependencies", "wordpress-core"],
+      "mutation": "Owned loopback server and browser profiles with synthetic AJAX outcomes; no WordPress site or provider calls.",
+      "args": ["{php}", "{chromium}", "{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-tools-action-feedback",
+      "path": "tests/wordpress-tools-action-feedback.php",
+      "purpose": "Registered Tools AJAX callbacks verify native persisted flags, refused/adjusted writes, enabled no-op, retries and capability denial.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Native settings saves and generated cache/config effects only in a marked copied-plugin site; exact raw settings and settings-errors transient restored.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
     }
   ]
 }

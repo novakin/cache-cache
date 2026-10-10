@@ -1,6 +1,8 @@
 <?php
 /**
  * Mobile Cache Template.
+ *
+ * @var array{url: string, id: string} $data Beacon input supplied by Abstract_Render::generate().
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -30,7 +32,7 @@ defined( 'ABSPATH' ) || exit;
 		</div>
 	</div>
 	<div class="noobrocket-tools-col">
-		<button id="nbr_enable_mobile_cache" class="noobrocket-button noobrocket-button--icon noobrocket-button--small noobrocket-button--purple noobrocket-icon-refresh">
+		<button type="button" id="nbr_enable_mobile_cache" class="noobrocket-button noobrocket-button--icon noobrocket-button--small noobrocket-button--purple noobrocket-icon-refresh" data-error="<?php esc_attr_e( 'Mobile Cache could not be enabled. Try again.', 'noobrocket' ); ?>">
 			<?php esc_html_e( 'Enable Mobile Cache', 'noobrocket' ); ?>
 		</button>
 	</div>
