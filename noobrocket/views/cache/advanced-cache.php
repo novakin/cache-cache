@@ -22,12 +22,6 @@ if (
 	return;
 }
 
-'{{MOBILE_CACHE}}';
-if ( file_exists( '{{NOOBROCKET_PATH}}inc/Dependencies/Detection/MobileDetect.php' ) && ! class_exists( 'NoobRocket\Dependencies\Detection\MobileDetect' ) ) {
-	include_once '{{NOOBROCKET_PATH}}inc/Dependencies/Detection/MobileDetect.php';
-}
-'{{/MOBILE_CACHE}}';
-
 spl_autoload_register(
 	function ( $class ) use ( $noobrocket_path ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.classFound
 		$noobrocket_classes = [
@@ -96,6 +90,17 @@ $noobrocket_config_class = new Config(
 		'config_dir_path' => $noobrocket_config_path,
 	]
 );
+
+'{{MOBILE_CACHE}}';
+if (
+	$noobrocket_config_class->get_config( 'cache_mobile' )
+	&& $noobrocket_config_class->get_config( 'do_caching_mobile_files' )
+	&& file_exists( '{{NOOBROCKET_PATH}}inc/Dependencies/Detection/MobileDetect.php' )
+	&& ! class_exists( 'NoobRocket\Dependencies\Detection\MobileDetect' )
+) {
+	include_once '{{NOOBROCKET_PATH}}inc/Dependencies/Detection/MobileDetect.php';
+}
+'{{/MOBILE_CACHE}}';
 
 ( new Cache(
 	new Tests(
