@@ -366,10 +366,16 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 	 */
 	protected function generate_css_file( string $url ) {
 		$fetch_url = html_entity_decode( $url, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$scheme = wp_parse_url( $fetch_url, PHP_URL_SCHEME );
+		// Document-relative URLs need the browser's document/base URL, which this pipeline does not own.
+		if ( false === $scheme || ( $scheme && ! in_array( strtolower( $scheme ), [ 'http', 'https' ], true ) )
+			|| ( ! $scheme && 0 !== strpos( $fetch_url, '/' ) ) ) {
+			return [];
+		}
 		$path = $this->file_resolver->resolve( $fetch_url );
 
 		if ( ! $path ) {
-			$path = $fetch_url;
+			$path = \WP_Http::make_absolute_url( $fetch_url, home_url( '/' ) );
 		}
 
 		$content = $this->fetcher->fetch( $path, $this->cache->generate_path( $url ) );

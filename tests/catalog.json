@@ -1001,6 +1001,45 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-mobile-loader",
+      "path": "tests/wordpress-mobile-loader.php",
+      "purpose": "Actual generated early loader selects mobile dependency and device filename from request policy independently of the saving network site.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Owned temporary configuration/loader files and fresh PHP processes; no WordPress bootstrap, database or HTTP.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-mobile-loader-multisite",
+      "path": "tests/wordpress-mobile-loader-multisite.php",
+      "purpose": "Native network settings saves, pre-plugin detector loading and early device cache hits retain enabled-site mobile variants after a disabled sibling save.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "multisite"
+      ],
+      "mutation": "Two owned temporary sites/configs/cache variants and a temporary MU sample; native save effects; original shared loader and blog context restored.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-cache-ownership",
       "path": "tests/wordpress-cache-ownership.php",
       "purpose": "Standalone activation/deactivation ownership proof; no WordPress site writes.",
@@ -1883,6 +1922,44 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "uninstall-filesystem-boundaries",
+      "path": "tests/uninstall-filesystem-boundaries.php",
+      "purpose": "Uninstall directory containment, ordinary cleanup and preserved external Windows junction/Linux symlink targets.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [ "php", "proc-open" ],
+      "mutation": "Actual owner and owned temporary files; modeled WordPress deletion records external selection without deleting the sentinel. Windows junction or Linux symlink control is required.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "uninstall-filesystem-helper",
+      "path": "tests/uninstall-filesystem-helper.php",
+      "purpose": "Create and detach owned platform link controls for uninstall fixtures.",
+      "profile": "fast",
+      "environment": "modeled-helper",
+      "prerequisites": [ "php", "proc-open" ],
+      "mutation": "Owned directory entries and temporary files only; no site bootstrap.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-uninstall-filesystem",
+      "path": "tests/wordpress-uninstall-filesystem.php",
+      "purpose": "Native registered uninstall preserves external link targets and foreign settings/drop-in while clearing ordinary owned data.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [ "php", "wordpress-core", "disposable-site", "installed-plugin-copy", "proc-open" ],
+      "mutation": "Deactivates and uninstalls the copied plugin, removes its site data and owned fixture roots in a marked disposable installation. Run last after native lifecycle acceptance; Windows junction or Linux symlink control is required.",
+      "args": [ "{wordpress}" ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "cache-network-configs",
       "path": "tests/cache-network-configs.php",
       "purpose": "Network configuration and CSS directory preservation above 100 sites.",
@@ -1913,10 +1990,10 @@
     {
       "name": "stylesheet-background-publication",
       "path": "tests/stylesheet-background-publication.php",
-      "purpose": "Immutable stylesheet-background publication, query-variant reuse, atomic failure recovery and structural head boundaries.",
+      "purpose": "Safe stylesheet fetching, local/PHP/query/CDN preservation, immutable publication, atomic failure recovery and structural head boundaries.",
       "profile": "fast",
       "environment": "modeled-standalone",
-      "prerequisites": ["php"],
+      "prerequisites": ["php", "php-mbstring"],
       "mutation": "Actual owners with modeled hooks/HTTP and owned temporary files; no WordPress bootstrap or provider requests.",
       "args": [],
       "default": true,
@@ -1928,7 +2005,7 @@
       "purpose": "Actual PHP publication output and runtime bytes: browser-cache reuse, background visibility and no-JS recovery.",
       "profile": "browser",
       "environment": "synthetic-browser",
-      "prerequisites": ["node22", "php", "chromium", "worker-dependencies"],
+      "prerequisites": ["node22", "php", "php-mbstring", "chromium", "worker-dependencies"],
       "mutation": "Owned loopback server/Chromium profiles and generated fixture bytes; no WordPress or providers.",
       "args": ["{chromium}", "{php}"],
       "default": true
@@ -1936,7 +2013,7 @@
     {
       "name": "wordpress-stylesheet-background-publication",
       "path": "tests/wordpress-stylesheet-background-publication.php",
-      "purpose": "Registered native stylesheet-background extraction, transformation, tags and real publication reuse.",
+      "purpose": "Registered native stylesheet-background fetching, safe URL/redirect policy, local imports, PHP queries, development origins and publication reuse.",
       "profile": "wordpress",
       "environment": "native-wordpress",
       "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
