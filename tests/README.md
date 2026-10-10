@@ -110,6 +110,8 @@ The bootstrap fixtures use actual footer/buffer subscriber output and shipped li
 
 ## Meaningful proof and limits
 
+The existing `fast --fixture wordpress-minify-boundaries` and `browser --fixture minify-boundaries-browser` checks also execute the actual inline jQuery deferral owner. Modeled PHP boundaries verify module/data preservation, real type attributes, classic callbacks and exclusions. Intercepted browser delivery executes static module imports and deferred classic callbacks and parses retained JSON; it does not bootstrap WordPress, contact providers or prove CSP hash-policy compatibility.
+
 `wordpress --fixture cache-purge-boundaries --wordpress /path/to/wordpress-core --php /path/to/php` loads actual purge owners and core filesystem classes without booting a site. Owned temporary files exercise parent-path rejection, Unicode/no-dots naming, public/user ownership, wildcard matches, injected deletion refusals and preserved hooks. Directory-link and literal-star directory controls execute on Linux; Windows reports explicit skips when its filesystem forbids them. This is native filesystem proof with modeled WordPress boundaries, not native site or concurrent-process proof.
 
 `wordpress --fixture wordpress-cache-purge-boundaries` adds native WordPress bootstrap, administrator permission and Ability execution on a marked copied-plugin site. Unique cache entries prove rejected sibling paths/wildcard searches, refused deletion and successful device-cache deletion; Linux also executes linked-directory preservation. It compares installed purge-owner bytes to the candidate before bootstrap and removes only its owned entries. The minimum/current CI pairs select both fixtures; concurrent filesystem replacement remains outside this proof.
