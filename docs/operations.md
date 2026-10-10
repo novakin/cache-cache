@@ -44,6 +44,8 @@ Local CSS uses a separate Node.js/Chromium command. A passed `--check` records e
 
 ## Recovery boundaries
 
+URL cache purge resolves selected entries and wildcard search directories within each owned host/user bucket. Paths resolving outside that bucket are rejected; recursive deletion unlinks directory links without visiting their targets. Per-URL success requires an actual deletion and no refused selected variant. Missing cache and refused deletion both retain the existing false result and Ability error response. Public purge hooks, Unicode cache naming and valid wildcard selection remain supported. These checks do not lock directories against concurrent filesystem replacement.
+
 Preload discovery upgrades its table with a nullable fixed URL key and unique index. Existing row IDs, statuses, locks, access times and duplicates stay intact; no full-table data backfill runs. One-time DDL can wait for active database work and build the index; verify its duration on staging for unusually large queues. A failed or partial migration retains the prior version marker and refuses unprotected new discovery until the normal upgrade hook retries successfully. Existing rows remain readable. Code rollback can leave the additive column/index in place: older readers and `add_item()` callers omit the nullable key and remain compatible, but can again insert duplicates. Concurrent old-release requests are outside the new discovery guard. Completion still recovers those rows; do not delete the table as a recovery shortcut.
 
 | Operation | Restores | Does not restore |

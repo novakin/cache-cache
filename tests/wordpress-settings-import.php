@@ -11,12 +11,24 @@ namespace NoobRocket\Admin {
 		}
 	}
 }
+namespace NoobRocket\Addon\Sucuri {
+	class Subscriber {
+		public static function is_api_key_valid( $value ) { return '' === $value; }
+	}
+}
 namespace {
 	define( 'ABSPATH', __DIR__ );
 	define( 'NOOBROCKET_FILE', dirname( __DIR__ ) . '/noobrocket/noobrocket.php' );
 	define( 'NOOBROCKET_PLUGIN_SLUG', 'noobrocket' );
 	define( 'NOOBROCKET_SLUG', 'noobrocket_settings' );
 	define( 'MINUTE_IN_SECONDS', 60 );
+	class WP_Error {
+		private $code;
+		private $message;
+		public function __construct( $code, $message ) { $this->code = $code; $this->message = $message; }
+		public function get_error_code() { return $this->code; }
+		public function get_error_message() { return $this->message; }
+	}
 	class ImportRedirect extends \RuntimeException {
 		public $status;
 		public function __construct( $message, $status ) { parent::__construct( $message ); $this->status = $status; }
@@ -45,11 +57,24 @@ namespace {
 	function sanitize_option( $name, $value ) {
 		if ( NOOBROCKET_SLUG !== $name || 1 !== ( $value['ignore'] ?? null ) ) throw new \RuntimeException( 'Import must use native settings validation without a saved notice.' );
 		$GLOBALS['import_validations']++;
+		if ( ! empty( $GLOBALS['import_native_validation'] ) ) {
+			$settings = new NoobRocket\Engine\Admin\Settings\Settings( new NoobRocket\Admin\Options_Data( $GLOBALS['import_options'] ) );
+			return $settings->sanitize_callback( $value );
+		}
 		unset( $value['ignore'] );
 		if ( ! empty( $GLOBALS['import_validation_changed'] ) ) $value['heartbeat_admin_behavior'] = '';
 		return $value;
 	}
 	function admin_url( $value ) { return 'http://fixture.invalid/wp-admin/' . $value; }
+	function add_query_arg( $name, $value, $url ) {
+		$parts = explode( '#', $url, 2 );
+		return $parts[0] . ( false === strpos( $parts[0], '?' ) ? '?' : '&' ) . rawurlencode( $name ) . '=' . rawurlencode( $value ) . ( isset( $parts[1] ) ? '#' . $parts[1] : '' );
+	}
+	function add_settings_error( $setting, $code, $message, $type = 'error' ) { $GLOBALS['wp_settings_errors'][] = compact( 'setting', 'code', 'message', 'type' ); }
+	function get_settings_errors() { return $GLOBALS['wp_settings_errors']; }
+	function wpm_apply_filters_typed( $type, $name, $value ) { return $value; }
+	function esc_url_raw( $value ) { return $value; }
+	function wp_parse_url( $value, $component = -1 ) { return parse_url( $value, $component ); }
 	function current_user_can( $capability ) { return $GLOBALS['import_permission']; }
 	function get_current_user_id() { return 7; }
 	function check_ajax_referer( $action, $name ) {
@@ -78,6 +103,10 @@ namespace {
 
 	require dirname( __DIR__ ) . '/noobrocket/inc/free.php';
 	require dirname( __DIR__ ) . '/noobrocket/inc/admin/admin.php';
+	require dirname( __DIR__ ) . '/noobrocket/inc/classes/admin/class-options-data.php';
+	require dirname( __DIR__ ) . '/noobrocket/inc/functions/formatting.php';
+	require dirname( __DIR__ ) . '/noobrocket/inc/Engine/Admin/Settings/Settings.php';
+	$wp_settings_errors = [];
 	$import_permission = true;
 	$import_writes = 0;
 	$import_nonce_checks = 0;
@@ -173,5 +202,21 @@ namespace {
 	$result = $confirm( $review['token'] );
 	$check( 'updated' === $result->status && $baseline === $import_options, 'an unchanged valid import remains successful even without a changed write' );
 	$import_refuse_write = false;
+
+	// The upload transaction now exercises the actual shared validator, not a modeled sanitizer.
+	$import_native_validation = true;
+	$import_options = array_merge( $baseline, [ 'dns_prefetch' => [ '//saved.example.test' ] ] );
+	$before = $import_options;
+	$before_writes = $import_writes;
+	$result = $upload( json_encode( array_merge( $before, [ 'dns_prefetch' => [ [ 'nested' ] ], 'heartbeat_admin_behavior' => 'disable' ] ) ) );
+	$review = get_transient( $review_key );
+	$notices = get_transient( 'settings_errors' );
+	$check( 'redirect' === $result->status && false !== strpos( $result->getMessage(), 'settings-updated=true' ) && false !== strpos( $result->getMessage(), '#tools' ), 'Malformed import reaches review with native validation feedback enabled' );
+	$check( [ '//saved.example.test' ] === $review['settings']['dns_prefetch'] && $before === $import_options && $before_writes === $import_writes, 'Malformed imported list retains its saved field without writing during review' );
+	$check( 1 === count( $notices ) && 'invalid_list_dns_prefetch' === $notices[0]['code'] && 'error' === $notices[0]['type'], 'Import keeps the native field error across its review redirect' );
+	$check( 'disable' === $review['settings']['heartbeat_admin_behavior'] && $baseline['secret_cache_key'] === $review['settings']['secret_cache_key'] && $baseline['minify_css_key'] === $review['settings']['minify_css_key'] && $baseline['version'] === $review['settings']['version'] && $baseline['engine_version'] === $review['settings']['engine_version'], 'Review preserves valid imported changes and site/version identities' );
+	$wp_settings_errors = [];
+	$result = $confirm( $review['token'] );
+	$check( 'updated' === $result->status && [ '//saved.example.test' ] === $import_options['dns_prefetch'] && 'disable' === $import_options['heartbeat_admin_behavior'] && $before_writes + 1 === $import_writes, 'Confirmation applies exactly the validated review while retaining the rejected field' );
 	echo 'PASS: ', $checks, ' settings import transaction checks; no WordPress or live writes.', PHP_EOL;
 }
