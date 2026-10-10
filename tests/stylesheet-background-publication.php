@@ -44,7 +44,7 @@ namespace {
 	function noobrocket_get_filesystem_perms() { return 0644; }
 	function noobrocket_url_to_path( $url ) { $GLOBALS['resolver_inputs'][] = $url; return $GLOBALS['resolver_result']; }
 	function noobrocket_realpath( $path ) { return $path; }
-	function wp_http_validate_url( $url ) { return 0 === strpos( $url, 'https://93.184.216.34/' ) || 0 === strpos( $url, home_url() . '/' ) ? $url : false; }
+	function wp_http_validate_url( $url ) { return 0 === strpos( $url, 'https://93.184.216.34/' ) || 0 === strpos( $url, 'http://93.184.216.34/' ) || 0 === strpos( $url, home_url() . '/' ) ? $url : false; }
 	function wp_remote_get( $url, $args = [] ) { $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => $GLOBALS['remote_css'] ]; }
 	function wp_safe_remote_get( $url, $args = [] ) { $args['reject_unsafe_urls'] = true; $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => wp_http_validate_url( $url ) ? $GLOBALS['remote_css'] : '' ]; }
 	function wp_remote_retrieve_body( $response ) { return $response['body'] ?? ''; }
