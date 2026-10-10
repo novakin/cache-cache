@@ -106,7 +106,7 @@ namespace {
 	foreach ( $requests as [ $url, $args ] ) { resource_check( $args['timeout'] > 0 && $args['timeout'] <= 3 && isset( $args['limit_response_size'] ), 'cold requests have timeout and byte bounds' ); }
 	( new ReflectionProperty( $fonts, 'download_deadline' ) )->setValue( $fonts, microtime( true ) - 1 );
 	$before = count( $requests );
-	resource_check( ! $fonts->write_font_css( $font_url . '&new=1', 'google-fonts' ) && $before === count( $requests ), 'spent aggregate font budget admits no further remote requests' );
+	resource_check( $fonts->write_font_css( $font_url . '&new=1', 'google-fonts' ) && $before + 1 === count( $requests ), 'a new background preparation receives a fresh bounded budget and reuses ready font bytes' );
 	foreach ( [ 404, 429, 503 ] as $code ) {
 		$remote_code = $code;
 		$cache = new NoobRocket\Engine\Optimization\AssetsLocalCache( '/asset-fixture/', $filesystem );

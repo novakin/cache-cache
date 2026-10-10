@@ -136,6 +136,11 @@ class Controller implements ControllerInterface {
 		return $items;
 	}
 
+	/** Remove both device variants so the beacon can collect current delivered URLs. */
+	public function clear_font_hints_for_url( string $url ): void {
+		$this->query->delete_by_url( untrailingslashit( $url ) );
+	}
+
 	/**
 	 * Get current visited page row in DB.
 	 *

@@ -45,6 +45,7 @@ class Subscriber implements Subscriber_Interface {
 			'noobrocket_input_sanitize'        => [ 'sanitize_option', 10, 2 ],
 			'admin_init'                   => 'schedule_data_collection',
 			'noobrocket_fonts_data_collection' => 'collect_data',
+			'noobrocket_prepare_local_font' => [ 'prepare_font', 10, 3 ],
 			'noobrocket_deactivation'          => [ 'unschedule_data_collection', 10, 2 ],
 		];
 	}
@@ -100,5 +101,10 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	public function collect_data() {
 		$this->data->collect_data();
+	}
+
+	/** Prepare a queued sheet outside the frontend rendering request. */
+	public function prepare_font( string $css_url, string $page_url, int $attempt = 0 ): void {
+		$this->data->prepare_font( $css_url, $page_url, $attempt );
 	}
 }

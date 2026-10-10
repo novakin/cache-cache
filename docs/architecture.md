@@ -61,7 +61,7 @@ The shared settings JavaScript, admin styles, views and enqueues own Save/Cancel
 | Same-server CSS execution | `noobrocket/local-css/worker.mjs`, `generator.mjs` and PHP bridge; unprivileged Chromium samples public pages. Explicit origins constrain browser requests. See [worker setup](../noobrocket/local-css/README.md). |
 | Modern images | `inc/Engine/Media/Picture/Generator.php` and `Subscriber.php`; bounded cron generation with owned outputs and AVIF/WebP/original picture delivery. Original files remain available. |
 | Image/iframe lazy loading | `inc/Engine/Media/Lazyload/Subscriber.php` and `assets/js/lazyload-bootstrap.js`; original configuration/runtime delivery remains the default, with explicit opt-in to start the filtered async runtime from actual DOM targets. |
-| Font preparation | `inc/Engine/Media/Fonts/`; local font ownership stays with the font controller. Cold preparation has a bounded synchronous budget, not a demonstrated zero-cost path. |
+| Font preparation | `inc/Engine/Media/Fonts/`; local font ownership stays with the font controller. Cold rendering schedules existing Action Scheduler work and retains provider delivery. Background preparation has a bounded per-sheet budget, two delayed retries and per-page hint/cache invalidation. |
 | Next-page preparation | `inc/Engine/Preload/Links/` and its enqueued script; intent-driven rules prepare one eligible destination. Fixed dynamic eagerness is current behavior; configurable document-rule eagerness is not implemented. |
 | Providers and object cache | `inc/Addon/`, `inc/Engine/CDN/`, `inc/Engine/Cache/ObjectCache/`; saved authorized provider operations and existing-provider diagnostics, without installing a second object-cache drop-in. |
 

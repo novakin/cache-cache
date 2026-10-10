@@ -33,7 +33,11 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	public static function get_subscribed_events(): array {
 		return [
-			'noobrocket_upgrade' => [ 'maybe_enable_auto_preload_fonts', 9, 2 ],
+			'noobrocket_local_fonts_cleared' => 'clear_font_hints',
+			'noobrocket_upgrade' => [
+				[ 'maybe_enable_auto_preload_fonts', 9, 2 ],
+				[ 'clear_font_hints', 10 ],
+			],
 		];
 	}
 
@@ -54,5 +58,10 @@ class Subscriber implements Subscriber_Interface {
 			return;
 		}
 		$this->settings->maybe_enable_auto_preload_fonts();
+	}
+
+	/** Recollect font hints after a plugin upgrade or local CSS invalidation. */
+	public function clear_font_hints(): void {
+		$this->settings->clear_font_hints();
 	}
 }

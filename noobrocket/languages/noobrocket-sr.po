@@ -10341,3 +10341,9 @@ msgid ""
 "preloading. Enable link preloading on its own to preload HTML without "
 "prerendering. Browsers that support neither use normal navigation."
 msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:958
+msgid ""
+"Prepare Google Fonts in the background and serve them locally when ready. "
+"Pages keep the original fonts until preparation succeeds. %1$sMore info%2$s"
+msgstr ""

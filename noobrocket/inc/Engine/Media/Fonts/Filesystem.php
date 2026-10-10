@@ -22,7 +22,7 @@ class Filesystem extends AbstractFileSystem {
 	 */
 	private $path;
 
-	/** One cold-download budget for the sheets handled by this frontend owner. */
+	/** One bounded download budget for a background preparation task. */
 	private $download_deadline;
 
 	/**
@@ -71,9 +71,8 @@ class Filesystem extends AbstractFileSystem {
 		if ( get_transient( $cooldown ) ) {
 			return false;
 		}
-		if ( null === $this->download_deadline ) {
-			$this->download_deadline = microtime( true ) + 3;
-		}
+		// A queue runner can prepare several sheets with this same service instance.
+		$this->download_deadline = microtime( true ) + 3;
 		$font_provider_path = $this->get_font_provider_path( $provider );
 		$css_filepath       = $this->get_absolute_path( $font_provider_path, 'css/' . $this->hash_to_path( $this->hash_url( $css_url ) ) . '.css' );
 		$fonts_basepath     = $this->get_absolute_path( $font_provider_path, 'fonts' );
@@ -84,7 +83,9 @@ class Filesystem extends AbstractFileSystem {
 
 		$start_time = microtime( true );
 
-		$css_content = $this->get_remote_content( html_entity_decode( $css_url ) );
+		$remote_url = html_entity_decode( $css_url, ENT_QUOTES );
+		$remote_url = 0 === strpos( $remote_url, '//' ) ? 'https:' . $remote_url : $remote_url;
+		$css_content = $this->get_remote_content( $remote_url );
 
 		if ( ! $css_content ) {
 			set_transient( $cooldown, 1, 300 );

@@ -48,6 +48,7 @@ class Subscriber implements Subscriber_Interface {
 			'noobrocket_preload_fonts_excluded_fonts' => 'get_exclusions',
 			'noobrocket_external_font_exclusions'     => 'get_external_font_exclusions',
 			'noobrocket_buffer'                       => 'maybe_remove_existing_preloaded_fonts',
+			'noobrocket_font_css_prepared' => 'clear_font_hints_for_url',
 		];
 	}
 
@@ -112,5 +113,10 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	public function maybe_remove_existing_preloaded_fonts( string $html ): string {
 		return $this->preload_fonts->maybe_remove_existing_preloaded_fonts( $html );
+	}
+
+	/** A page can switch from provider URLs to local URLs after background preparation. */
+	public function clear_font_hints_for_url( string $url ): void {
+		$this->preload_fonts->clear_font_hints_for_url( $url );
 	}
 }

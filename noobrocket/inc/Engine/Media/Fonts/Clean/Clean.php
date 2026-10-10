@@ -39,6 +39,8 @@ class Clean {
 		$path = $this->base_path . 'google-fonts/css/';
 
 		$this->filesystem->delete_all_files_from_directory( $path );
+		// Stored hints must be recollected when delivery returns to provider CSS.
+		do_action( 'noobrocket_local_fonts_cleared' );
 	}
 
 	/**

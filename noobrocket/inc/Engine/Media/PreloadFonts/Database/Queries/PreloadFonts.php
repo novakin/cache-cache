@@ -72,6 +72,18 @@ class PreloadFonts extends AbstractQuery {
 	 */
 	protected $cache_group = 'nbr_preload_fonts';
 
+	/** Table-level invalidation must also expire stored query results. */
+	public function invalidate_cache(): void {
+		$this->last_changed = microtime();
+		wp_cache_set( 'last_changed', $this->last_changed, $this->cache_group );
+	}
+
+	/** Font publication changes delivery within a shared queue-runner request. */
+	public function delete_by_url( string $url ) {
+		$this->last_changed = 0;
+		return parent::delete_by_url( $url );
+	}
+
 	/**
 	 * Deletes old rows from the database.
 	 *
