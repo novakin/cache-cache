@@ -180,6 +180,7 @@ $allowed = new NoobRocket\Engine\Abilities\Options\AllowedOptions();
 link_prerender_check( in_array( 'prerender_links', $allowed->get(), true ) && in_array( 'prerender_excluded_uri', $allowed->get(), true ), 'MCP and history allowlist includes both prerender options' );
 $ability = new NoobRocket\Engine\Abilities\Options\SetOption( $allowed );
 $sanitize = new ReflectionMethod( $ability, 'sanitize_value' );
+$sanitize->setAccessible( true );
 foreach ( [ 'prerender_links_mode' => [ 'intent', 'document' ], 'prerender_links_eagerness' => [ 'conservative', 'moderate', 'eager' ] ] as $name => $values ) {
 	link_prerender_check( in_array( $name, $allowed->get(), true ), 'MCP/history permits ' . $name );
 	foreach ( $values as $value ) { link_prerender_check( $value === $sanitize->invoke( $ability, $name, $value ), 'MCP validates supported enum ' . $value ); }
@@ -311,6 +312,7 @@ if ( is_file( ABSPATH . 'wp-includes/speculative-loading.php' ) ) {
 	}
 	link_prerender_check( null === wp_get_speculation_rules_configuration(), 'native duplicate rules stay disabled after exclusions have been read' );
 	$reading = new ReflectionProperty( $core_subscriber, 'reading_core_rules' );
+	$reading->setAccessible( true );
 	link_prerender_check( false === $reading->getValue( $core_subscriber ), 'native-reading flag resets after successful extraction' );
 	remove_filter( 'wp_speculation_rules_configuration', $core_callback );
 	remove_filter( 'wp_speculation_rules_href_exclude_paths', $native_paths );
@@ -335,6 +337,7 @@ if ( is_file( ABSPATH . 'wp-includes/speculative-loading.php' ) ) {
 	add_action( 'wp_load_speculation_rules', $failure );
 	add_filter( 'wp_speculation_rules_configuration', $core_callback );
 	$native_method = new ReflectionMethod( $core_subscriber, 'get_native_exclusions' );
+	$native_method->setAccessible( true );
 	$failure_message = null;
 	try {
 		$native_method->invoke( $core_subscriber );

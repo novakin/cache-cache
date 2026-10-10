@@ -45,11 +45,12 @@ const render = url => {
     ${capabilities.saveData || capabilities.slow ? `Object.defineProperty(navigator, 'connection', { value: { saveData: ${!!capabilities.saveData}, effectiveType: '${capabilities.slow ? '2g' : '4g'}' }, configurable: true });` : ''}`;
   const automation = scenario !== 'native' ? '' : `${config.mode === 'document' ? 'document.querySelector("#second").classList.remove("no-prerender");document.querySelector("#second").href="/wordpress/private/account";' : ''}
     fetch('/qa/report?run=${run}&stage=rules&data='+encodeURIComponent(document.querySelector('#noobrocket-document-speculation-rules')?.textContent || 'intent'));
-    setTimeout(() => document.querySelector('#first').dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), 200);
+    ${config.mode === 'document' ? '' : "setTimeout(() => document.querySelector('#first').dispatchEvent(new MouseEvent('mouseover', { bubbles: true })), 200);"}
     const ready = setInterval(async () => {
       const state = await fetch('/qa/state?run=${run}').then(response => response.json());
       if (!state.loaded) return;
       clearInterval(ready);
+      await fetch('/qa/report?run=${run}&stage=prepared&data='+encodeURIComponent(JSON.stringify([...document.querySelectorAll('script[type="speculationrules"]')].map(node => ({ id: node.id, rules: JSON.parse(node.textContent) })))));
       document.querySelector('#first').click();
     }, 150);`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Link intent fixture</title></head><body>
@@ -75,6 +76,8 @@ const server = createServer((request, response) => {
         result.resolve();
       } else if (url.searchParams.get('stage') === 'rules') {
         result.rules = url.searchParams.get('data');
+      } else if (url.searchParams.get('stage') === 'prepared') {
+        result.preparedRules = JSON.parse(url.searchParams.get('data'));
       }
     }
     response.end('ok');
@@ -425,43 +428,112 @@ try {
   await browser.close();
   browser = undefined;
 
-  // A DevTools-attached page disables real prerender activation. Let this isolated Chrome navigate itself instead.
+  // Legacy page-target sessions disable prerender activation. Intent can navigate
+  // itself detached; document Eager needs trusted hover through a supported tab target.
   for (const variant of Object.keys(scripts)) {
-    const mode = 'intent';
-    const run = `${variant}-${mode}`;
-    const profile = await mkdtemp(join(tmpdir(), 'noobrocket-link-prerender-'));
-    let chrome;
-    try {
-      const result = { requests: [] };
-      const activated = new Promise(resolveActivation => { result.resolve = resolveActivation; });
-      nativeResults.set(run, result);
-      chrome = spawn(executablePath, [
-        '--headless', '--no-first-run', '--no-default-browser-check', '--user-data-dir=' + profile,
-        urlFor(variant, { mode, eagerness: 'eager' }, {}, { scenario: 'native', csp: '1', run })
-      ], { windowsHide: true, stdio: 'ignore' });
-      let timer;
-      await Promise.race([
-        activated,
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${run}: native prerender activation timed out ${JSON.stringify({ loaded: result.loaded, wasPrerendered: result.wasPrerendered, requests: result.requests, rules: result.rules })}`)), 8000); }),
-        new Promise((_, reject) => chrome.once('error', reject))
-      ]).finally(() => clearTimeout(timer));
-      check(result.wasPrerendered, `${variant}: real destination loads with document.prerendering=true under CSP`);
-      check(result.activationStart > 0, `${variant}: clicking activates the prepared document`);
-      check(result.requests.length === 1 && result.requests[0].pathname === '/wordpress/article-one', `${variant}: activation reuses one document request`);
-      check(result.requests[0].purpose.includes('prerender'), `${variant}: the document request carries Sec-Purpose: prefetch;prerender`);
-    } finally {
-      activeNativeRun = undefined;
-      if (chrome && chrome.exitCode === null) {
-        const stopped = new Promise(resolveStopped => chrome.once('close', resolveStopped));
-        chrome.kill();
-        await stopped;
+    for (const mode of ['intent', 'document']) {
+      const run = `${variant}-${mode}`;
+      const profile = await mkdtemp(join(tmpdir(), 'noobrocket-link-prerender-'));
+      let chrome;
+      let connection;
+      try {
+        const result = { requests: [] };
+        const activated = new Promise(resolveActivation => { result.resolve = resolveActivation; });
+        nativeResults.set(run, result);
+        const fixtureUrl = urlFor(variant, { mode, eagerness: 'eager' }, {}, { scenario: 'native', csp: '1', run });
+        chrome = spawn(executablePath, [
+          '--headless', '--no-first-run', '--no-default-browser-check', '--user-data-dir=' + profile,
+          ...(mode === 'document' ? ['--remote-debugging-port=0'] : []),
+          fixtureUrl
+        ], { windowsHide: true, stdio: 'ignore' });
+        if (mode === 'document') {
+          let debuggerPath;
+          for (let attempt = 0; attempt < 100; attempt++) {
+            try { debuggerPath = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).trim().split('\n'); break; }
+            catch { await new Promise(resolveWait => setTimeout(resolveWait, 30)); }
+          }
+          check(!!debuggerPath, `${variant}: owned Chrome exposes its loopback debugger`);
+          connection = new WebSocket(`ws://127.0.0.1:${debuggerPath[0]}${debuggerPath[1]}`);
+          await new Promise((resolveOpen, reject) => {
+            const timer = setTimeout(() => reject(new Error(`${run}: debugger connection timed out`)), 3000);
+            connection.addEventListener('open', () => { clearTimeout(timer); resolveOpen(); }, { once: true });
+            connection.addEventListener('error', () => { clearTimeout(timer); reject(new Error(`${run}: debugger connection failed`)); }, { once: true });
+          });
+          let sequence = 0;
+          const pending = new Map();
+          let pageSession;
+          const exceptions = [];
+          connection.addEventListener('message', event => {
+            const message = JSON.parse(event.data);
+            if (message.id) {
+              const request = pending.get(message.id);
+              if (!request) return;
+              pending.delete(message.id);
+              clearTimeout(request.timer);
+              if (message.error) request.reject(new Error(JSON.stringify(message.error)));
+              else request.resolve(message.result);
+            } else if (message.method === 'Target.attachedToTarget' && message.params.targetInfo.type === 'page' && message.params.targetInfo.url === fixtureUrl && !message.params.targetInfo.subtype) {
+              pageSession = message.params.sessionId;
+            } else if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text);
+          });
+          const send = (method, params = {}, sessionId) => new Promise((resolveCommand, reject) => {
+            const id = ++sequence;
+            const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${run}: ${method} timed out`)); }, 3000);
+            pending.set(id, { resolve: resolveCommand, reject, timer });
+            connection.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+          });
+          const { targetInfos } = await send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }, { exclude: true }] });
+          const tabs = targetInfos.filter(target => target.url === fixtureUrl);
+          check(tabs.length === 1, `${variant}: document proof owns one native fixture tab target`);
+          const { sessionId: tabSession } = await send('Target.attachToTarget', { targetId: tabs[0].targetId, flatten: true });
+          await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true, filter: [{ type: 'page', exclude: false }, { exclude: true }] }, tabSession);
+          check(!!pageSession, `${variant}: page session belongs to its supported tab target`);
+          await send('Runtime.enable', {}, pageSession);
+          for (let attempt = 0; !result.rules && attempt < 100; attempt++) await new Promise(resolveWait => setTimeout(resolveWait, 30));
+          check(!!result.rules, `${variant}: owned runtime publishes document rules before trusted input`);
+          const { result: bounds, exceptionDetails } = await send('Runtime.evaluate', {
+            expression: `new Promise(resolve => {
+              const ready = () => resolve(JSON.stringify({ url: location.href, rectangle: document.querySelector('#first')?.getBoundingClientRect() }));
+              if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready, { once: true });
+              else ready();
+            })`, awaitPromise: true, returnByValue: true
+          }, pageSession);
+          check(!exceptionDetails && typeof bounds.value === 'string', `${variant}: owned document is ready for trusted input (${JSON.stringify(exceptionDetails || bounds)})`);
+          const { url: documentUrl, rectangle } = JSON.parse(bounds.value);
+          check(documentUrl === fixtureUrl && !!rectangle, `${variant}: trusted input targets the owned fixture document (${documentUrl})`);
+          await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: rectangle.x + rectangle.width / 2, y: rectangle.y + rectangle.height / 2 }, pageSession);
+          result.exceptions = exceptions;
+        }
+        let timer;
+        await Promise.race([
+          activated,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${run}: native prerender activation timed out ${JSON.stringify({ loaded: result.loaded, wasPrerendered: result.wasPrerendered, requests: result.requests, rules: result.rules })}`)), 8000); }),
+          new Promise((_, reject) => chrome.once('error', reject))
+        ]).finally(() => clearTimeout(timer));
+        check(result.wasPrerendered, `${variant}: real destination loads with document.prerendering=true under CSP`);
+        check(result.activationStart > 0, `${variant}: clicking activates the prepared document`);
+        check(result.requests.length === 1 && result.requests[0].pathname === '/wordpress/article-one', `${variant}: activation reuses one document request`);
+        check(result.requests[0].purpose.includes('prerender'), `${variant}: the document request carries Sec-Purpose: prefetch;prerender`);
+        if (mode === 'document') {
+          const documentRule = result.preparedRules[0];
+          check(result.preparedRules.length === 1 && documentRule.id === 'noobrocket-document-speculation-rules' && documentRule.rules.prerender[0].source === 'document' && documentRule.rules.prerender[0].eagerness === 'eager', `${variant}: native activation uses document Eager rules without intent fallback`);
+          check(result.exceptions.length === 0, `${variant}: document initiator has no runtime exceptions`);
+        }
+      } finally {
+        activeNativeRun = undefined;
+        if (connection) connection.close();
+        if (chrome && chrome.exitCode === null) {
+          const stopped = new Promise(resolveStopped => chrome.once('close', resolveStopped));
+          chrome.kill();
+          await stopped;
+        }
+        const path = resolve(profile);
+        check(path.startsWith(resolve(tmpdir()) + sep), `${variant}: disposable profile remains inside the temporary directory`);
+        await rm(path, { recursive: true, force: true, maxRetries: 8, retryDelay: 200 });
       }
-      const path = resolve(profile);
-      check(path.startsWith(resolve(tmpdir()) + sep), `${variant}: disposable profile remains inside the temporary directory`);
-      await rm(path, { recursive: true, force: true, maxRetries: 8, retryDelay: 200 });
     }
   }
-  console.log(`PASS: ${checks} source/minified link preparation browser assertions. Detached intent activation verified; document rules verify native candidates, exclusions and trusted-interest requests. Document activation is blocked by Chromium's explicit PrerenderingDisabledByDevTools state.`);
+  console.log(`PASS: ${checks} source/minified link preparation browser assertions. Detached intent and tab-target-aware document Eager activation verified; eligible navigation reuses one prerender request and excluded destinations are not loaded.`);
 } finally {
   if (browser) await browser.close();
   await new Promise(resolveClose => server.close(resolveClose));

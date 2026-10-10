@@ -11369,3 +11369,10 @@ msgid ""
 "Plugins can recreate temporary values. Reload after cleanup finishes to "
 "refresh the count."
 msgstr ""
+
+#: inc/Engine/Admin/Settings/Page.php:1079
+msgid ""
+"Conservative waits for click or touch. Moderate and eager can prepare links "
+"on hover. Eager may also use mobile viewport heuristics; the browser decides"
+" which links to prepare. More eager loading can use more bandwidth."
+msgstr ""
