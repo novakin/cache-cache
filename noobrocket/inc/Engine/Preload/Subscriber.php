@@ -379,6 +379,10 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 			return;
 		}
 
+		if ( wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
 		$url = get_permalink( $post_id );
 
 		if ( empty( $url ) ) {

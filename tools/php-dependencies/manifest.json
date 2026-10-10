@@ -13,7 +13,7 @@
   },
   "output": {
     "files": 219,
-    "sha256": "d3962e939a4edf31746d5c801c6d589d57c72de9962a274cfc9191b2ec92d6b3",
+    "sha256": "c33b6e4ab3a52f71193637cf319be08898d2cafbdf3ba1881056159f3799abef",
     "hash_format": "SHA256 of sorted UTF-8 relative path + NUL + raw SHA256(file bytes) + LF for every file."
   },
   "omitted": [
@@ -47,6 +47,42 @@
       "reason": "Preserve complete inline background declarations: only a single URL is lazyloaded; layered, repeated and unsupported values remain unchanged (#8978).",
       "before": "\t\t\tif ( $this->isExcluded( $attrs_no_style, $this->getExcludedAttributes() ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t/**\n\t\t\t * Regex to detect bg images inside CSS.\n\t\t\t *\n\t\t\t * @param string $regex regex to detect.\n\t\t\t * @return string\n\t\t\t */\n\t\t\t$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\((?<url>[^)]+)\\))\\s*;?' );\n\n\t\t\tif ( @preg_match( \"#$regex#is\", '' ) === false ) {// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged\n\t\t\t\t$regex = 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\((?<url>[^)]+)\\))\\s*;?';\n\t\t\t}\n",
       "after": "\t\t\tif ( $this->isExcluded( $attrs_no_style, $this->getExcludedAttributes() ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t// One data-bg value cannot preserve the cascade of repeated declarations.\n\t\t\tif ( preg_match_all( '#background-image\\s*:#i', $element['styles'] ) > 1 ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\t// Match a complete single URL; leave layered or unsupported CSS unchanged.\n\t\t\t$default_regex = 'background-image\\s*:\\s*(?<attr>\\s*url\\s*\\(\\s*(?<url>\"[^\"\\\\\\\\]*\"|\\'[^\\'\\\\\\\\]*\\'|[^()\\'\"\\\\\\\\\\s]+)\\s*\\))\\s*(?:;|$)';\n\n\t\t\t/**\n\t\t\t * Regex to detect bg images inside CSS.\n\t\t\t *\n\t\t\t * @param string $regex regex to detect.\n\t\t\t * @return string\n\t\t\t */\n\t\t\t$regex = apply_filters( 'noobrocket_lazyload_bg_images_regex', $default_regex );\n\n\t\t\tif ( @preg_match( \"#$regex#is\", '' ) === false ) {// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged\n\t\t\t\t$regex = $default_regex;\n\t\t\t}\n"
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t * We set this locally to avoid inconsistencies between method calls.",
+      "after": "\t * Each mutation must publish a fresh value, including on reused query instances."
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t\t\t$this->update_item_cache( $retval );",
+      "after": "\t\t\t$this->update_item_cache( $retval, false );"
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t\t\t$this->update_item_cache( $results );",
+      "after": "\t\t\t$this->update_item_cache( $results, false );"
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t * @param array $items\n\t */\n\tprivate function update_item_cache( $items = array() ) {",
+      "after": "\t * @param array $items\n\t * @param bool  $invalidate_queries Whether a database mutation changed the query results.\n\t */\n\tprivate function update_item_cache( $items = array(), $invalidate_queries = true ) {"
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t\t// Update last changed\n\t\t$this->update_last_changed_cache();\n\t}\n\n\t/**\n\t * Clean the cache for an item.",
+      "after": "\t\t// Reading rows primes their item caches without invalidating cached queries.\n\t\tif ( $invalidate_queries ) {\n\t\t\t$this->update_last_changed_cache();\n\t\t}\n\t}\n\n\t/**\n\t * Clean the cache for an item."
+    },
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Keep query result generations fresh after mutations without invalidating results during item-cache reads.",
+      "before": "\t\t// Fallback to microtime\n\t\tif ( empty( $this->last_changed ) ) {\n\t\t\t$this->set_last_changed();\n\t\t}",
+      "after": "\t\t// Never restore a timestamp from an earlier mutation or cache read.\n\t\t$this->set_last_changed();"
     }
   ],
   "locked_package_provenance": [

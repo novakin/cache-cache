@@ -81,10 +81,18 @@ class Subscriber implements Subscriber_Interface {
 	}
 
 	public function remember_post_url( int $id ): void {
+		if ( wp_is_post_revision( $id ) ) {
+			return;
+		}
+
 		$this->old_urls[ $id ] = get_permalink( $id );
 	}
 
 	public function invalidate_post( int $id ): void {
+		if ( wp_is_post_revision( $id ) ) {
+			return;
+		}
+
 		$this->jobs->invalidate_urls( array_filter( [ $this->old_urls[ $id ] ?? '', get_permalink( $id ) ] ) );
 		unset( $this->old_urls[ $id ] );
 	}
