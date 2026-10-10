@@ -1676,6 +1676,23 @@
       "args": [],
       "default": true,
       "minimum_php": "7.4"
+    },
+    {
+      "name": "stylesheet-background-browser",
+      "path": "tests/stylesheet-background-browser.mjs",
+      "purpose": "Initial and mutation-driven stylesheet background discovery using readable and served script bytes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies"
+      ],
+      "mutation": "Owned Chromium profiles and intercepted image responses; no WordPress or providers.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true
     }
   ]
 }

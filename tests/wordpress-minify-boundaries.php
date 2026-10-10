@@ -156,6 +156,36 @@ namespace {
 		$local_bytes = 'window.nativeOrder = [...(window.nativeOrder || []), "local"]; window.nativeClassicRuns = (window.nativeClassicRuns || 0) + 1;';
 		file_put_contents( $fixture . '/native.js', $local_bytes );
 		file_put_contents( $fixture . '/keep.js', 'window.nativeKeptRuns = (window.nativeKeptRuns || 0) + 1;' );
+		$local_tag = '<script src="https://site.test/native.js"></script>';
+		foreach ( [ '</BODY>', '</BoDy   >' ] as $index => $closing ) {
+			$input = '<!doctype html><html><head></head><body>' . $local_tag . $closing . '</html>';
+			$output = $new_combine()->optimize( $input );
+			minify_check( false !== strpos( $output, 'data-minify="1"' ) && false === strpos( $output, $local_tag ), 'combined delivery supports mixed-case/whitespace closing body tags' );
+			minify_check( false !== strpos( $output, $closing ), 'combined delivery preserves the original closing tag bytes' );
+			$export['pages'][ 'classic-body-case-' . $index ] = $output;
+		}
+		foreach ( [
+			'no-body' => '',
+			'comment-body' => '<!-- </body> -->',
+			'script-body' => '<script data-no-minify>window.tagLikeBody = "</body>";</script>',
+			'textarea-body' => '<textarea></body></textarea>',
+			'attribute-body' => '<div data-note="</body>"></div>',
+			'template-body' => '<template><template></template></body></template>',
+			'plaintext-body' => '<plaintext></body>',
+			'unterminated-double-attribute-body' => '<div data-note="unterminated </body> tail',
+			'unterminated-single-attribute-body' => "<div data-note='unterminated </body> tail",
+		] as $name => $fake_closing ) {
+			$input = '<!doctype html><html><head></head><body>' . $local_tag . $fake_closing . '</html>';
+			$before = count( $requests );
+			$output = $new_combine()->optimize( $input );
+			minify_check( $input === $output && $before === count( $requests ), $name . ': missing real insertion point preserves all original scripts' );
+			$export['pages'][ 'classic-body-fallback-' . $name ] = $output;
+		}
+		$tag_like = '<script data-no-minify>window.tagLikeBody = "</body>";</script><textarea></body></textarea><!-- </body> -->';
+		$input = '<!doctype html><html><head></head><body>' . $tag_like . $local_tag . '</body></html>';
+		$output = $new_combine()->optimize( $input );
+		minify_check( false !== strpos( $output, $tag_like ) && 1 === substr_count( $output, 'data-minify="1"' ), 'combined delivery ignores tag-like script/comment/textarea content and inserts once' );
+		$export['pages']['classic-body-real-after-text'] = $output;
 		$local_kept = '<script src="https://site.test/keep.js"></script>';
 		minify_check( false !== strpos( $minify->optimize( $document( $local_kept ) ), $local_kept ), 'empty dynamic templates still honor configured local exclusion' );
 		$lists->templates = [ 'fixture-excluded' ];

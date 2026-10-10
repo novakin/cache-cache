@@ -87,6 +87,10 @@ class Combine extends AbstractJSOptimization implements ProcessorInterface {
 	 * @return string
 	 */
 	public function optimize( $html ) {
+		if ( ! $this->find_html_tag( $html, 'body', true ) ) {
+			return $html;
+		}
+		$original_html = $html;
 
 		$html_nocomments = $this->hide_comments( $html );
 		$scripts         = $this->find( '<script.*<\/script>', $html_nocomments );
@@ -126,12 +130,17 @@ class Combine extends AbstractJSOptimization implements ProcessorInterface {
 			}
 		}
 
-		// phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript
-		$html = str_replace( '</body>', '<script src="' . esc_url( $minify_url ) . '" data-minify="1"></script>' . $move_after . '</body>', $html );
-
 		foreach ( $combine_scripts as $script ) {
 			$html = str_replace( $script[0], '', $html );
 		}
+
+		$body = $this->find_html_tag( $html, 'body', true );
+		if ( ! $body ) {
+			return $original_html;
+		}
+
+		// phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript
+		$html = substr_replace( $html, '<script src="' . esc_url( $minify_url ) . '" data-minify="1"></script>' . $move_after, $body[1], 0 );
 
 		return $this->add_meta_comment( 'minify_concatenate_js', $html );
 	}

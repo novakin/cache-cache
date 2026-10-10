@@ -53,6 +53,13 @@ try {
           assert.equal(await page.locator('script[nonce]').evaluate((script) => script.nonce), 'fixture', `${name}: allowed inline nonce remains under nonce-only CSP`); checks++;
         }
       }
+    } else if (name.startsWith('classic-body-')) {
+      await page.waitForFunction(() => window.nativeClassicRuns === 1);
+      assert.equal(await page.evaluate(() => window.nativeClassicRuns), 1, `${name}: generated or retained original script executes once`); checks++;
+      assert.equal(await page.locator('script[data-minify]').count(), name.includes('fallback') ? 0 : 1, `${name}: only supported insertion points produce a bundle`); checks++;
+      if (name.endsWith('script-body') || name.endsWith('real-after-text')) {
+        assert.equal(await page.evaluate(() => window.tagLikeBody), '</body>', `${name}: tag-like script data remains intact`); checks++;
+      }
     } else if (name.startsWith('classic-self-csp-')) {
       await page.waitForFunction(() => window.nativeClassicRuns === 1);
       assert.equal(await page.evaluate(() => window.nativeClassicRuns), 1, `${name}: supported same-origin optimized script still executes under CSP`); checks++;

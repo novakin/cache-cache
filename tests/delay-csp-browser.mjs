@@ -37,6 +37,15 @@ if ('quoted-noise' === $mode) { $tag = '<script data-note="type=application/ld+j
 if ('bare-type' === $mode) { $tag = '<script type src=/app.js></script>'; }
 if ('jsonld' === $mode) { $tag = '<script type=application/ld+json>{"kind":"fixture"}</script>'.$tag; }
 $page = '<!doctype html><html><head>'.$meta.$tag.'</head><body><button id="trigger">Trigger</button></body></html>';
+if ('uppercase-head' === $mode) { $page = str_replace(['<head>', '</head>'], ['<HEAD data-note="quoted > attribute">', '</HEAD>'], $page); }
+if (in_array($mode, ['headless', 'header-element', 'comment-head', 'script-head', 'attribute-head'], true)) {
+  $misleading = ['headless' => '', 'header-element' => '<header>Navigation</header>', 'comment-head' => '<!-- <head> -->', 'script-head' => '<script>window.tagLikeHead="<head>";</script>', 'attribute-head' => '<div data-note="<head>"></div>'][$mode];
+  $page = '<!doctype html><html><body>'.$misleading.$tag.'<button id="trigger">Trigger</button></body></html>';
+}
+if (in_array($mode, ['unfinished-double-attribute', 'unfinished-single-attribute'], true)) {
+  $quote = 'unfinished-double-attribute' === $mode ? '"' : "'";
+  $page = '<!doctype html><html><body>'.$tag.'<button id="trigger">Trigger</button><div data-note='.$quote.'unterminated <head> tail';
+}
 $disk = new DiskRuntime(); $disk->missing_runtime = 'missing' === $mode;
 $subscriber = new NoobRocket\\Engine\\Optimization\\DelayJS\\Subscriber($html, $disk);
 echo $subscriber->add_delay_js_script($subscriber->delay_js($page));
@@ -58,12 +67,12 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   browser = await chromium.launch({ executablePath, headless: true, chromiumSandbox: process.platform !== 'win32' });
-  for (const mode of ['header', 'meta', 'report', 'ordinary', 'missing', 'unquoted-src', 'unquoted-query', 'unquoted-module', 'single-module', 'entity-module', 'attribute-names', 'quoted-noise', 'bare-type', 'jsonld']) {
+  for (const mode of ['header', 'meta', 'report', 'ordinary', 'missing', 'unquoted-src', 'unquoted-query', 'unquoted-module', 'single-module', 'entity-module', 'attribute-names', 'quoted-noise', 'bare-type', 'jsonld', 'uppercase-head', 'headless', 'header-element', 'comment-head', 'script-head', 'attribute-head', 'unfinished-double-attribute', 'unfinished-single-attribute']) {
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(`${origin}/?mode=${mode}`, { waitUntil: 'load' });
-    const conservative = ['header', 'meta', 'missing'].includes(mode);
+    const conservative = ['header', 'meta', 'missing', 'headless', 'header-element', 'comment-head', 'script-head', 'attribute-head', 'unfinished-double-attribute', 'unfinished-single-attribute'].includes(mode);
     assert.equal(await page.locator('script[data-noobrocket-src]').count(), conservative ? 0 : 1, `${mode}: correct script delivery path`); checks++;
     if (mode === 'jsonld') { assert.equal(await page.locator('script[type="application/ld+json"]').textContent(), '{"kind":"fixture"}', 'JSON-LD stays available before interaction'); checks++; }
     if (conservative) { assert.equal(await page.evaluate(() => window.nativeAppRuns), 1, `${mode}: original script runs before interaction`); checks++; }

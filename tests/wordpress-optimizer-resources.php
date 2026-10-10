@@ -136,6 +136,29 @@ namespace {
 	$delayed = $subscriber->add_delay_js_script( $subscriber->delay_js( $report_only ) );
 	resource_check( false !== strpos( $delayed, 'data-noobrocket-src="/app.js"' ) && false !== strpos( $delayed, 'window.runtime=true;' ), 'report-only CSP retains supported delay delivery' );
 	foreach ( [
+		'<html><body><script src="/app.js"></script></body></html>',
+		'<html><header>Navigation</header><body><script src="/app.js"></script></body></html>',
+		'<html><!-- <head> --><body><script src="/app.js"></script></body></html>',
+		'<html><body><script>window.tagLikeHead = "<head>";</script><script src="/app.js"></script></body></html>',
+		'<html><body><textarea><head></textarea><script src="/app.js"></script></body></html>',
+		'<html><body><div data-note="<head>"></div><script src="/app.js"></script></body></html>',
+		'<html><template><template></template><head></head></template><body><script src="/app.js"></script></body></html>',
+		'<html><body><script src="/app.js"></script><plaintext><head></body></html>',
+		'<html><head-panel>Custom element</head-panel><body><script src="/app.js"></script></body></html>',
+		'<html><body><script src="/app.js"></script><div data-note="unterminated <head> tail',
+		"<html><body><script src=\"/app.js\"></script><div data-note='unterminated <head> tail",
+	] as $headless ) {
+		resource_check( $headless === $subscriber->add_delay_js_script( $subscriber->delay_js( $headless ) ), 'missing real head retains executable originals without an unavailable runtime' );
+	}
+	$uppercase = '<HTML><HEAD data-note="quoted > attribute"><script src="/app.js"></script></HEAD><BODY></BODY></HTML>';
+	$transformed = $subscriber->add_delay_js_script( $subscriber->delay_js( $uppercase ) );
+	resource_check( false !== strpos( $transformed, '<HEAD data-note="quoted > attribute"><script>' ) && false !== strpos( $transformed, 'data-noobrocket-src="/app.js"' ), 'delay supports uppercase head and respects quoted tag contents' );
+	$runtime_path = NOOBROCKET_PATH . 'assets/js/lazyload-scripts.min.js';
+	$runtime_bytes = 'window.runtimeDollar="$0:$1";window.runtimeSlash="\\\\value";';
+	$filesystem->files[ $runtime_path ] = $runtime_bytes;
+	resource_check( false !== strpos( $subscriber->add_delay_js_script( $subscriber->delay_js( $report_only ) ), '<script>' . $runtime_bytes . '</script>' ), 'runtime insertion preserves replacement-like dollar/backslash bytes verbatim' );
+	unset( $filesystem->files[ $runtime_path ] );
+	foreach ( [
 		'<script src=/app.js></script>' => 'data-noobrocket-src=/app.js',
 		'<script src=/app.js?a=1&amp;b=2></script>' => 'data-noobrocket-src=/app.js?a=1&amp;b=2',
 		'<script type=module src="/app.js"></script>' => 'data-noobrocket-type=module',
