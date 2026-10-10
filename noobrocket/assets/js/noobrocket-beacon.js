@@ -1437,56 +1437,85 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
       this.preconnectExternalDomainBeacon = null;
       this.infiniteLoopId = null;
       this.errorCode = "";
+      this.started = false;
+      this.finished = false;
+      this.saving = false;
+      this.nonceRefreshed = false;
+      this.abortController = new AbortController();
       this.logger = new Logger_default(this.config.debug);
     }
     async init() {
+      if (this.started) {
+        return;
+      }
+      this.started = true;
       this.scriptTimer = /* @__PURE__ */ new Date();
-      if (!await this._isValidPreconditions()) {
-        this._finalize();
-        return;
-      }
-      if (Utils_default.isPageScrolled()) {
-        this.logger.logMessage("Bailing out because the page has been scrolled");
-        this._finalize();
-        return;
-      }
-      this.infiniteLoopId = setTimeout(() => {
-        this._handleInfiniteLoop();
-      }, 1e4);
-      const isGeneratedBefore = await this._getGeneratedBefore();
-      const shouldGenerateLcp = this.config.status.atf && (isGeneratedBefore === false || isGeneratedBefore.lcp === false);
-      const shouldGeneratelrc = this.config.status.lrc && (isGeneratedBefore === false || isGeneratedBefore.lrc === false);
-      const shouldGeneratePreloadFonts = this.config.status.preload_fonts && (isGeneratedBefore === false || isGeneratedBefore.preload_fonts === false);
-      const shouldGeneratePreconnectExternalDomain = this.config.status.preconnect_external_domain && (isGeneratedBefore === false || isGeneratedBefore.preconnect_external_domain === false);
-      if (shouldGenerateLcp) {
-        this.lcpBeacon = new BeaconLcp_default(this.config, this.logger);
-        await this.lcpBeacon.run();
-      } else {
-        this.logger.logMessage("Not running BeaconLcp because data is already available or feature is disabled");
-      }
-      if (shouldGeneratelrc) {
-        this.lrcBeacon = new BeaconLrc_default(this.config, this.logger);
-        await this.lrcBeacon.run();
-      } else {
-        this.logger.logMessage("Not running BeaconLrc because data is already available or feature is disabled");
-      }
-      if (shouldGeneratePreloadFonts) {
-        this.preloadFontsBeacon = new BeaconPreloadFonts_default(this.config, this.logger);
-        await this.preloadFontsBeacon.run();
-      } else {
-        this.logger.logMessage("Not running BeaconPreloadFonts because data is already available or feature is disabled");
-      }
-      if (shouldGeneratePreconnectExternalDomain) {
-        this.preconnectExternalDomainBeacon = new BeaconPreconnectExternalDomain_default(this.config, this.logger);
-        await this.preconnectExternalDomainBeacon.run();
-      } else {
-        this.logger.logMessage("Not running BeaconPreconnectExternalDomain because data is already available or feature is disabled");
-      }
-      if (shouldGenerateLcp || shouldGeneratelrc || shouldGeneratePreloadFonts || shouldGeneratePreconnectExternalDomain) {
-        this._saveFinalResultIntoDB();
-      } else {
-        this.logger.logMessage("Not saving results into DB as no beacon features ran.");
-        this._finalize();
+      try {
+        if (!await this._isValidPreconditions()) {
+          this._finalize();
+          return;
+        }
+        if (Utils_default.isPageScrolled()) {
+          this.logger.logMessage("Bailing out because the page has been scrolled");
+          this._finalize();
+          return;
+        }
+        this.infiniteLoopId = setTimeout(() => {
+          this._handleInfiniteLoop();
+        }, 1e4);
+        const isGeneratedBefore = await this._getGeneratedBefore();
+        if (this.finished) {
+          return;
+        }
+        const shouldGenerateLcp = this.config.status.atf && (isGeneratedBefore === false || isGeneratedBefore.lcp === false);
+        const shouldGeneratelrc = this.config.status.lrc && (isGeneratedBefore === false || isGeneratedBefore.lrc === false);
+        const shouldGeneratePreloadFonts = this.config.status.preload_fonts && (isGeneratedBefore === false || isGeneratedBefore.preload_fonts === false);
+        const shouldGeneratePreconnectExternalDomain = this.config.status.preconnect_external_domain && (isGeneratedBefore === false || isGeneratedBefore.preconnect_external_domain === false);
+        if (shouldGenerateLcp) {
+          this.lcpBeacon = new BeaconLcp_default(this.config, this.logger);
+          await this.lcpBeacon.run();
+          if (this.finished || this.saving) {
+            return;
+          }
+        } else {
+          this.logger.logMessage("Not running BeaconLcp because data is already available or feature is disabled");
+        }
+        if (shouldGeneratelrc) {
+          this.lrcBeacon = new BeaconLrc_default(this.config, this.logger);
+          await this.lrcBeacon.run();
+          if (this.finished || this.saving) {
+            return;
+          }
+        } else {
+          this.logger.logMessage("Not running BeaconLrc because data is already available or feature is disabled");
+        }
+        if (shouldGeneratePreloadFonts) {
+          this.preloadFontsBeacon = new BeaconPreloadFonts_default(this.config, this.logger);
+          await this.preloadFontsBeacon.run();
+          if (this.finished || this.saving) {
+            return;
+          }
+        } else {
+          this.logger.logMessage("Not running BeaconPreloadFonts because data is already available or feature is disabled");
+        }
+        if (shouldGeneratePreconnectExternalDomain) {
+          this.preconnectExternalDomainBeacon = new BeaconPreconnectExternalDomain_default(this.config, this.logger);
+          await this.preconnectExternalDomainBeacon.run();
+          if (this.finished || this.saving) {
+            return;
+          }
+        } else {
+          this.logger.logMessage("Not running BeaconPreconnectExternalDomain because data is already available or feature is disabled");
+        }
+        if (shouldGenerateLcp || shouldGeneratelrc || shouldGeneratePreloadFonts || shouldGeneratePreconnectExternalDomain) {
+          await this._saveFinalResultIntoDB();
+        } else {
+          this.logger.logMessage("Not saving results into DB as no beacon features ran.");
+          this._finalize();
+        }
+      } catch (error) {
+        this.logger.logMessage(error);
+        this._finalize("failed");
       }
     }
     async _isValidPreconditions() {
@@ -1509,14 +1538,48 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
       data_check.append("noobrocket_beacon_nonce", this.config.nonce);
       data_check.append("url", this.config.url);
       data_check.append("is_mobile", this.config.is_mobile);
-      const beacon_data_response = await fetch(this.config.ajax_url, {
+      const data = await this._request(data_check);
+      const features = { atf: "lcp", lrc: "lrc", preload_fonts: "preload_fonts", preconnect_external_domain: "preconnect_external_domain" };
+      if (Object.entries(features).some(([feature, key]) => this.config.status[feature] && typeof data[key] !== "boolean")) {
+        throw new Error("Invalid beacon check response");
+      }
+      return data;
+    }
+    async _request(data, headers = {}, retry = true) {
+      const response = await fetch(this.config.ajax_url, {
         method: "POST",
         credentials: "same-origin",
-        body: data_check
-      }).then((data) => data.json());
-      return beacon_data_response.data;
+        body: data,
+        headers,
+        signal: this.abortController.signal
+      });
+      const body = await response.text();
+      if (response.status === 403 && body.trim() === "-1" && retry && !this.nonceRefreshed) {
+        this.nonceRefreshed = true;
+        const nonceRequest = new FormData();
+        nonceRequest.append("action", "noobrocket_beacon_nonce");
+        const refreshed = await this._request(nonceRequest, {}, false);
+        if (typeof refreshed.nonce !== "string" || !refreshed.nonce.trim()) {
+          throw new Error("Invalid beacon nonce response");
+        }
+        this.config.nonce = refreshed.nonce;
+        data.set("noobrocket_beacon_nonce", this.config.nonce);
+        return this._request(data, headers, false);
+      }
+      if (!response.ok) {
+        throw new Error("Beacon request failed: " + response.status);
+      }
+      const payload = JSON.parse(body);
+      if (!payload || payload.success !== true || !payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) {
+        throw new Error("Invalid beacon response");
+      }
+      return payload.data;
     }
-    _saveFinalResultIntoDB() {
+    async _saveFinalResultIntoDB() {
+      if (this.finished || this.saving) {
+        return;
+      }
+      this.saving = true;
       const results = {
         lcp: this.lcpBeacon ? this.lcpBeacon.getResults() : null,
         lrc: this.lrcBeacon ? this.lrcBeacon.getResults() : null,
@@ -1528,22 +1591,27 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
       data.append("noobrocket_beacon_nonce", this.config.nonce);
       data.append("url", this.config.url);
       data.append("is_mobile", this.config.is_mobile);
-      data.append("status", this._getFinalStatus());
+      const status = this._getFinalStatus();
+      data.append("status", status);
       data.append("results", JSON.stringify(results));
-      fetch(this.config.ajax_url, {
-        method: "POST",
-        credentials: "same-origin",
-        body: data,
-        headers: {
+      try {
+        const payload = await this._request(data, {
           "noobrocket-saas-no-intercept": true
+        });
+        const responseKeys = { lcp: "lcp", lrc: "lrc", preload_fonts: "preload_fonts", preconnect_external_domain: "preconnect_external_domains" };
+        const outcomes = Object.entries(results).filter(([, result]) => result !== null).map(([feature]) => payload[responseKeys[feature]]);
+        const stored = outcome => outcome && typeof outcome === "object" && outcome.status === "completed";
+        const successful = status === "success" && outcomes.length > 0 && outcomes.every(outcome => stored(outcome) || outcome === "item already in the database");
+        this.logger.logMessage(payload.lcp);
+        let outcome = "failed";
+        if (successful) {
+          outcome = outcomes.some(stored) ? "saved" : "skipped";
         }
-      }).then((response) => response.json()).then((data2) => {
-        this.logger.logMessage(data2.data.lcp);
-      }).catch((error) => {
+        this._finalize(outcome);
+      } catch (error) {
         this.logger.logMessage(error);
-      }).finally(() => {
-        this._finalize();
-      });
+        this._finalize("failed");
+      }
     }
     _getFinalStatus() {
       if ("" !== this.errorCode) {
@@ -1556,12 +1624,29 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
       return "success";
     }
     _handleInfiniteLoop() {
+      if (this.finished) {
+        return;
+      }
+      if (this.saving || !(this.lcpBeacon || this.lrcBeacon || this.preloadFontsBeacon || this.preconnectExternalDomainBeacon)) {
+        this._finalize("failed");
+        return;
+      }
+      this.errorCode = "timeout";
+      this.infiniteLoopId = setTimeout(() => this._finalize("failed"), 1e4);
       this._saveFinalResultIntoDB();
     }
-    _finalize() {
+    _finalize(outcome = "skipped") {
+      if (this.finished) {
+        return;
+      }
+      this.finished = true;
       const beaconscript = document.querySelector('[data-name="noobrocket-noobrocket-beacon"]');
-      beaconscript.setAttribute("beacon-completed", "true");
+      if (beaconscript) {
+        beaconscript.setAttribute("beacon-completed", "true");
+        beaconscript.setAttribute("beacon-status", outcome);
+      }
       clearTimeout(this.infiniteLoopId);
+      this.abortController.abort();
     }
   };
   var BeaconManager_default = BeaconManager;

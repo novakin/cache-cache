@@ -67,6 +67,7 @@ The hosted server job uses Ubuntu 24.04 so PHP 8.3/FPM is available from the sta
 | `noobrocket/assets/js/noobrocket-settings.js` | `node tools/generate-settings-assets.mjs` regenerates its tracked `.min.js`; other assets follow their existing owner. |
 | `noobrocket/assets/js/lazyload-css.js` | `node tools/generate-lazyload-css.mjs` regenerates its served `.min.js` using the existing pinned Terser tool dependency. |
 | `noobrocket/assets/js/preload-links.js` | `node tools/generate-preload-links.mjs` regenerates its served `.min.js` using the same pinned Terser dependency. |
+| `noobrocket/assets/js/noobrocket-beacon.js` | `node tools/generate-beacon.mjs` regenerates its served `.min.js` using the same pinned Terser dependency. The readable bundle is the maintained input. |
 | English gettext messages and `noobrocket/languages/*.po` | `python tools/update-translations.py` updates POT/MO and verifies placeholders/lookups; inspect PO changes. |
 | `noobrocket/local-css/package.json` and lockfile | Pinned worker dependencies. `node_modules` and browser binaries are local-only. |
 | Bundled `vendor/` and `inc/Dependencies/` | Shipped runtime inputs. Do not let implicit install scripts overwrite them. |

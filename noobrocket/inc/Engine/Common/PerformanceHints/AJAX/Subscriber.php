@@ -34,6 +34,8 @@ class Subscriber implements Subscriber_Interface {
 			'wp_ajax_nopriv_noobrocket_beacon'       => 'add_data',
 			'wp_ajax_noobrocket_check_beacon'        => 'check_data',
 			'wp_ajax_nopriv_noobrocket_check_beacon' => 'check_data',
+			'wp_ajax_noobrocket_beacon_nonce'        => 'refresh_nonce',
+			'wp_ajax_nopriv_noobrocket_beacon_nonce' => 'refresh_nonce',
 		];
 	}
 
@@ -53,5 +55,14 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	public function check_data() {
 		$this->processor->check_data();
+	}
+
+	/**
+	 * Callback for a fresh nonce when cached markup has expired.
+	 *
+	 * @return void
+	 */
+	public function refresh_nonce() {
+		$this->processor->refresh_nonce();
 	}
 }

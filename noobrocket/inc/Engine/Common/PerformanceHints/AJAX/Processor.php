@@ -21,6 +21,18 @@ class Processor {
 	}
 
 	/**
+	 * Returns the current visitor's beacon nonce outside cached page markup.
+	 *
+	 * The collectors still verify this nonce and their feature context.
+	 *
+	 * @return void
+	 */
+	public function refresh_nonce(): void {
+		nocache_headers();
+		wp_send_json_success( [ 'nonce' => wp_create_nonce( 'noobrocket_beacon' ) ] );
+	}
+
+	/**
 	 * Checks existing data for various performance hints feature using their factories,
 	 * then encodes the result in a single instance.
 	 *
@@ -38,8 +50,8 @@ class Processor {
 	 */
 	public function add_data() {
 		// Bound the shared beacon before individual features decode it.
-		if ( ! isset( $_POST['results'] ) || ! is_string( $_POST['results'] ) || strlen( $_POST['results'] ) > 65536 // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			|| ! is_object( json_decode( wp_unslash( $_POST['results'] ) ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! isset( $_POST['results'] ) || ! is_string( $_POST['results'] ) || strlen( $_POST['results'] ) > 65536 // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Bound raw JSON bytes before unslashing; collectors verify the nonce and validate fields.
+			|| ! is_object( json_decode( wp_unslash( $_POST['results'] ) ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validate JSON shape before field-specific collector sanitization.
 			wp_send_json_error( [ 'message' => __( 'Invalid performance hint payload.', 'noobrocket' ) ], 400 );
 			return;
 		}
