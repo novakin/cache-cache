@@ -171,10 +171,6 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
 .noobrocket-worker-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .noobrocket-worker-meta span { color: var(--nbr-muted); font-size: 12px; border: 1px solid var(--nbr-border); border-radius: 4px; padding: 3px 6px; }
 .noobrocket-panel-bottom { padding: 14px 23px; color: var(--nbr-muted); font-size: 13px; background: var(--nbr-background); border-top: 1px solid var(--nbr-border); }
-.noobrocket-recovery { padding: 0 23px; border-top: 1px solid var(--nbr-border); }
-.noobrocket-recovery summary { min-height: 52px; padding: 12px 0; align-content: center; color: var(--nbr-text); font-weight: 600; cursor: pointer; }
-.noobrocket-recovery .noobrocket-action-group { margin: 0 0 20px; }
-.noobrocket-recovery ul { padding-left: 20px; }
 .noobrocket-key-values { display: grid; gap: 14px; margin: 17px 0; }
 .noobrocket-key-values div { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 2fr); gap: 15px; }
 .noobrocket-key-values dt { font-weight: 600; }

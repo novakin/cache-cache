@@ -45,6 +45,8 @@ Feature confirmation warnings stay inline with the affected control. Use the sha
 
 Keep dashboard operation buttons separate from settings navigation. Place related destinations in a compact divided task footer, using chevrons and hover/focus underlines rather than permanent underlines beside buttons. Use the shared Help disclosure for optional task guidance. Required setup links stay with their prerequisite message. Preserve native anchor navigation and 44px targets; do not place a loose explanatory link beside an operation button.
 
+Overview's Clear cache and Regenerate CSS and page cache share the page header. Regeneration remains gated by saved CSS mode, storage availability and administrator capability, and submits its own diagnostics POST form. Keep its full reset scope in the label and accessible description; show rebuild details inside the existing CSS worker disclosure. Do not duplicate the action in a bottom recovery panel or query queue counts merely to render a header control.
+
 Keep specialist help in its owning task. CSS worker setup belongs beside Local CSS generation when it is a prerequisite; otherwise keep it in the full-width CSS worker details disclosure below the queue summaries. Show one setup destination, not duplicate links. Disabled or paused generation keeps previous worker reports collapsed and does not present them as active warnings.
 
 | Workflow | Ownership |

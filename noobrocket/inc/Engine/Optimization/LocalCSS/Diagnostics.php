@@ -45,6 +45,7 @@ class Diagnostics implements Subscriber_Interface {
 
 	public static function get_subscribed_events(): array {
 		return [
+			'noobrocket_dashboard_heading_actions'              => 'render_regenerate_button',
 			'noobrocket_before_dashboard_content'                => [ 'render', 5 ],
 			'noobrocket_settings_page_footer'                    => 'render_action_form',
 			'admin_post_noobrocket_diagnostics'                  => 'handle',
@@ -66,6 +67,22 @@ class Diagnostics implements Subscriber_Interface {
 		$data['notice']          = self::notice_data( $notice );
 		delete_transient( 'noobrocket_diagnostics_notice' );
 		require NOOBROCKET_PATH . 'views/settings/partials/local-css-diagnostics.php';
+	}
+
+	/** Render the existing reset beside the dashboard's other cache action. */
+	public function render_regenerate_button(): void {
+		if ( ! current_user_can( 'noobrocket_manage_options' )
+			|| ! in_array( get_noobrocket_option( 'local_css_mode', 'off' ), [ 'critical', 'used' ], true )
+			|| ! $this->jobs->is_available()
+		) {
+			return;
+		}
+
+		printf(
+			'<button type="submit" class="noobrocket-button" form="noobrocket-diagnostics-actions" name="operation" value="regenerate" aria-describedby="noobrocket-regenerate-scope" title="%s">%s</button>',
+			esc_attr__( 'Regeneration clears CSS results and page cache. Public visits or preloading queue fresh CSS; original styles remain available.', 'noobrocket' ),
+			esc_html__( 'Regenerate CSS and page cache', 'noobrocket' )
+		);
 	}
 
 	// The dashboard lives inside options.php's form. Buttons target this separate form.

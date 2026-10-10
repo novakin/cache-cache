@@ -232,10 +232,10 @@ $button = static function ( $operation, $label, $disabled = false ) {
 				<?php endif; ?>
 				<?php endif; ?>
 			</dl>
+			<?php if ( $css_enabled && $data['available'] ) : ?><p id="noobrocket-regenerate-scope" class="noobrocket-helper"><?php esc_html_e( 'Regeneration clears CSS results and page cache. Public visits or preloading queue fresh CSS; original styles remain available.', 'noobrocket' ); ?></p><?php endif; ?>
 			<?php if ( ! $worker_attention && ! ( $css_active && ! $seen ) ) : ?><div class="noobrocket-status-navigation"><a href="<?php echo esc_url( plugins_url( 'docs/index.html#css', NOOBROCKET_FILE ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Worker setup and scheduling', 'noobrocket' ); ?></a></div><?php endif; ?>
 				</div>
 			</details>
 	</div>
 	<?php endif; ?>
-	<?php if ( $css_enabled && $data['available'] ) : ?><details class="noobrocket-recovery"><summary><?php esc_html_e( 'Recovery actions', 'noobrocket' ); ?></summary><p><?php esc_html_e( 'Regeneration clears CSS results and page cache. Public visits or preloading queue fresh CSS; original styles remain available.', 'noobrocket' ); ?></p><div class="noobrocket-action-group"><?php $button( 'regenerate', __( 'Regenerate CSS and page cache', 'noobrocket' ) ); ?></div></details><?php endif; ?>
 </section>

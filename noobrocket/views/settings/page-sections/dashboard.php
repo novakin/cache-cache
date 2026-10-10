@@ -13,6 +13,7 @@ defined( 'ABSPATH' ) || exit;
 					'attributes' => [ 'class' => 'noobrocket-button' ],
 				] );
 			} ?>
+			<?php do_action( 'noobrocket_dashboard_heading_actions' ); ?>
 		</div>
 	</div>
 	<div class="noobrocket-overview-panels">
