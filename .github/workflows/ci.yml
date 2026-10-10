@@ -160,8 +160,8 @@ jobs:
             for phase in activate boot hooks settings import render cdn minify-purge release-update health abilities branding; do
               args+=(--fixture "acceptance:$phase")
             done
-            python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress" "${args[@]}" --fixture wordpress-preload-discovery --fixture wordpress-revision-invalidation --fixture wordpress-query-cache-invalidation
-            echo 'Minimum pair: native activation/settings/update/ownership lifecycle, simultaneous preload discovery, revision invalidation and query-cache generations. Full bundled-source syntax runs on PHP 8.3; current-only fixture APIs are not claimed on this pair.' >> "$GITHUB_STEP_SUMMARY"
+            python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress" "${args[@]}" --fixture wordpress-preload-discovery --fixture wordpress-revision-invalidation --fixture wordpress-query-cache-invalidation --fixture wordpress-bootstrap-construction
+            echo 'Minimum pair: native activation/settings/update/ownership lifecycle, simultaneous preload discovery, revision invalidation, query-cache generations and startup construction. Full bundled-source syntax runs on PHP 8.3; current-only fixture APIs are not claimed on this pair.' >> "$GITHUB_STEP_SUMMARY"
           else
             python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress"
           fi

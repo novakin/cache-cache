@@ -3,6 +3,8 @@ includes:
 parameters:
     level: 1
     phpVersion: 70400
+    bootstrapFiles:
+        - bootstrap.php
     tmpDir: ../../.artifacts/phpstan
     scanDirectories:
         - ../../noobrocket/inc
