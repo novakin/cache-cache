@@ -60,6 +60,17 @@ python tools/check.py server --wordpress-zip /path/to/verified-wordpress.zip --p
 
 The Linux script reads `PHP_FPM` and optional `APACHE_MODULE_DIR` from the environment; the runner sets `PHP_CLI` from `--php`. It creates owned disposable MariaDB/site/server paths and cleans only owned processes. Each Apache/Nginx listener proves it serves that site's unique temporary file before the audit permits its exact loopback origin. The harness checks the audit's sanitized blocked-request marker before reporting success, so ignored errors in direct PHP fixtures or web requests fail the completed rehearsal. CI site setup also rejects blocked requests during installation. Both installers supply their chosen pretty-permalink structure through a scoped option filter during `wp_install`, remove the filter in `finally`, then save the real option; this avoids core's speculative loopback discovery before a listener is authorized. Real server permalink delivery is checked after origin verification. Repository CI uses verified WordPress archives and isolated jobs; production Nginx configuration is not proved by a synthetic Windows proxy.
 
+## Focused lazy-load proof
+
+```sh
+python tools/check.py fast --fixture lazyload-bootstrap --php /path/to/php
+python tools/check.py browser --fixture lazyload-bootstrap-browser --php /path/to/php --chromium /path/to/chromium
+python tools/check.py wordpress --fixture wordpress-picture-delivery --wordpress /path/to/disposable-wordpress --php /path/to/php
+python tools/check.py browser --fixture picture-delivery-browser --wordpress /path/to/disposable-wordpress --php /path/to/php --chromium /path/to/chromium
+```
+
+The bootstrap fixtures use actual footer/buffer subscriber output and shipped library bytes with modeled WordPress boundaries and intercepted browser responses. They do not bootstrap a site or contact providers. Default empty/target pages retain original HTML and work under a final CSP header added after PHP, including a later AJAX target. Optimization scenarios explicitly enable the default-false `noobrocket_lazyload_gate_runtime` filter; actual use requires final Nginx/CDN response policy permission for its inline bootstrap and accepts delayed `LazyLoad` globals/events. Known enforcing PHP/meta CSP still retains original delivery when opted in. The fixtures check opted-in empty/eager-only pages, dynamic targets, YouTube thumbnail timing, filtered configuration/runtime attributes, CSP/Trusted Types fallbacks, shipped DelayJS activation, fallback markup and bootstrap observer cleanup. Combine removal/relocation is modeled output; the fixture does not execute native combining. The existing native picture fixtures separately cover production responsive conversion, library activation and JavaScript-disabled fallback; both require a marked copied-plugin site and serial execution. These checks establish behavior and opted-in avoided runtime work, not a PageSpeed score or measured site-speed gain; no settings or deployment changes are performed.
+
 ## Meaningful proof and limits
 
 Trace failures to native owners and add a regression that fails for the defect while preserving surrounding behavior. Test helpers/instrumentation are catalogued but are not automatically runnable tests. A modeled fixture can exercise real plugin classes without booting WordPress; label it accordingly. Do not advertise absent upstream PHPUnit/PHPCS/PHPStan suites or call parsing static analysis.

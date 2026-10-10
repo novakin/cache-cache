@@ -537,6 +537,26 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "lazyload-bootstrap-browser",
+      "path": "tests/lazyload-bootstrap-browser.mjs",
+      "purpose": "Actual subscriber buffer/runtime behavior in minified/debug modes; dynamic media, filters, native/YouTube, CSP/Trusted Types, shipped DelayJS and modeled Combine relocation.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "worker-dependencies",
+        "php"
+      ],
+      "mutation": "Intercepted browser HTTP and temporary Chromium profiles only; no WordPress bootstrap or site mutations.",
+      "args": [
+        "{php}",
+        "{chromium}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "minify-boundaries-browser",
       "path": "tests/minify-boundaries-browser.mjs",
       "purpose": "Execute native generated scripts and retained module imports; localhost interception only, no WordPress.",
@@ -1285,6 +1305,36 @@
       ],
       "default": true,
       "minimum_php": "8.0"
+    },
+    {
+      "name": "lazyload-bootstrap",
+      "path": "tests/lazyload-bootstrap.php",
+      "purpose": "Production footer/buffer configuration, filtered-runtime fallbacks and CSP response boundaries with modeled WordPress calls.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Read-only production code; no site bootstrap or source writes.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "lazyload-bootstrap-debug",
+      "path": "tests/lazyload-bootstrap.php",
+      "purpose": "Production debug footer/buffer configuration, filtered-runtime fallbacks and CSP response boundaries with modeled WordPress calls.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Read-only production code; no site bootstrap or source writes.",
+      "args": [
+        "--debug"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
     },
     {
       "name": "wordpress-beacon-collector-limits",
