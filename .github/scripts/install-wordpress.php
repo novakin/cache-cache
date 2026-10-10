@@ -15,6 +15,13 @@ if ( is_blog_installed() ) {
     throw new RuntimeException( 'Refusing to install over an existing WordPress database.' );
 }
 add_filter( 'pre_wp_mail', '__return_true' );
-wp_install( 'Cache-Cache disposable CI', 'cachecache', 'proof@example.test', false, '', 'disposable-ci-login' );
+// Use the chosen fixture structure instead of probing HTTP during installation.
+$install_permalink_structure = static function () { return '/%postname%/'; };
+add_filter( 'pre_option_permalink_structure', $install_permalink_structure );
+try {
+    wp_install( 'Cache-Cache disposable CI', 'cachecache', 'proof@example.test', false, '', 'disposable-ci-login' );
+} finally {
+    remove_filter( 'pre_option_permalink_structure', $install_permalink_structure );
+}
 update_option( 'permalink_structure', '/%postname%/' );
 echo "Installed disposable WordPress database.\n";

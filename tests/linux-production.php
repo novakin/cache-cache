@@ -27,7 +27,14 @@ if ( 'install' === $phase ) {
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	add_filter( 'pre_wp_mail', '__return_true' );
 	if ( ! is_blog_installed() ) {
-		wp_install( 'NoobRocket Linux proof', 'noobrocket', 'proof@example.test', false, '', 'disposable-noobrocket-proof' );
+		// The chosen structure is tested once the owned listener is running.
+		$install_permalink_structure = static function () { return '/%postname%/'; };
+		add_filter( 'pre_option_permalink_structure', $install_permalink_structure );
+		try {
+			wp_install( 'NoobRocket Linux proof', 'noobrocket', 'proof@example.test', false, '', 'disposable-noobrocket-proof' );
+		} finally {
+			remove_filter( 'pre_option_permalink_structure', $install_permalink_structure );
+		}
 	}
 	update_option( 'permalink_structure', '/%postname%/' );
 	echo "Installed Linux/MariaDB disposable WordPress.\n";
