@@ -1350,10 +1350,10 @@ class Page extends Abstract_Render {
 				],
 				'database_all_transients'     => [
 					'type'              => 'checkbox',
-					'label'             => __( 'All transients', 'noobrocket' ),
+					'label'             => __( 'Database transients', 'noobrocket' ),
 					// translators: %s is the number of revisions found in the database. It's a formatted number, don't use %d.
 					'count_label'       => sprintf( _n( '%s transient', '%s transients', $total['database_all_transients'], 'noobrocket' ), number_format_i18n( $total['database_all_transients'] ) ),
-					'description'       => __( 'Temporary values are regenerated when your plugins need them.', 'noobrocket' ),
+					'description'       => __( 'Plugins can recreate temporary values. Reload after cleanup finishes to refresh the count.', 'noobrocket' ),
 					'section'           => 'post_cleanup_section',
 					'page'              => 'database',
 					'default'           => 0,

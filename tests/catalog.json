@@ -1075,6 +1075,48 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-database-transients",
+      "path": "tests/wordpress-database-transients.php",
+      "purpose": "Native persisted transient pairs, matching cache invalidation, hooks, SQL failure and current-site isolation.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Unique owned transient/option/cache rows and request-local cache mode; restores result storage and removes owned data. Serial site access.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-database-transients-multisite",
+      "path": "tests/wordpress-database-transients.php",
+      "purpose": "Native persisted transient pairs, matching cache invalidation, hooks, SQL failure and current-site/real-network isolation.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "multisite"
+      ],
+      "mutation": "Unique owned transient/option/cache rows and request-local cache mode; restores result storage and removes owned data; creates/removes one owned sibling site. Serial site access.",
+      "args": [
+        "{wordpress}",
+        "multisite"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-diagnostics",
       "path": "tests/wordpress-diagnostics.php",
       "purpose": "Diagnostics security, recovery and workload checks on a disposable install.",
