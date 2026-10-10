@@ -13,12 +13,20 @@ namespace NoobRocket\Engine\Common\Cache {
 	}
 }
 namespace {
+	if ( ! function_exists( 'mb_substr' ) || ! function_exists( 'mb_strlen' ) ) {
+		fwrite( STDERR, "The real stylesheet fetcher fixture requires the PHP mbstring extension.\n" );
+		exit( 2 );
+	}
 	$checks = 0;
 	$filters = [];
 	$clock = 100;
 	$before_rename = null;
 	$fail_rename = false;
 	$constant_overrides = [];
+	$requests = [];
+	$resolver_inputs = [];
+	$resolver_result = '/controlled/main.css';
+	$remote_css = '.remote{background-image:url(https://images.example.test/hero.png);color:green}';
 	$browser_origin = $argv[1] ?? '';
 	$site_origin = $browser_origin ?: 'https://site.test';
 	function check( $condition, string $message ): void { if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); } ++$GLOBALS['checks']; }
@@ -26,7 +34,7 @@ namespace {
 	function wpm_apply_filters_typed( $type, $hook, $value, ...$args ) { return apply_filters( $hook, $value, ...$args ); }
 	function wp_parse_url( $url, $part = -1 ) { return parse_url( $url, $part ); }
 	function get_noobrocket_parse_url( $url ) { return parse_url( $url ) + [ 'host' => '', 'path' => '', 'query' => '', 'fragment' => '' ]; }
-	function home_url() { return $GLOBALS['site_origin']; }
+	function home_url( $path = '' ) { return $GLOBALS['site_origin'] . ( $path ? '/' . ltrim( $path, '/' ) : '' ); }
 	function noobrocket_get_home_url() { return home_url(); }
 	function get_current_blog_id() { return 1; }
 	function noobrocket_get_constant( $name ) { return $GLOBALS['constant_overrides'][ $name ] ?? constant( $name ); }
@@ -34,11 +42,23 @@ namespace {
 	function _noobrocket_normalize_path( $path ) { return str_replace( '\\', '/', $path ); }
 	function noobrocket_mkdir_p( $path, $filesystem = null ) { return is_dir( $path ) || mkdir( $path, 0777, true ); }
 	function noobrocket_get_filesystem_perms() { return 0644; }
-	function noobrocket_url_to_path( $url ) { return '/controlled/main.css'; }
+	function noobrocket_url_to_path( $url ) { $GLOBALS['resolver_inputs'][] = $url; return $GLOBALS['resolver_result']; }
+	function noobrocket_realpath( $path ) { return $path; }
+	function wp_http_validate_url( $url ) { return 0 === strpos( $url, 'https://93.184.216.34/' ) || 0 === strpos( $url, 'http://93.184.216.34/' ) || 0 === strpos( $url, home_url() . '/' ) ? $url : false; }
+	function wp_remote_get( $url, $args = [] ) { $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => $GLOBALS['remote_css'] ]; }
+	function wp_safe_remote_get( $url, $args = [] ) { $args['reject_unsafe_urls'] = true; $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => wp_http_validate_url( $url ) ? $GLOBALS['remote_css'] : '' ]; }
+	function wp_remote_retrieve_body( $response ) { return $response['body'] ?? ''; }
 	function wp_generate_uuid4() { return bin2hex( random_bytes( 16 ) ); }
 	function wp_json_encode( $value ) { return json_encode( $value ); }
 	function current_time() { return $GLOBALS['clock']; }
 	function add_query_arg( $args, $url ) { return $url . ( $args ? '?' . http_build_query( $args ) : '' ); }
+	class WP_Http {
+		public static function make_absolute_url( $url, $base ) {
+			if ( parse_url( $url, PHP_URL_SCHEME ) ) { return $url; }
+			if ( 0 === strpos( $url, '//' ) ) { return parse_url( $base, PHP_URL_SCHEME ) . ':' . $url; }
+			return rtrim( $base, '/' ) . '/' . ltrim( $url, '/' );
+		}
+	}
 	function noobrocket_rrmdir( $path, $preserve = [], $filesystem = null ) {
 		if ( ! is_dir( $path ) || in_array( $path, $preserve, true ) ) { return; }
 		foreach ( new DirectoryIterator( $path ) as $file ) {
@@ -54,7 +74,7 @@ namespace {
 		public $unreadable = [];
 		public $reads = [];
 		public function exists( $path ) { return file_exists( $path ); }
-		public function is_readable( $path ) { return ! in_array( $path, $this->unreadable, true ) && is_readable( $path ); }
+		public function is_readable( $path ) { return ! preg_match( '#^[a-z][a-z0-9+.-]*://#i', $path ) && ! in_array( $path, $this->unreadable, true ) && is_readable( $path ); }
 		public function is_dir( $path ) { return is_dir( $path ); }
 		public function is_file( $path ) { return is_file( $path ); }
 		public function is_writable( $path ) { return is_writable( $path ); }
@@ -73,6 +93,7 @@ namespace {
 		'classes/event-management/subscriber-interface.php', 'classes/admin/class-options-data.php',
 		'Logger/LoggerAware.php', 'Logger/LoggerAwareInterface.php', 'Engine/Optimization/RegexTrait.php',
 		'Engine/Optimization/UrlTrait.php', 'Engine/Optimization/CSSTrait.php', 'Engine/Support/CommentTrait.php',
+		'Dependencies/PathConverter/ConverterInterface.php', 'Dependencies/PathConverter/Converter.php',
 		'Dependencies/Psr/SimpleCache/CacheInterface.php', 'Engine/Common/Cache/CacheInterface.php',
 		'Engine/Common/Cache/FilesystemCache.php', 'Engine/Common/Context/ContextInterface.php',
 		'Engine/Common/ExtractCSS/Subscriber.php',
@@ -132,6 +153,53 @@ namespace {
 		return file_get_contents( $path );
 	}
 	try {
+		$real_fetcher = new NoobRocket\Engine\Media\Lazyload\CSS\Front\ContentFetcher( $filesystem );
+		$real_owner = owner( $cache, $real_fetcher, $filesystem );
+		$fetch_content = new ReflectionMethod( $real_fetcher, 'fetch_content' );
+		$fetch_content->setAccessible( true );
+		foreach ( [ 'http://127.0.0.1/private.css', 'http://127.0.0.1/private.php', 'file:///private/styles.css', 'ftp://93.184.216.34/styles.css', 'data:text/css,.private{color:red}' ] as $unsafe ) {
+			$filesystem->reads = [];
+			$requests = [];
+			check( ! $fetch_content->invoke( $real_fetcher, $unsafe ) && ! $filesystem->reads, 'unsafe stylesheet never enters filesystem reads: ' . $unsafe );
+			foreach ( $requests as [ $requested_url, $args ] ) { check( ! empty( $args['reject_unsafe_urls'] ), 'remote stylesheet uses safe HTTP policy' ); }
+		}
+		$resolver = new NoobRocket\Engine\Media\Lazyload\CSS\Front\FileResolver();
+		foreach ( [ 'file:///private/styles.css', 'ftp://93.184.216.34/styles.css', 'data:text/css,.private{color:red}', 'C:/private/styles.css' ] as $unsafe ) {
+			$resolver_inputs = [];
+			$unsafe_html = '<html><head><link rel="stylesheet" href="' . $unsafe . '"></head></html>';
+			$unsafe_output = $real_owner->create_lazy_css_files( [ 'html' => $unsafe_html, 'css_files' => [ $unsafe ] ] );
+			check( $unsafe_html === $unsafe_output['html'] && ! $resolver_inputs, 'unsupported source scheme stops before filesystem resolution' );
+		}
+		$resolver_result = $temp . '/dynamic.PHP';
+		check( '' === $resolver->resolve( home_url() . '/dynamic.PHP?theme=dark' ), 'dynamic PHP stylesheet retains URL fetching rather than PHP source bytes' );
+		$resolver_result = $temp . '/local.css';
+		file_put_contents( $resolver_result, '.local{background-image:url(https://images.example.test/local.png);color:blue}' );
+		foreach ( [ 'dynamic.PHP?theme=nested', '../styles.PHP?theme=nested', 'local.css', '?theme=nested' ] as $relative_source ) {
+			$resolver_inputs = [];
+			$requests = [];
+			$relative_html = '<html><head><link rel="stylesheet" href="' . $relative_source . '"></head></html>';
+			$relative_output = $real_owner->create_lazy_css_files( [ 'html' => $relative_html, 'css_files' => [ $relative_source ] ] );
+			check( $relative_html === $relative_output['html'] && ! $resolver_inputs && ! $requests, 'document-relative stylesheet keeps browser delivery despite a conflicting readable root file' );
+		}
+		$filesystem->reads = [];
+		$requests = [];
+		check( false !== strpos( $real_fetcher->fetch( $resolver_result, $temp . '/generated.css' ), 'color:blue' ) && [ $resolver_result ] === $filesystem->reads && ! $requests, 'resolved local stylesheet still uses the local filesystem' );
+		foreach ( [ home_url() . '/dynamic.PHP?theme=dark&amp;size=2', '/dynamic.PHP?theme=light&amp;size=3', '//93.184.216.34/styles.css?theme=cdn' ] as $dynamic_url ) {
+			$resolver_result = false !== strpos( $dynamic_url, '.PHP' ) ? $temp . '/dynamic.PHP' : false;
+			$requests = [];
+			$input = '<html><head><link rel="stylesheet" href="' . $dynamic_url . '"></head></html>';
+			$output = $real_owner->create_lazy_css_files( [ 'html' => $input, 'css_files' => [ $dynamic_url ] ] );
+			$expected_url = WP_Http::make_absolute_url( html_entity_decode( $dynamic_url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), home_url( '/' ) );
+			check( stylesheet( $output['html'] ) !== $dynamic_url && 1 === count( $requests ) && $requests[0][0] === $expected_url && ! empty( $requests[0][1]['reject_unsafe_urls'] ), 'actual generation preserves PHP/query/CDN URL with safe fetching' );
+		}
+		$resolver_result = false;
+		$requests = [];
+		$unsafe_url = 'http://127.0.0.1/blocked.css';
+		$unsafe_html = '<html><head><link rel="stylesheet" href="' . $unsafe_url . '"></head></html>';
+		$unsafe_output = $real_owner->create_lazy_css_files( [ 'html' => $unsafe_html, 'css_files' => [ $unsafe_url ] ] );
+		check( $unsafe_html === $unsafe_output['html'] && ! $unsafe_output['lazyloaded_images'], 'rejected remote stylesheet retains original HTML and no lazy mapping' );
+		$resolver_result = '/controlled/main.css';
+		$filesystem->reads = [];
 		$reference_url = $cache->generate_url( $base_source );
 		$constant_overrides['WP_CONTENT_DIR'] = str_replace( '/', '\\', WP_CONTENT_DIR );
 		$filter_url = null;
