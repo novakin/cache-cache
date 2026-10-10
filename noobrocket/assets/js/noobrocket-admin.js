@@ -200,6 +200,7 @@
     document.querySelector('#setting-error-settings_updated')
   ]);
   notices.forEach(renderToast);
+  document.addEventListener('noobrocketNoticeAdded', event => renderToast(event.detail));
   const positionToasts = () => {
     if (!toasts) return;
     if (![...toasts.children].some(notice => notice.getClientRects().length)) clearToastClearance();

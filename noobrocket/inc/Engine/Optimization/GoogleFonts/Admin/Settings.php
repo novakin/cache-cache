@@ -74,10 +74,19 @@ class Settings extends Abstract_Render {
 
 		if ( ! current_user_can( 'noobrocket_manage_options' ) ) {
 			wp_send_json_error();
+			return;
 		}
 
 		$this->options->set( 'minify_google_fonts', 1 );
-		update_option( noobrocket_get_constant( 'NOOBROCKET_SLUG', 'noobrocket_settings' ), $this->options->get_options() );
+		$option_name = noobrocket_get_constant( 'NOOBROCKET_SLUG', 'noobrocket_settings' );
+		update_option( $option_name, $this->options->get_options() );
+
+		// The options snapshot is already changed; verify the native persisted value.
+		$saved = get_option( $option_name, [] );
+		if ( ! is_array( $saved ) || ! in_array( $saved['minify_google_fonts'] ?? 0, [ 1, '1' ], true ) ) {
+			wp_send_json_error();
+			return;
+		}
 
 		wp_send_json_success();
 	}
