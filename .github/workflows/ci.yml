@@ -166,7 +166,7 @@ jobs:
           else
             python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress"
           fi
-          python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress" --fixture acceptance:veto --fixture acceptance:deactivate --fixture acceptance:uninstall --fixture acceptance:collision --fixture acceptance:restore
+          python tools/check.py wordpress --php php --wordpress "$RUNNER_TEMP/native/wordpress" --fixture acceptance:veto --fixture acceptance:deactivate --fixture acceptance:uninstall --fixture acceptance:collision --fixture acceptance:restore --fixture wordpress-uninstall-filesystem
 
   browser:
     name: Browser regression checks
