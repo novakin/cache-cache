@@ -70,6 +70,8 @@ HTTP/stale/local CSS fixtures additionally require the configured loopback serve
 
 `wordpress --fixture acceptance:import-validation` seeds nonempty saved DNS/CSS/URL lists, then boots fresh PHP workers for the registered import handler and subsequent native notice consumption. It checks malformed-list feedback, retained fields, protected site/version identities, a valid sibling change and exact reviewed persistence, then restores the exact owned options value through `$wpdb` and removes its review/error receipts. Cleanup bypasses save callbacks that rotate CSS keys, clears the parent request's stale option cache and regenerates configuration/rewrite files. Ordinary cache, history and queue effects remain in the disposable site. Native WordPress nonce, capability, sideload, sanitizer, option/transient and notice-rendering APIs run; redirects are intercepted before exit. This CLI proof does not exercise a browser or an HTTP multipart request.
 
+`wordpress --fixture wordpress-database-eligibility` invokes the registered cleanup owner with native post/comment APIs and deletion hooks. Exact owned-ID query boundaries preserve other rows while five selected categories are restored/approved after batch selection; explicitly reseeded stale object-cache entries ensure eligibility comes from the database. Actual SQL read refusal retains the row and records failure, and a 51-row keyset proves resume across changed/missing rows. The fixture restores prior cleanup result storage, removes only its owned posts/comments, never dispatches the queue and does not prove transactional isolation against changes after the eligibility read. CI selects it for the native minimum and current WordPress/PHP pairs.
+
 ## Browser and server proof
 
 ```sh

@@ -1096,6 +1096,26 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-database-eligibility",
+      "path": "tests/wordpress-database-eligibility.php",
+      "purpose": "Native cleanup category revalidation after restore/approval hooks, stale object cache, SQL read failure and bounded keyset resume.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Unique owned posts/comments and request-local cache/query hooks; restores cleanup result storage and removes owned rows. No queue dispatch. Serial site access.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-database-transients",
       "path": "tests/wordpress-database-transients.php",
       "purpose": "Native persisted transient pairs, matching cache invalidation, hooks, SQL failure and current-site isolation.",
