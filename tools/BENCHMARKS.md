@@ -57,6 +57,37 @@ The operator's independent fresh PageSpeed Insights homepage run `q1w32uone6` sc
 
 ## Same-host CPU measurement
 
+### Matched loading and Linux maintenance evidence — 2026-10-10
+
+[Issue #49](https://github.com/novakin/cache-cache/issues/49) records current source measurements, not a new WP Rocket comparison. Plugin source was `5469df0b793b08f71d32d2232b5b737b77c05690` (`0.1.0-beta.2`). The copied, marked disposable site used WordPress 7.1.3, PHP/FPM 8.4.26 with two workers, MariaDB 11.8.6, Apache 2.4.68, Node 22.23.3 and sandboxed Chromium 154.0.8037.92 on Debian WSL2/ext4. The theme was the clean committed Noobunbox 2.7.10 tree `ffebf5e60a32b69816669be92a76c26d87e3ba52`; unrelated local theme edits were excluded. A controlled homepage and short article shared the same content/options, with remote Google font CSS disabled identically and system fallback fonts. These pages are smaller than the live site's content.
+
+The only profile difference was local CSS off versus completed critical CSS. Mobile cache admission was enabled; separate mobile cache, preload, minification, JS optimization and CDN were disabled. Each profile passed 20 cold-server/fresh-browser samples and 60 proven-hit samples: five per page, viewport and phase, at 1365×900 and 390×844. Cold samples used an owned CLI actor to purge only the two fixture URLs before each navigation. `noobrocket_clean_files($url, null, false)` preserves completed CSS while removing HTML; ordinary full purge correctly invalidates CSS and cannot establish a CSS-ready cold profile. Every cold navigation lacked the hit marker and its following request proved cache publication. Job readiness was checked before, between and after the accepted critical runs; the actual `style[data-noobrocket-local-css="critical"]` marker was checked on every measured navigation. Hit evidence was the PHP cache path's `Cache-Status: NoobRocket; hit`, not an Nginx bypass. All accepted browser visits passed resource/console checks.
+
+Browser TTFB and LCP medians in milliseconds; each cell contains off / critical:
+
+| Page / viewport | Cold TTFB | Hit fresh-browser TTFB | Cold LCP | Hit fresh-browser LCP |
+| --- | ---: | ---: | ---: | ---: |
+| Homepage / desktop | 37.6 / 42.8 | 1.0 / 0.9 | 116 / 128 | 80 / 84 |
+| Article / desktop | 32.0 / 38.5 | 1.1 / 1.0 | 96 / 108 | 68 / 72 |
+| Homepage / mobile | 36.8 / 37.8 | 1.0 / 1.0 | 88 / 88 | 56 / 56 |
+| Article / mobile | 32.3 / 36.4 | 1.1 / 1.1 | 80 / 88 | 52 / 52 |
+
+Individual sample ranges and percentiles remain in the private receipts. For example, critical homepage desktop cold LCP ranged 116–172 ms with a 128 ms median; its hit fresh-browser LCP ranged 84–92 ms with an 84 ms median. Repeat-browser LCP medians were 24–48 ms off and 28–48 ms critical, with zero transferred external CSS. Fresh-browser external CSS medians were 11,759 / 11,760 bytes, including response overhead. Critical mode added 26,433 raw inline CSS bytes on the homepage and 25,783 on the article; raw inline size is not compressed HTML transfer. Median CLS was zero except article desktop at approximately 0.000066 in both profiles. This fast unthrottled localhost experiment demonstrates cache-hit delivery and completed-CSS continuity; it shows no loading advantage from critical CSS on these small pages. Sequential profile order, five-sample groups, warm filesystem and desktop-class hardware prevent a general speed or capacity claim. Public network/mobile CPU, rich content, field INP and matched current WP Rocket execution remain outside this proof.
+
+Two bounded worker runs each regenerated the same two critical jobs, one stylesheet per page, with zero job failures. Wall time was 10.957–11.062 seconds; child user CPU 3.871–4.163 seconds and system CPU 1.049–1.181 seconds. Largest-process peak RSS was 221,020–221,660 KiB. A 100 ms `/proc` process-tree sampler observed summed RSS peaks of 1,120,020–1,124,632 KiB. Summed RSS double-counts shared pages and may miss brief peaks; it excludes server processes. Largest-process RSS is not total worker memory. Keep existing job/concurrency bounds and measure representative workloads before choosing a deployment budget. These generation costs occurred before the visitor-loading runs.
+
+The actual expiry owner (`PurgeExpiredCache.php`, SHA-256 `ea302455dbc43c0f336bd5bc4b98d7233a547d57c8c21d0cd69db5db12c226f3`) was profiled on new owned ext4 trees with 50,000 URLs and 200,000 plain/gzip/mobile files. Three paired scan/baseline rounds per mode used serial cache-hit requests at a nominal 20 ms interval; the middle round reversed phase order. WordPress callbacks were modeled; the disposable HTTP site remained unchanged. Preparation and cleanup were outside measured windows.
+
+| Expiry mode | Wall time per scan, range | PHP peak heap | Proven hits scan / baseline | Median TTFB scan / baseline | p95 TTFB scan / baseline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fresh | 0.564–0.578 s | 2 MiB | 435 / 439 | 1.575 / 1.526 ms | 1.963 / 1.913 ms |
+| Stale retention | 0.686–0.718 s | 10.5 MiB | 530 / 523 | 1.593 / 1.602 ms | 2.183 / 2.120 ms |
+| Expired deletion | 2.012–2.387 s | 12 MiB | 328 / 345 | 1.566 / 1.564 ms | 2.092 / 1.849 ms |
+
+All 2,600 measured HTTP requests were 200/cache hits with identical body size. Largest aggregated p95 increase was 0.243 ms. No material visitor-hit bottleneck was demonstrated, so the existing traversal remains; no index, checkpoint or scheduler layer was added. The host had 32 logical CPUs. Saturated pools, slow storage, real cron/multisite callbacks, cache misses and production traffic need separate measurements. Earlier Windows scan timings do not describe this Linux environment.
+
+Accepted private receipts are `cold-theme-{off,critical}-b.json`, `hit-theme-{off,critical}-b.json`, `worker-critical-{a,c}.json` and `expiry-contention-{fresh,stale,expired}-{1,2,3}.json` under `.artifacts/loading-maintenance-20261010`. Raw data/scripts remain private rather than becoming setup dependencies. Earlier mobile-cache/font failures, the first full-purge critical run and the zero-job worker attempt were discarded explicitly. No production settings, package, release or deployment changed.
+
 Remote browser timing cannot measure WordPress server CPU. Run the Linux host sampler on the WordPress/worker host during an idle baseline and again during the same bounded worker workload:
 
 ```bash
