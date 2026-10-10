@@ -11,10 +11,10 @@ class FileResolver {
 	 * @return string
 	 */
 	public function resolve( string $url ): string {
-
 		$path = noobrocket_url_to_path( strtok( $url, '?' ) );
 
-		if ( ! $path ) {
+		// PHP stylesheets must execute through their original URL and query.
+		if ( ! $path || 'php' === strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) ) {
 			return '';
 		}
 
