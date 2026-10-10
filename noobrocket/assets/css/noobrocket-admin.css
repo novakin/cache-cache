@@ -651,7 +651,6 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
   .noobrocket-pagespeed-checks > summary { padding-inline: 17px; }
   .noobrocket-surface-head h2 { font-size: 17px; }
   .noobrocket-panel-bottom { padding: 14px 17px; }
-  .noobrocket-recovery { padding-inline: 17px; }
   .noobrocket-app .noobrocket-settings-card { padding: 16px; margin-bottom: 14px; }
   .noobrocket-settings-footer { align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; }
   .noobrocket-settings-footer p { flex: 1 1 150px; }
