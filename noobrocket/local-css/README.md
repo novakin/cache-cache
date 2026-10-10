@@ -65,6 +65,8 @@ Cold font preparation runs through the existing WordPress Action Scheduler queue
 
 Used CSS removes unused ordinary top-level rules from each processed external stylesheet, preserving its place in the cascade. Original inline styles, exclusions, conditional blocks, fonts, keyframes, custom properties, hidden elements and state selectors remain conservative. Native nested rule subtrees are retained whole. Browser-loaded imports are expanded in place with their layer, supports and media conditions, original source validation and relative asset bases; imported contents are retained whole. This favors compatibility over the smallest possible output.
 
+Completed used-CSS jobs store delivery metadata and publish the stylesheet body to its generated file, avoiding a duplicate body in the database and its decoding on uncached page renders. Older results with stored bodies remain usable. Critical CSS retains its body for inline delivery. Missing used-CSS URLs or missing, unreadable or empty generated files retain all original styles and invalidate the result for regeneration.
+
 Unavailable imports, import cycles or excessive depth/count, imported namespaces, invalid late imports, changed sources and missing prerequisites leave original CSS active. An import skipped by the sampled browser, such as an unsupported supports condition, can require this fallback.
 
 Results stay separate for desktop/mobile when separate mobile caching is enabled. Otherwise generation unions desktop and mobile samples. No browser sample can predict all future application states; safelist dynamic selector substrings before enabling used CSS on interactive pages.

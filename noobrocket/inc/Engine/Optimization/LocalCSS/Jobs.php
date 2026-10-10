@@ -250,6 +250,10 @@ class Jobs {
 			}
 			$result['uri']  = NOOBROCKET_USED_CSS_URL . $relative . $index . '.css';
 			$result['path'] = $directory . $index . '.css';
+			if ( 'local-used' === $row->queue_name ) {
+				// Used delivery links the published file; only critical delivery needs an inline body.
+				unset( $result['css'] );
+			}
 		}
 		unset( $result );
 
