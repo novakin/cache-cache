@@ -497,6 +497,11 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
 .noobrocket-status-evidence { margin-top: 12px; }
 .noobrocket-status-evidence summary { display: flex; align-items: center; min-height: 44px; gap: 8px; color: var(--nbr-accent); cursor: pointer; font-size: 13px; }
 .noobrocket-status-evidence .noobrocket-status-detail { margin: 8px 0; }
+.noobrocket-cache-evidence .noobrocket-key-values { margin: 8px 0; }
+.noobrocket-cache-evidence .noobrocket-key-values > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.noobrocket-cache-evidence .noobrocket-key-values dt { color: var(--nbr-muted); font-weight: 400; }
+.noobrocket-cache-evidence .noobrocket-key-values dd { color: var(--nbr-text); font-weight: 600; }
+.noobrocket-cache-evidence .noobrocket-probe-scope { margin-top: 8px; }
 .noobrocket-css-readiness { padding: 12px 0 0; margin-top: 8px; border-top: 1px solid var(--nbr-border); }
 :is(.noobrocket-css-readiness, .noobrocket-css-setup) p + p { margin-top: 8px; }
 .noobrocket-provider-prerequisite p { margin: 12px 0 16px; }
