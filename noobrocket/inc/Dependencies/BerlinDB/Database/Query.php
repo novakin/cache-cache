@@ -365,7 +365,7 @@ class Query extends Base {
 	/**
 	 * Set the time when items were last changed.
 	 *
-	 * We set this locally to avoid inconsistencies between method calls.
+	 * Each mutation must publish a fresh value, including on reused query instances.
 	 *
 	 * @since 1.0.0
 	 */
@@ -1772,7 +1772,7 @@ class Query extends Base {
 			}
 
 			// Update item cache(s)
-			$this->update_item_cache( $retval );
+			$this->update_item_cache( $retval, false );
 		}
 
 		// Reduce the item
@@ -2728,7 +2728,7 @@ class Query extends Base {
 			$results = $this->get_db()->get_results( $prepare );
 
 			// Update item cache(s)
-			$this->update_item_cache( $results );
+			$this->update_item_cache( $results, false );
 		}
 
 		// Update meta data caches
@@ -2750,8 +2750,9 @@ class Query extends Base {
 	 * @since 1.0.0
 	 *
 	 * @param array $items
+	 * @param bool  $invalidate_queries Whether a database mutation changed the query results.
 	 */
-	private function update_item_cache( $items = array() ) {
+	private function update_item_cache( $items = array(), $invalidate_queries = true ) {
 
 		// Maybe query for single item
 		if ( is_numeric( $items ) ) {
@@ -2792,8 +2793,10 @@ class Query extends Base {
 			}
 		}
 
-		// Update last changed
-		$this->update_last_changed_cache();
+		// Reading rows primes their item caches without invalidating cached queries.
+		if ( $invalidate_queries ) {
+			$this->update_last_changed_cache();
+		}
 	}
 
 	/**
@@ -2855,10 +2858,8 @@ class Query extends Base {
 	 */
 	private function update_last_changed_cache( $group = '' ) {
 
-		// Fallback to microtime
-		if ( empty( $this->last_changed ) ) {
-			$this->set_last_changed();
-		}
+		// Never restore a timestamp from an earlier mutation or cache read.
+		$this->set_last_changed();
 
 		// Set the last changed time for this cache group
 		$this->cache_set( 'last_changed', $this->last_changed, $group );

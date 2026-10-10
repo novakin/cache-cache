@@ -1843,6 +1843,44 @@
       "default": true
     },
     {
+      "name": "revision-invalidation",
+      "path": "tests/revision-invalidation.php",
+      "purpose": "Revision/autosave callback guards with preserved parent, attachment, disabled-context and permalink-failure behavior.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Actual callbacks with modeled WordPress/context/query owners; no site bootstrap, SQL or provider requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-revision-invalidation",
+      "path": "tests/wordpress-revision-invalidation.php",
+      "purpose": "Actual core revision pruning/autosave hooks avoid optimization table queries while parent updates/deletions still invalidate caches and jobs.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Owned posts/revisions and cache files on a marked copied-plugin site; request-local settings and restored optimization/preload rows; no real HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-query-cache-invalidation",
+      "path": "tests/wordpress-query-cache-invalidation.php",
+      "purpose": "Native BerlinDB result generations across reused/distinct mutation owners, item priming and repeated-read SQL counts.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "One owned suffixed table/version option on a marked copied-plugin site, removed in finally; no real HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "php-dependency-reconstruction",
       "path": "tests/php-dependency-reconstruction.py",
       "purpose": "Pin shipped prefixed dependency bytes, preserve licenses and reject maintained/existing staging destinations without upstream history.",
