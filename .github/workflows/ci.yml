@@ -76,6 +76,8 @@ jobs:
         with:
           node-version: '22'
       - name: Install check dependencies and verified WordPress core
+        env:
+          COMPOSER_HOME: ${{ runner.temp }}/cache-cache-composer
         run: |
           python -m pip install --quiet -r tools/requirements.txt
           npm ci --prefix tools --no-audit --no-fund
@@ -133,6 +135,8 @@ jobs:
           python-version: '3.12'
       - name: Verify changed maintained PHP at the product syntax floor
         if: matrix.php == '7.4'
+        env:
+          COMPOSER_HOME: ${{ runner.temp }}/cache-cache-composer
         run: |
           composer install --working-dir=tools/php-quality --no-interaction --no-plugins --no-scripts --prefer-dist --no-progress
           python tools/check.py fast --fixture php-quality --php php

@@ -19,7 +19,7 @@ Pass `--php /path/to/php`, `--node /path/to/node` or `--shell /path/to/sh` when 
 
 Runtime PHP dependencies ship in `noobrocket/vendor/` and prefixed `noobrocket/inc/Dependencies/`. The existing manifest does not reproduce the complete prefixed distribution from a clean Composer download. Use the bundled files for this checkout. Do not run Composer install/update over them. Changes to dependencies require a separate reproducible reconstruction task, license review and package/runtime proof. Composer check aliases delegate to the repository runner; they do not supply missing upstream PHPUnit, PHPCS or PHPStan suites.
 
-Install PHP check tools separately with Composer 2.8.12 or a compatible version; their lockfile targets PHP 7.4.33. Composer plugins and scripts stay disabled. This install does not change the shipped plugin dependencies:
+Install PHP check tools separately with Composer 2.8.12 or a compatible version; their lockfile targets PHP 7.4.33. Composer plugins and scripts stay disabled. Hosted installs use a job-owned Composer home so inherited runner authentication does not affect these public dependencies. This install does not change the shipped plugin dependencies:
 
 ```sh
 composer install --working-dir=tools/php-quality --no-interaction --no-plugins --no-scripts --prefer-dist
