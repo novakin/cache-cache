@@ -144,9 +144,10 @@ html[data-noobrocket-theme="dark"] .noobrocket-app:not([data-theme]) {
 .noobrocket-cache-header .noobrocket-status-actions { margin-top: 0; }
 .noobrocket-cache-result { display: grid; gap: var(--nbr-space-2); }
 .noobrocket-cache-meta { display: flex; flex-wrap: wrap; gap: var(--nbr-space-1) var(--nbr-space-4); margin-top: var(--nbr-space-2); }
+.noobrocket-app .noobrocket-cache-meta > .noobrocket-helper { margin: 0; }
 .noobrocket-preload-status { border-right: 1px solid var(--nbr-border); }
 .noobrocket-status-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-bottom: var(--nbr-space-3); }
-.noobrocket-css-status .noobrocket-css-mode { margin-bottom: var(--nbr-space-2); }
+.noobrocket-app .noobrocket-css-status .noobrocket-css-mode { margin: 0 0 var(--nbr-space-2); }
 .noobrocket-queue-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 16px 0; }
 .noobrocket-queue-summary > div { display: flex; align-items: baseline; gap: 8px; }
 .noobrocket-queue-summary dt { color: var(--nbr-muted); }
