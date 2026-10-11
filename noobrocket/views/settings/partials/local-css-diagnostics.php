@@ -1,5 +1,6 @@
 <?php
 /** Recorded cache checks and live queue state; actions use the separate diagnostics form. */
+/** @var array $data Recorded diagnostics supplied by Diagnostics::render(). */
 defined( 'ABSPATH' ) || exit;
 $worker          = is_array( $data['worker'] ) ? $data['worker'] : [];
 $seen            = (int) ( $worker['last_seen'] ?? 0 );
@@ -125,11 +126,12 @@ $button = static function ( $operation, $label, $disabled = false ) {
 				?></p>
 				<?php endif; ?>
 				<p class="noobrocket-helper"><?php esc_html_e( 'This check covers the homepage only; it does not measure site speed.', 'noobrocket' ); ?></p>
+				<p class="noobrocket-helper"><?php esc_html_e( 'This check makes one logged-out homepage request and may create its cache, even when preloading is off.', 'noobrocket' ); ?></p>
 			</div>
 			<details class="noobrocket-status-evidence noobrocket-cache-evidence">
 				<summary><?php esc_html_e( 'Cache check details', 'noobrocket' ); ?></summary>
-				<dl class="noobrocket-key-values"><div><dt><?php esc_html_e( 'Delivery result', 'noobrocket' ); ?></dt><dd><?php echo esc_html( ! $probe ? __( 'Not checked', 'noobrocket' ) : ( $probe_hit ? 'HIT' : ( 0 === $probe_status || 'transport_error' === ( $probe['code'] ?? '' ) ? __( 'No response', 'noobrocket' ) : sprintf( __( 'HTTP %d', 'noobrocket' ), $probe_status ) ) ) ); ?></dd></div></dl>
-				<p class="noobrocket-helper noobrocket-probe-scope"><?php esc_html_e( 'Two anonymous homepage requests check the Cache-Cache PHP cache header. Other pages and site speed are not tested.', 'noobrocket' ); ?></p>
+				<dl class="noobrocket-key-values"><div><dt><?php esc_html_e( 'Delivery result', 'noobrocket' ); ?></dt><dd><?php echo esc_html( ! $probe ? __( 'Not checked', 'noobrocket' ) : ( $probe_hit ? 'HIT' : ( 0 === $probe_status || 'transport_error' === ( $probe['code'] ?? '' ) ? __( 'No response', 'noobrocket' ) : /* translators: %d: HTTP response status. */ sprintf( __( 'HTTP %d', 'noobrocket' ), $probe_status ) ) ) ); ?></dd></div></dl>
+				<p class="noobrocket-helper noobrocket-probe-scope"><?php esc_html_e( 'One anonymous homepage request checks the Cache-Cache PHP cache header. Other pages and site speed are not tested.', 'noobrocket' ); ?></p>
 			</details>
 		</section>
 		<section class="noobrocket-status-panel noobrocket-preload-status<?php echo $preload_error ? ' is-error' : ''; ?>">

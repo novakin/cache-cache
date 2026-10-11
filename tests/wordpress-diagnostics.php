@@ -94,8 +94,12 @@ $request = static function ( $operation, $valid_nonce = true ) use ( $diagnostic
 };
 try {
 	$container = apply_filters( 'noobrocket_container', null );
-	diagnostics_check( $container->get( 'local_css_diagnostics' ) instanceof Diagnostics, 'native container registers diagnostics' );
+	$registered_diagnostics = $container->get( 'local_css_diagnostics' );
+	diagnostics_check( $registered_diagnostics instanceof Diagnostics, 'native container registers diagnostics' );
 	diagnostics_check( false !== has_action( 'admin_post_noobrocket_diagnostics' ), 'administrator POST route registered' );
+	foreach ( [ 'noobrocket_after_clean_domain', 'after_noobrocket_clean_home' ] as $hook ) {
+		diagnostics_check( 10 === has_action( $hook, [ $registered_diagnostics, 'invalidate_probe' ] ), $hook . ' registers the native diagnostics invalidator' );
+	}
 	wp_set_current_user( 0 );
 	diagnostics_check( 'denied' === $request( 'pause_preload' ), 'anonymous action rejected' );
 	diagnostics_check( 0 === $sitemap->canceled, 'unauthorized action has no side effects' );
@@ -151,11 +155,37 @@ try {
 		return [ 'response' => [ 'code' => 200, 'message' => 'OK' ], 'headers' => [ 'cache-status' => count( $responses ) === 2 ? 'NoobRocket; hit' : '' ], 'body' => '' ];
 	};
 	add_filter( 'pre_http_request', $mock_http, 999, 3 );
-	$probe = $diagnostics->probe_cache();
-	diagnostics_check( $probe['hit'] && 200 === $probe['status'], 'probe confirms actual cache-hit header on second anonymous request' );
-	diagnostics_check( 2 === count( $responses ) && home_url( '/' ) === $responses[0]['url'], 'probe only requests canonical local homepage twice' );
+	foreach ( [ 'header_missing', 'cache_hit' ] as $attempt => $expected_code ) {
+		$_POST = [ 'operation' => 'probe', '_noobrocket_diagnostics_nonce' => wp_create_nonce( 'noobrocket_diagnostics' ) ];
+		$_REQUEST = $_POST;
+		try { do_action( 'admin_post_noobrocket_diagnostics' ); }
+		catch ( DiagnosticsRequestException $exception ) {
+			diagnostics_check( str_starts_with( $exception->getMessage(), 'redirect:' ), 'registered probe route redirects to native settings' );
+		}
+		$probe = get_transient( 'noobrocket_cache_delivery_probe' );
+		diagnostics_check( $expected_code === $probe['code'] && 200 === $probe['status'] && ( 1 === $attempt ) === $probe['hit'], 'separate registered checks report their own first response' );
+		diagnostics_check( $attempt + 1 === count( $responses ), 'each registered probe dispatch requests the homepage once' );
+	}
+	diagnostics_check( home_url( '/' ) === $responses[0]['url'] && home_url( '/' ) === $responses[1]['url'], 'separate checks only request the canonical local homepage' );
 	diagnostics_check( [] === $responses[0]['args']['cookies'] && 0 === $responses[0]['args']['redirection'], 'probe sends no administrator cookies and never follows redirects' );
+	$requests_before_render = count( $responses );
+	ob_start(); $registered_diagnostics->render(); $recorded_panel = ob_get_clean();
+	diagnostics_check( count( $responses ) === $requests_before_render && str_contains( $recorded_panel, 'HIT' ), 'rendering saved native probe evidence sends no request' );
 	remove_filter( 'pre_http_request', $mock_http, 999 );
+	foreach ( [ 'noobrocket_after_clean_domain', 'after_noobrocket_clean_home' ] as $hook ) {
+		set_transient( 'noobrocket_cache_delivery_probe', $probe, DAY_IN_SECONDS );
+		set_transient( 'noobrocket_diagnostics_notice', [ 'operation' => 'retry', 'count' => 3 ], MINUTE_IN_SECONDS );
+		// Isolate the registered owner: other purge subscribers can enqueue background work.
+		$callbacks = $GLOBALS['wp_filter'][ $hook ];
+		$GLOBALS['wp_filter'][ $hook ] = new WP_Hook();
+		add_action( $hook, [ $registered_diagnostics, 'invalidate_probe' ] );
+		try { do_action( $hook, '' ); }
+		finally { $GLOBALS['wp_filter'][ $hook ] = $callbacks; }
+		diagnostics_check( false === get_transient( 'noobrocket_cache_delivery_probe' ), $hook . ' native dispatch discards saved probe evidence' );
+		diagnostics_check( [ 'operation' => 'retry', 'count' => 3 ] === get_transient( 'noobrocket_diagnostics_notice' ), $hook . ' preserves unrelated native feedback' );
+		ob_start(); $registered_diagnostics->render(); $reset_panel = ob_get_clean();
+		diagnostics_check( str_contains( $reset_panel, esc_html__( 'Not checked', 'noobrocket' ) ) && ! str_contains( $reset_panel, esc_html__( 'Last check', 'noobrocket' ) ), 'purge invalidation renders an unchecked panel without the old check date' );
+	}
 	$mock_error = static function ( $pre, $args ) { return 'NoobRocket/Diagnostics' === ( $args['user-agent'] ?? '' ) ? new WP_Error( 'fixture', 'secret internal details' ) : $pre; };
 	add_filter( 'pre_http_request', $mock_error, 999, 2 );
 	$probe = $diagnostics->probe_cache();

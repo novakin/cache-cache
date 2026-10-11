@@ -49,6 +49,8 @@ class Diagnostics implements Subscriber_Interface {
 			'noobrocket_before_dashboard_content'                => [ 'render', 5 ],
 			'noobrocket_settings_page_footer'                    => 'render_action_form',
 			'admin_post_noobrocket_diagnostics'                  => 'handle',
+			'noobrocket_after_clean_domain'                       => 'invalidate_probe',
+			'after_noobrocket_clean_home'                         => 'invalidate_probe',
 			'noobrocket_preload_cache_pending_jobs_cron_rows_count' => 'limit_preload_during_css',
 		];
 	}
@@ -98,7 +100,7 @@ class Diagnostics implements Subscriber_Interface {
 	}
 
 	public function handle(): void {
-		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' )
+		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Strict equality validates the server method without changing the POST-only boundary.
 			|| ! current_user_can( 'noobrocket_manage_options' )
 		) {
 			wp_die( esc_html__( 'You cannot manage Cache-Cache diagnostics.', 'noobrocket' ), '', [ 'response' => 403 ] );
@@ -150,7 +152,14 @@ class Diagnostics implements Subscriber_Interface {
 	}
 
 	/**
-	 * Two anonymous homepage requests: warm once, then inspect actual delivery.
+	 * Discard historical delivery evidence after a domain or homepage purge.
+	 */
+	public function invalidate_probe(): void {
+		delete_transient( 'noobrocket_cache_delivery_probe' );
+	}
+
+	/**
+	 * Inspect the first anonymous homepage response without a second warming request.
 	 */
 	public function probe_cache(): array {
 		$result = [
@@ -167,18 +176,15 @@ class Diagnostics implements Subscriber_Interface {
 			'user-agent'         => 'NoobRocket/Diagnostics'
 		];
 
-		for ( $attempt = 0; $attempt < 2; ++$attempt ) {
-			$response = wp_safe_remote_get( home_url( '/' ), $args );
-			if ( is_wp_error( $response ) ) {
-				$result['status'] = 0;
-				return $result;
-			}
+		$response = wp_safe_remote_get( home_url( '/' ), $args );
+		if ( is_wp_error( $response ) ) {
+			return $result;
+		}
 
-			$result['status'] = (int) wp_remote_retrieve_response_code( $response );
-			if ( 200 !== $result['status'] ) {
-				$result['code'] = 'http_error';
-				return $result;
-			}
+		$result['status'] = (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $result['status'] ) {
+			$result['code'] = 'http_error';
+			return $result;
 		}
 
 		$header            = (string) wp_remote_retrieve_header( $response, 'cache-status' );
