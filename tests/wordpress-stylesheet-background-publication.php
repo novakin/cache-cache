@@ -12,7 +12,7 @@ if ( ! realpath( $fixture_plugin ) || $normalize( realpath( $fixture_plugin ) ) 
 	fwrite( STDERR, "The selected site must contain a real plugin copy, not a source junction.\n" );
 	exit( 2 );
 }
-foreach ( [ 'inc/Engine/Common/Cache/FilesystemCache.php', 'inc/Engine/Media/Lazyload/CSS/Subscriber.php', 'inc/Engine/Media/Lazyload/CSS/Front/FileResolver.php', 'inc/Engine/Media/Lazyload/CSS/Front/ContentFetcher.php' ] as $file ) {
+foreach ( [ 'inc/Engine/Common/Cache/FilesystemCache.php', 'inc/Engine/Optimization/RegexTrait.php', 'inc/Engine/Media/Lazyload/CSS/Subscriber.php', 'inc/Engine/Media/Lazyload/CSS/Front/FileResolver.php', 'inc/Engine/Media/Lazyload/CSS/Front/ContentFetcher.php' ] as $file ) {
 	if ( hash_file( 'sha256', $source . '/' . $file ) !== hash_file( 'sha256', $fixture_plugin . '/' . $file ) ) {
 		fwrite( STDERR, "Copy the current background-CSS owners into the disposable plugin before this check.\n" );
 		exit( 2 );
@@ -74,7 +74,7 @@ $enabled = true;
 $enable_backgrounds = static function () use ( &$enabled ) { return $enabled; };
 $buffer = null;
 $check = static function ( $condition, $message ) use ( &$checks ) {
-	if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); }
+	if ( ! $condition ) { fwrite( STDERR, 'FAIL: ' . $message . "\n" ); throw new RuntimeException( 'FAIL: ' . $message ); }
 	++$checks;
 };
 $stylesheet = static function ( $html ) {
@@ -109,6 +109,20 @@ try {
 	$owned_buffer->add_filter( 'noobrocket_buffer', [ $owner, 'maybe_replace_css_images' ], 110000, 1 );
 	$GLOBALS['wp_filter']['noobrocket_buffer'] = $owned_buffer;
 	$html = '<!doctype html><html><HEAD><link rel="stylesheet" href="' . $source_url . '?ver=7&amp;theme=light"><style>.inline{background-image:url(https://background-fixture.invalid/inline.png)}</style><!-- </head> --><script>const example="</head>";</script></HEAD><body><div class="hero"></div><div class="inline"></div></body></html>';
+	// Native eligibility initializes an empty cache directory; admission must preserve its contents.
+	$before_csp_files = iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) );
+	foreach ( [
+		'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
+		'<META HTTP-EQUIV=content-security-policy content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#80;olicy" content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#80olicy" content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#x50olicy" content="default-src \'self\'">',
+		'<noscript><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></noscript>',
+	] as $meta ) {
+		$csp_html = str_replace( '<HEAD>', '<HEAD>' . $meta, $html );
+		$check( apply_filters( 'noobrocket_buffer', $csp_html ) === $csp_html && $requests === 0, 'registered native pipeline preserves enforcing meta CSP before any fetch' );
+		$check( $before_csp_files === iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) ), 'registered native enforcing meta CSP publishes no CSS or mapping' );
+	}
 	$first = apply_filters( 'noobrocket_buffer', $html );
 	$first_url = $stylesheet( $first );
 	$check( $first_url !== $stylesheet( $html ) && preg_match( '/\.[a-f0-9]{64}\.css\?/', $first_url ), 'registered pipeline delivers a revisioned stylesheet URL' );
@@ -132,6 +146,14 @@ try {
 	$check( preg_match( '/<noscript>\s*<style id="noobrocket-lazyload-bg-nostyle">(.*?)<\/style>\s*<\/noscript>/s', $first, $fallback ) === 1 && strpos( $fallback[1], 'hero.png' ) !== false && strpos( $fallback[1], 'inline.png' ) !== false, 'actual noscript tag contains linked and inline recovery CSS' );
 	$second = apply_filters( 'noobrocket_buffer', $html );
 	$check( $stylesheet( $second ) === $first_url && $requests === 1, 'next native render reuses the exact stylesheet URL without another source fetch' );
+	foreach ( [
+		'<meta http-equiv="Content-Security-Policy-Report-Only" content="default-src \'self\'">',
+		'<!-- <meta http-equiv="Content-Security-Policy" content="default-src \'self\'"> -->',
+		'<template><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></template>',
+	] as $meta ) {
+		$control = apply_filters( 'noobrocket_buffer', str_replace( '<HEAD>', '<HEAD>' . $meta, $html ) );
+		$check( $stylesheet( $control ) === $first_url && $requests === 1 && substr_count( $control, 'id="noobrocket-lazyload-bg-container"' ) === 1, 'registered native pipeline still optimizes report-only and inert meta controls' );
+	}
 	$check( file_get_contents( $asset_path ) === $bytes, 'cache hit preserves previously published immutable stylesheet bytes' );
 	parse_str( wp_parse_url( $first_url, PHP_URL_QUERY ), $query );
 	$check( $query === [ 'ver' => '7', 'theme' => 'light' ], 'HTML-escaped original query survives without a page-time parameter' );

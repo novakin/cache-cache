@@ -34,9 +34,10 @@ const server = createServer((request, response) => {
     response.writeHead(original.status, { 'Content-Type': 'text/css', 'Cache-Control': 'no-store' });
     return response.end(original.body);
   }
-  const html = fixture.pages[decodeURIComponent(url.pathname.slice(1))];
+  const name = decodeURIComponent(url.pathname.slice(1));
+  const html = fixture.pages[name];
   if (html) {
-    response.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
+    response.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store', ...fixture.csp_headers[name] });
     return response.end(`${html}<script src="/runtime.js"></script>`);
   }
   response.writeHead(404);
@@ -94,6 +95,14 @@ try {
       check(await page.locator('.hero').evaluate(element => getComputedStyle(element).backgroundImage.includes('/hero.png')), `${viewport.width}: ${name} retains original visible background`);
       check(await page.locator('link').getAttribute('href') === `${origin}/css/main.css?ver=7&theme=light`, `${viewport.width}: ${name} keeps original stylesheet`);
     }
+    for (const name of Object.keys(fixture.pages).filter(name => name.startsWith('csp-'))) {
+      await page.goto(`${origin}/${encodeURIComponent(name)}`, { waitUntil: 'load' });
+      await page.waitForFunction(() => getComputedStyle(document.querySelector('.hero')).backgroundImage.includes('/hero.png'));
+      check(await page.locator('.hero').evaluate(element => getComputedStyle(element).width === '64px'), `${viewport.width}: ${name} retains visible background and non-background styling`);
+      const reportOnly = name.startsWith('csp-report-');
+      check(await page.locator('#noobrocket-lazyload-bg-container').count() === (reportOnly ? 1 : 0), `${viewport.width}: ${name} applies CSP admission before rewriting`);
+      check((await page.locator('link').getAttribute('href') === `${origin}/css/main.css?ver=7&theme=light`) === !reportOnly, `${viewport.width}: ${name} preserves the correct original/generated stylesheet`);
+    }
     for (const name of ['404', '500', 'error']) {
       await page.goto(`${origin}/http-${name}`, { waitUntil: 'load' });
       check(await page.locator('link').getAttribute('href') === `${origin}/http/${name}.css?theme=dark&size=2`, `${viewport.width}: ${name} response retains original delivery`);
@@ -109,6 +118,10 @@ try {
     const noScript = await noScriptContext.newPage();
     await noScript.goto(`${origin}/first`, { waitUntil: 'load' });
     check(await noScript.locator('.hero').evaluate(element => getComputedStyle(element).backgroundImage.includes('/hero.png')), `${viewport.width}: noscript restores generated backgrounds`);
+    for (const name of Object.keys(fixture.pages).filter(name => name.startsWith('csp-'))) {
+      await noScript.goto(`${origin}/${encodeURIComponent(name)}`, { waitUntil: 'load' });
+      check(await noScript.locator('.hero').evaluate(element => getComputedStyle(element).backgroundImage.includes('/hero.png') && getComputedStyle(element).width === '64px'), `${viewport.width}: no-JS ${name} retains visible background and styling`);
+    }
     for (const name of ['404', '500', 'error']) {
       await noScript.goto(`${origin}/http-${name}`, { waitUntil: 'load' });
       check(await noScript.locator('.hero').evaluate(element => getComputedStyle(element).backgroundImage === 'none' && getComputedStyle(element).color === 'rgb(0, 0, 0)'), `${viewport.width}: no-JS ${name} body remains unapplied`);
