@@ -1362,6 +1362,20 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-http-audit-boundaries",
+      "path": "tests/wordpress-http-audit-boundaries.php",
+      "purpose": "Actual PHP audit accepts the exact owned bare origin and paths, rejects other schemes/hosts/ports and preserves preempted responses.",
+      "profile": "fast",
+      "environment": "modeled-wordpress-owned-files",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Owned temporary audit files only; no WordPress bootstrap or HTTP requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-http-audit",
       "path": "tests/wordpress-http-audit.php",
       "purpose": "Test fixture only. Install as a must-use plugin in a disposable WordPress site.",

@@ -13,7 +13,7 @@ add_filter( 'pre_http_request', function ( $pre, $args, $url ) {
 	$entry = [ 'phase' => getenv( 'NOOBROCKET_TEST_PHASE' ) ?: 'web', 'host' => $host, 'path' => $parts['path'] ?? '/' ];
 	file_put_contents( WP_CONTENT_DIR . '/http-audit.jsonl', wp_json_encode( $entry ) . "\n", FILE_APPEND );
 	$allowed = defined( 'NOOBROCKET_CHECK_HTTP_ORIGIN' )
-		? NOOBROCKET_CHECK_HTTP_ORIGIN && strpos( $url, NOOBROCKET_CHECK_HTTP_ORIGIN . '/' ) === 0
+		? NOOBROCKET_CHECK_HTTP_ORIGIN && ( $url === NOOBROCKET_CHECK_HTTP_ORIGIN || strpos( $url, NOOBROCKET_CHECK_HTTP_ORIGIN . '/' ) === 0 )
 		: in_array( $host, [ 'localhost', '127.0.0.1', '::1' ], true );
 	if ( $allowed ) {
 		return $pre;
