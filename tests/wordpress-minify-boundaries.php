@@ -25,10 +25,10 @@ namespace {
 	function is_noobrocket_post_excluded_option() { return $GLOBALS['defer_post_excluded'] ?? false; }
 	function wp_parse_url( $url, $part = -1 ) { return parse_url( $url, $part ); }
 	function get_noobrocket_parse_url( $url ) { return parse_url( $url ); }
-	function content_url() { return 'https://site.test/wp-content'; }
-	function site_url( $path = '' ) { return 'https://site.test/' . ltrim( $path, '/' ); }
+	function content_url() { return ( $GLOBALS['content_origin'] ?? 'https://site.test' ) . '/wp-content'; }
+	function site_url( $path = '' ) { return ( $GLOBALS['site_origin'] ?? 'https://site.test' ) . '/' . ltrim( $path, '/' ); }
 	function wp_http_validate_url( $url ) { return filter_var( $url, FILTER_VALIDATE_URL ); }
-	function get_noobrocket_i18n_uri() { return []; }
+	function get_noobrocket_i18n_uri() { return $GLOBALS['language_origins'] ?? []; }
 	function get_current_blog_id() { return 1; }
 	function create_noobrocket_uniqid() { return 'fixture'; }
 	function noobrocket_get_constant( $key, $default = null ) { return defined( $key ) ? constant( $key ) : $default; }
@@ -96,6 +96,39 @@ namespace {
 	$document = static function ( $tags ) { return '<!doctype html><html><head>' . $tags . '</head><body></body></html>'; };
 	$export = [ 'pages' => [], 'assets' => [], 'dynamic_resources' => [] ];
 	try {
+		$port_url = 'https://site.test:8443/wp-content/alternate-port.js';
+		file_put_contents( $fixture . '/alternate-port.js', 'window.nativePortIdentity="canonical-local";' );
+		$remote_bytes = 'window.nativePortIdentity="alternate-service";';
+		$before = count( $requests );
+		$port_output = $minify->optimize( $document( '<script src="' . $port_url . '"></script>' ) );
+		preg_match( '#src="([^"]+)"#', $port_output, $port_match );
+		$port_path = $fixture . '/min/' . substr( parse_url( html_entity_decode( $port_match[1] ?? '' ), PHP_URL_PATH ) ?: '', strlen( '/min/' ) );
+		$port_bytes = is_readable( $port_path ) ? file_get_contents( $port_path ) : '';
+		minify_check( false !== strpos( $port_bytes, 'alternate-service' ) && false === strpos( $port_bytes, 'canonical-local' ), 'alternate-port JS publishes its own remote bytes instead of a local same-path file' );
+		minify_check( $before + 1 === count( $requests ) && $requests[ $before ] === $port_url, 'alternate-port JS fetches exactly its declared service URL' );
+		minify_check( $minify->optimize( $document( '<script src="' . $port_url . '"></script>' ) ) === $port_output && $before + 1 === count( $requests ), 'warm alternate-port minification reuses its healthy publication without another request' );
+		$export['pages']['alternate-port-minify'] = $port_output;
+		foreach ( [ 'https://site.test:8443/app.js', 'http://site.test:8080/app.js', '//site.test:8443/app.js', 'https://site.test:80/app.js', 'http://site.test:443/app.js' ] as $url ) {
+			minify_check( $minify->external( $url ), 'unconfigured service port remains external: ' . $url );
+		}
+		foreach ( [ 'https://site.test:443/app.js', 'http://site.test:80/app.js', '//site.test:443/app.js' ] as $url ) {
+			minify_check( ! $minify->external( $url ), 'explicit default port preserves its ordinary scheme alias: ' . $url );
+		}
+		$content_origin = 'http://site.test:8080';
+		$site_origin = 'http://site.test:8080';
+		foreach ( [ 'http://site.test:8080/app.js', 'https://site.test:8080/app.js', '//site.test:8080/app.js' ] as $url ) {
+			minify_check( ! $minify->external( $url ), 'configured custom service port retains local admission: ' . $url );
+		}
+		foreach ( [ 'http://site.test/app.js', 'https://site.test/app.js', 'http://site.test:80/app.js', 'http://site.test:8081/app.js', '//site.test/app.js' ] as $url ) {
+			minify_check( $minify->external( $url ), 'custom-port site does not admit another default/custom service: ' . $url );
+		}
+		$language_origins = [ 'https://language.test:9443/fr/' ];
+		minify_check( ! $minify->external( 'https://language.test:9443/app.js' ) && $minify->external( 'https://language.test/app.js' ), 'language URL retains its configured port without granting another service' );
+		$cdn_hosts = [ 'cdn.test' ];
+		minify_check( ! $minify->external( 'https://cdn.test/app.js' ) && ! $minify->external( 'http://cdn.test:80/app.js' ) && $minify->external( 'https://cdn.test:8443/app.js' ), 'configured bare CDN host retains default aliases without admitting arbitrary service ports' );
+		$content_origin = $site_origin = 'https://site.test';
+		$language_origins = $cdn_hosts = [];
+		$remote_bytes = 'window.nativeOrder = [...(window.nativeOrder || []), "remote"]; window.nativeRemoteRuns = (window.nativeRemoteRuns || 0) + 1;';
 		foreach ( [ 'https://site.test.other/app.js', 'https://remote.test/site.test/app.js', '//site.test.other/app.js', 'https://remote.test/app.js?host=site.test' ] as $url ) {
 			minify_check( $minify->external( $url ), 'foreign host remains external: ' . $url );
 		}
@@ -106,6 +139,7 @@ namespace {
 		minify_check( ! $minify->external( 'https://cdn.test/app.js' ) && $minify->external( 'https://cdn.test.other/app.js' ), 'explicit CDN host keeps exact host semantics' );
 		$cdn_hosts = [];
 		$css = new MinifyCSSOwner( $options, $cache );
+		minify_check( $css->import_external( 'https://site.test:8443/asset.css' ) && ! $css->import_external( 'https://site.test:443/asset.css' ), 'CSS minifier delegates alternate/default-port admission to the shared owner' );
 		$imports = new ImportOriginOwner();
 		$dimensions = new \NoobRocket\Engine\Media\ImageDimensions\ImageDimensions( $options, $filesystem );
 		$image_external = new \ReflectionMethod( $dimensions, 'is_external_file' );
