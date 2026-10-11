@@ -1,0 +1,18 @@
+@import url("font.css");
+@import url("layout.css");
+@import url("generated-background.css");
+:root { --rich-ink: #243d39; --rich-paper: #f4f1e9; --rich-accent: #bb4b2c; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--rich-paper); color: var(--rich-ink); font: 18px/1.65 RichFixture, system-ui, sans-serif; }
+a { color: var(--rich-accent); }
+button, input { font: inherit; }
+button { padding: .45rem .9rem; border: 1px solid var(--rich-ink); border-radius: .25rem; background: white; color: var(--rich-ink); cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--rich-accent); outline-offset: 3px; }
+[hidden] { display: none !important; }
+img { display: block; width: 100%; height: auto; }
+.rich-kicker { text-transform: uppercase; font-size: .8rem; letter-spacing: .12em; }
+.rich-skip { position: absolute; left: 1rem; top: -8rem; }
+.rich-skip:focus { top: 1rem; }
+.rich-unused-rule-one { border: 20px solid rebeccapurple; }
+.rich-unused-rule-two { transform: rotate(75deg); }
+

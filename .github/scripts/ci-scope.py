@@ -40,9 +40,9 @@ def select(paths, full=False):
                          'noobrocket/inc/Dependencies/', 'noobrocket/vendor/',
                          'noobrocket/local-css/', 'noobrocket/nginx/', 'noobrocket/inc/deprecated/'))
         or path in {'noobrocket/noobrocket.php', 'noobrocket/uninstall.php'}
-        or path.startswith(('tools/linux-', 'tools/production-', 'tools/server-load',
+        or path.startswith(('tools/linux-', 'tools/production-', 'tools/server-load', 'tools/rich-site-',
                             'tests/linux-', 'tests/wordpress-cache-', 'tests/wordpress-local-css',
-                            'tests/wordpress-stale-refresh'))
+                            'tests/wordpress-stale-refresh', 'tests/wordpress-rich-site', 'tests/fixtures/rich-site/'))
         for path in paths
     )
     return {'wordpress': native, 'browser': browser, 'server': server}
@@ -62,6 +62,8 @@ def main():
         assert select(['noobrocket/inc/Engine/Cache/AdvancedCache.php']) == dict(wordpress=True, browser=False, server=True)
         assert select(['noobrocket/local-css/worker.mjs']) == dict(wordpress=False, browser=True, server=True)
         assert select(['noobrocket/inc/Engine/Optimization/DelayJS/Subscriber.php']) == dict(wordpress=True, browser=True, server=True)
+        for path in ('tools/rich-site-performance.mjs', 'tests/wordpress-rich-site.php', 'tests/wordpress-rich-site-browser.mjs', 'tests/fixtures/rich-site/style.css'):
+            assert select([path])['server'], f'Rich installed-site check bypass: {path}'
         for path in ('tests/catalog.json', 'tools/requirements.txt', 'tools/package-lock.json',
                      'tools/build.py', 'tools/check.py', 'tools/php-quality/phpstan.neon',
                      'noobrocket/composer.lock', '.gitattributes'):

@@ -1,0 +1,10 @@
+dialog { width: min(520px, calc(100vw - 2rem)); background: #fff; color: #243d39; border: 2px solid #243d39; }
+dialog::backdrop { background: rgb(20 35 30 / 55%); }
+[role="tab"][aria-selected="true"] { background: #243d39; color: white; }
+[role="tabpanel"] { padding: 1rem; background: #fff; }
+.rich-carousel { margin-top: 2rem; padding: 1rem; background: #e2e8d9; }
+#rich-form { display: grid; gap: 1rem; margin-block: 2rem; }
+#rich-form input { display: block; width: 100%; padding: .5rem; }
+.rich-article:has(.rich-controls) > h2 { border-bottom: 1px solid #bac9bd; }
+@supports (display: grid) { .rich-controls { display: grid; gap: .8rem; } }
+

@@ -20,6 +20,7 @@ fpm_bin=$(command -v "${PHP_FPM:-php-fpm$php_version}") || { echo "Missing match
 apache_modules=${APACHE_MODULE_DIR:-/usr/lib/apache2/modules}
 test -d "$apache_modules" || { echo "Missing Apache module directory: $apache_modules" >&2; exit 2; }
 test -d "$(dirname "$dependencies")/node_modules" || { echo 'Install worker dependencies with npm ci before server proof.' >&2; exit 2; }
+test -f "$workspace/tools/node_modules/lighthouse/package.json" || { echo 'Install development dependencies with npm ci --prefix tools before server proof.' >&2; exit 2; }
 for command in unzip mariadb mariadbd mariadb-install-db apache2 nginx; do
   command -v "$command" >/dev/null || { echo "Missing server prerequisite: $command" >&2; exit 2; }
 done
@@ -175,7 +176,7 @@ listen 127.0.0.1:8875;
 server_name 127.0.0.1;
 root $wordpress;
 index index.php;
-location ~ ^/wp-content/cache/noobrocket/pages/.*\\.html$ { add_header X-NoobRocket-Static hit always; }
+location ~ ^/wp-content/cache/noobrocket/pages/.*\\.html$ { add_header X-NoobRocket-Static hit always; add_header Cache-Status "NoobRocket; hit" always; }
 location / { if (-f \$document_root\$cache_file) { rewrite ^ \$cache_file last; } try_files \$uri \$uri/ /index.php?\$args; }
 location ~ \\.php$ { include /etc/nginx/fastcgi_params; fastcgi_param HTTP_HOST \$http_host; fastcgi_param SERVER_PORT \$server_port; fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name; fastcgi_pass unix:$proof/run/fpm.sock; }
 }
@@ -195,6 +196,15 @@ sampler_pid=$!
 wait "$sampler_pid"
 sampler_pid=''
 "$php_bin" "$workspace/tests/linux-production.php" "$wordpress" worker-check
+rich_reports=${NOOBROCKET_RICH_REPORT_DIR:-$proof/rich-reports}
+test ! -e "$rich_reports" || { echo 'Rich reports destination must be fresh.' >&2; exit 2; }
+mkdir -p "$rich_reports"
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" seed
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" profile-eager
+"$node" "$workspace/tests/wordpress-rich-site-browser.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --out "$rich_reports/browser.json"
+"$node" "$workspace/tools/rich-site-performance.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --out "$rich_reports/lighthouse"
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" check
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" cleanup
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" network-install
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" network-activate
 HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-bootstrap-construction.php" "$wordpress" multisite
