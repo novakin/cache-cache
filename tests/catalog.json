@@ -2094,6 +2094,19 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-query-cache-expiry",
+      "path": "tests/wordpress-query-cache-invalidation.php",
+      "purpose": "Actual Redis result TTL and physical expiration with native query reuse, mutation visibility, stable-entry preservation and DB refill.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb", "redis-object-cache"],
+      "mutation": "Owns a new suffixed table/group; inspects Redis TTL and shortens only its known result keys to 1ms; clears request-local cache only; no global Redis flush or external HTTP.",
+      "args": ["{wordpress}", "redis-expiry"],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "php-dependency-reconstruction",
       "path": "tests/php-dependency-reconstruction.py",
       "purpose": "Pin shipped prefixed dependency bytes, preserve licenses and reject maintained/existing staging destinations without upstream history.",
