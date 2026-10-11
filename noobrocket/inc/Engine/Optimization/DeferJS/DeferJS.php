@@ -113,7 +113,7 @@ class DeferJS {
 
 		$buffer_nocomments = preg_replace( '/<!--(.*)-->/Uis', '', $html );
 
-		preg_match_all( '#<script(?:[^>]*)>(?<content>[\s\S]*?)</script>#msi', $buffer_nocomments, $matches, PREG_SET_ORDER );
+		preg_match_all( '#<script\b(?<attributes>(?:"[^"]*"|\'[^\']*\'|[^\'">])*)>(?<content>[\s\S]*?)</script\s*>#msi', $buffer_nocomments, $matches, PREG_SET_ORDER );
 
 		if ( empty( $matches ) ) {
 			return $html;
@@ -135,7 +135,7 @@ class DeferJS {
 				continue;
 			}
 
-			if ( preg_match( '/(application\/ld\+json)/i', $inline_js[0] ) ) {
+			if ( ! $this->is_classic_script( $inline_js['attributes'] ) ) {
 				continue;
 			}
 
@@ -152,6 +152,52 @@ class DeferJS {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Whether an inline script has a classic JavaScript type.
+	 *
+	 * Modules need their top-level syntax; data blocks must retain their contents.
+	 *
+	 * @param string $attributes Original opening-tag attributes.
+	 * @return bool
+	 */
+	private function is_classic_script( string $attributes ): bool {
+		$pattern = '/(?<name>[^\s"\'\/=<>`]+)(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?/';
+		preg_match_all( $pattern, $attributes, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL );
+		$value = '';
+		foreach ( $matches as $attribute ) {
+			if ( 'type' === strtolower( $attribute['name'] ) ) {
+				$value = $attribute['double'] ?? $attribute['single'] ?? $attribute['unquoted'] ?? '';
+				break;
+			}
+		}
+
+		$value = strtolower( trim( html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+
+		return in_array(
+			$value,
+			[
+				'',
+				'application/ecmascript',
+				'application/javascript',
+				'application/x-ecmascript',
+				'application/x-javascript',
+				'text/ecmascript',
+				'text/javascript',
+				'text/javascript1.0',
+				'text/javascript1.1',
+				'text/javascript1.2',
+				'text/javascript1.3',
+				'text/javascript1.4',
+				'text/javascript1.5',
+				'text/jscript',
+				'text/livescript',
+				'text/x-ecmascript',
+				'text/x-javascript',
+			],
+			true
+		);
 	}
 
 	/**
@@ -280,7 +326,6 @@ class DeferJS {
 		$inline_exclusions = '';
 
 		// Check if filter return is string so convert it to array for backward compatibility.
-		// @phpstan-ignore-next-line - Ignoring the safeguard as the result could be mixed.
 		if ( is_string( $additional_inline_exclusions_list ) ) {
 			$additional_inline_exclusions_list = explode( '|', $additional_inline_exclusions_list );
 		}
