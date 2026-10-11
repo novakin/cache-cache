@@ -146,42 +146,92 @@ async function adminMatrix() {
 }
 async function adminSaveAndCancel() {
   const target = await context();
+  const errors = [];
+  const details = { stage: 'login', stages: [], errors: [], responses: [], requestFailures: [] };
+  let page;
+  const safeURL = value => {
+    try { const url = new URL(value); return `${url.origin}${url.pathname}`; } catch { return '[URL]'; }
+  };
+  const safeText = value => {
+    let text = String(value || '').replace(/https?:\/\/[^\s)]+/g, url => {
+      const position = url.match(/:\d+:\d+$/)?.[0] || '';
+      return safeURL(position ? url.slice(0, -position.length) : url) + position;
+    });
+    for (const secret of [auth.username, auth.password]) if (secret) text = text.replaceAll(secret, '[redacted]');
+    return text.slice(0, 1800);
+  };
+  const stage = name => {
+    details.stage = name;
+    details.stages.push({ name, url: page ? safeURL(page.url()) : null });
+  };
+  const responseDetails = response => ({
+    status: response.status(), url: safeURL(response.url()), method: response.request().method(),
+    redirectedFrom: response.request().redirectedFrom() ? safeURL(response.request().redirectedFrom().url()) : null
+  });
   try {
     await login(target);
-    const page = await target.newPage();
-    const errors = pageErrors(page);
+    page = await target.newPage();
+    page.on('pageerror', error => {
+      errors.push(safeText(error.message).slice(0, 500));
+      if (details.errors.length < 20) details.errors.push({ stage: details.stage, url: safeURL(page.url()), message: safeText(error.message), stack: safeText(error.stack) });
+    });
+    page.on('response', response => {
+      const request = response.request();
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame() && details.responses.length < 30) details.responses.push({ stage: details.stage, ...responseDetails(response) });
+    });
+    page.on('requestfailed', request => {
+      if (details.requestFailures.length < 30) details.requestFailures.push({ stage: details.stage, url: safeURL(request.url()), method: request.method(), resourceType: request.resourceType(), error: safeText(request.failure()?.errorText) });
+    });
+    stage('open-settings');
     await page.goto(`${origin}/wp-admin/options-general.php?page=noobrocket#file_optimization`, { waitUntil: 'networkidle' });
     const checkbox = page.locator('input[type="checkbox"][name="noobrocket_settings[minify_css]"]');
     const original = await checkbox.isChecked();
     const cancel = page.locator('#noobrocket-options-cancel');
     const submit = page.locator('#noobrocket-options-submit');
     const dirty = page.locator('[data-noobrocket-save-state]');
+    stage('edit-before-cancel');
     await checkbox.setChecked(!original);
     check(await cancel.isVisible() && await cancel.isEnabled(), 'Native edit exposes enabled Cancel.');
     page.once('dialog', dialog => dialog.accept());
+    stage('cancel');
     await cancel.click();
     check(await checkbox.isChecked() === original && await cancel.isDisabled(), 'Native Cancel restores saved control state.');
+    stage('edit-before-save');
     await checkbox.setChecked(!original);
     check(await dirty.innerText() === await dirty.getAttribute('data-dirty'), 'Native change announces unsaved state.');
+    stage('save');
     await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle' }), submit.click()]);
+    stage('saved-route');
     await adminRoute(page, 'file_optimization');
     check(await checkbox.isChecked() === !original, 'Real nonce-authorized settings POST persists changed minify option.');
     check(await page.locator('[data-noobrocket-save-state]').getAttribute('data-saved-evidence') === 'true', 'Native saved state requires redirect evidence.');
+    stage('edit-before-restore');
     await checkbox.setChecked(original);
+    stage('restore');
     await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle' }), submit.click()]);
+    stage('restored-route');
     await adminRoute(page, 'file_optimization');
     check(await checkbox.isChecked() === original, 'Real settings POST restores original option.');
+    stage('edit-invalid-nonce');
     await checkbox.setChecked(!original);
     const nonce = page.locator('#noobrocket_options input[name="_wpnonce"]');
     check(await nonce.count() === 1, 'Native settings mutation includes its WordPress nonce.');
     await nonce.evaluate(node => { node.value = 'invalid-disposable-fixture-nonce'; });
+    stage('submit-invalid-nonce');
     const rejected = await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle' }), submit.click()]);
+    details.rejectedNavigation = rejected[0] ? responseDetails(rejected[0]) : { status: null, url: safeURL(page.url()), method: null };
+    stage('check-invalid-nonce-response');
     check(rejected[0]?.status() === 403, 'Invalid native settings nonce refuses mutation.');
+    stage('reopen-after-rejection');
     await page.goto(`${origin}/wp-admin/options-general.php?page=noobrocket#file_optimization`, { waitUntil: 'networkidle' });
     check(await checkbox.isChecked() === original, 'Refused native settings write leaves persisted value unchanged.');
-    report.adminMutationErrors = errors;
+    stage('check-javascript-errors');
     check(errors.length === 0, `Native save/cancel/rejection flow has no JavaScript exceptions: ${errors.join('; ')}`);
-  } finally { await target.close(); }
+  } finally {
+    report.adminMutationErrors = errors;
+    report.adminMutationDetails = { ...details, lastStage: details.stage, url: page ? safeURL(page.url()) : null };
+    await target.close();
+  }
 }
 async function readyScripts(page) {
   await page.waitForFunction(() => window.richFixtureCore?.dependencyReady === true && window.richFixtureModule?.message === 'RICH_MODULE_READY');
