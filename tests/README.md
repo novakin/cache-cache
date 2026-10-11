@@ -32,6 +32,8 @@ The `php-dependency-reconstruction` fast fixture verifies the 219 pinned prefixe
 | `server` | Owned Linux/MariaDB/Apache/Nginx/PHP-FPM/worker/multisite rehearsal | Linux dependencies, verified WordPress archive, unprivileged execution; owned service cleanup. |
 | `package` | Existing ZIP structure/integrity and optional exact source equality | `--zip FILE`; `--compare-source` only for a ZIP intended to match the checkout. |
 
+`fast --fixture cache-dynamic-cookie-groups` invokes the actual dynamic-cookie list owner, generated executable configuration and early filename reader with modeled WordPress boundaries. It preserves scalar deduplication, mixed declaration order, named groups with equal child arrays and every group's independent filename variation. The fixture writes one owned temporary configuration; it does not bootstrap a site, publish page cache or establish optional cookie-plugin integration.
+
 ## PHP quality gate
 
 Install only the isolated tool manifest; never use Composer install/update in `noobrocket/` for this gate:

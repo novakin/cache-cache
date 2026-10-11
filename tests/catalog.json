@@ -2334,6 +2334,20 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "cache-dynamic-cookie-groups",
+      "path": "tests/cache-dynamic-cookie-groups.php",
+      "purpose": "Actual dynamic-cookie list, generated executable policy and cache filename owners preserve independent nested cookie groups, scalar deduplication, keys and order.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Writes/removes one uniquely owned temporary configuration; modeled WordPress boundaries, no site bootstrap, cache publication or network requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
     }
   ]
 }
