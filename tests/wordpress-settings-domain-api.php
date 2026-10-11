@@ -14,6 +14,8 @@ foreach ( [
 }
 
 function do_action( ...$args ) {}
+function _x( $value, $context, $domain = null ) { return $value; }
+function wp_register_ability( $name, $args ) { $GLOBALS['domain_abilities'][ $name ] = $args; }
 function current_user_can( $capability ) { return $GLOBALS['domain_authorized']; }
 function get_option( $name, $default = null ) { return 'noobrocket_settings' === $name ? $GLOBALS['domain_options'] : $default; }
 function get_noobrocket_option( $name, $default = false ) { return $GLOBALS['domain_options'][ $name ] ?? $default; }
@@ -58,6 +60,19 @@ $domain_options = [
 	'unrelated_plugin_value' => 'retained',
 ];
 $domain_ability = new NoobRocket\Engine\Abilities\Options\SetOption( new NoobRocket\Engine\Abilities\Options\AllowedOptions() );
+$domain_ability->register();
+$schema = $domain_abilities['noobrocket/set-option']['input_schema'];
+$enum = json_decode( json_encode( $schema ) )->properties->option_name->enum;
+domain_check( is_array( $enum ), 'Registered writable-option enum serializes as a JSON array' );
+domain_check( in_array( 'minify_css', $enum, true ) && ! in_array( 'cdn_state', $enum, true ), 'Registered enum keeps writable options and excludes read-only state' );
+class SparseDomainAllowedOptions extends NoobRocket\Engine\Abilities\Options\AllowedOptions {
+	public function get(): array { return [ 4 => 'minify_css', 12 => 'cdn_state', 19 => 'lazyload' ]; }
+}
+( new NoobRocket\Engine\Abilities\Options\SetOption( new SparseDomainAllowedOptions() ) )->register();
+$sparse_enum = json_decode( json_encode( $domain_abilities['noobrocket/set-option']['input_schema'] ) )->properties->option_name->enum;
+domain_check( [ 'minify_css', 'lazyload' ] === $sparse_enum, 'Sparse allowlists serialize as a list while retaining order and read-only exclusions' );
+domain_check( [ 'option_name', 'option_value' ] === $schema['required'], 'Registered required arguments remain unchanged' );
+domain_check( call_user_func( $domain_abilities['noobrocket/set-option']['permission_callback'] ), 'Registered permission callback accepts the authorized user' );
 set_error_handler( function ( $severity, $message, $file, $line ) {
 	throw new ErrorException( $message, 0, $severity, $file, $line );
 }, E_WARNING | E_NOTICE );

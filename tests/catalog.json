@@ -171,6 +171,32 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-abilities-option-schema",
+      "path": "tests/wordpress-abilities-option-schema.php",
+      "purpose": "Registered writable-option JSON enum, native schema validation and capability/read-only rejection controls.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
+      "mutation": "Bootstraps a marked copied-plugin site with HTTP blocked; request-local users and rejected ability calls only; no option writes.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "6.9"
+    },
+    {
+      "name": "wordpress-abilities-option-schema-sparse",
+      "path": "tests/wordpress-abilities-option-schema.php",
+      "purpose": "Native sparse allowlist filter produces a JSON list while preserving writable order and read-only/permission controls.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
+      "mutation": "Same marked-site boundary; request-local allowlist filter and users, no option writes or external HTTP.",
+      "args": ["{wordpress}", "sparse"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "6.9"
+    },
+    {
       "name": "acceptance:import",
       "path": "tests/wordpress-acceptance.php",
       "purpose": "Native WordPress import acceptance assertions.",
@@ -2118,6 +2144,19 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-query-cache-expiry",
+      "path": "tests/wordpress-query-cache-invalidation.php",
+      "purpose": "Actual Redis result TTL and physical expiration with native query reuse, mutation visibility, stable-entry preservation and DB refill.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb", "redis-object-cache"],
+      "mutation": "Owns a new suffixed table/group; inspects Redis TTL and shortens only its known result keys to 1ms; clears request-local cache only; no global Redis flush or external HTTP.",
+      "args": ["{wordpress}", "redis-expiry"],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "php-dependency-reconstruction",
       "path": "tests/php-dependency-reconstruction.py",
       "purpose": "Pin shipped prefixed dependency bytes, preserve licenses and reject maintained/existing staging destinations without upstream history.",
@@ -2358,6 +2397,40 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "cache-dynamic-cookie-groups",
+      "path": "tests/cache-dynamic-cookie-groups.php",
+      "purpose": "Actual dynamic-cookie list, generated executable policy and cache filename owners preserve independent nested cookie groups, scalar deduplication, keys and order.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Writes/removes one uniquely owned temporary configuration; modeled WordPress boundaries, no site bootstrap, cache publication or network requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-dynamic-cookie-groups",
+      "path": "tests/wordpress-dynamic-cookie-groups.php",
+      "purpose": "Native generated dynamic-cookie policy retains all named groups and selects distinct owned cache variants.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Temporarily writes and restores exact owned generated policy bytes and creates/removes uniquely owned cache variants; no providers or third-party cookie plugin.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     },
     {
       "name": "wpml-settings-shape",
