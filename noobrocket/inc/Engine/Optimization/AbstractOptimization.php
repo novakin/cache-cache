@@ -107,7 +107,10 @@ abstract class AbstractOptimization {
 		 * @param array $hosts Allowed hosts.
 		 * @param array $zones Zones to check available hosts.
 		 */
-		$hosts = (array) apply_filters( 'noobrocket_cdn_hosts', [], $this->get_zones() );
+		$cdn_hosts = (array) apply_filters( 'noobrocket_cdn_hosts', [], $this->get_zones() );
+		$hosts     = $cdn_hosts;
+		$site      = wp_parse_url( site_url() );
+		$origins   = [ $wp_content, $site ];
 
 		if ( ! empty( $wp_content['host'] ) ) {
 			$hosts[] = $wp_content['host'];
@@ -117,13 +120,15 @@ abstract class AbstractOptimization {
 
 		// Get host for all langs.
 		foreach ( $langs as $lang ) {
-			$url_host = wp_parse_url( $lang, PHP_URL_HOST );
+			$origin   = wp_parse_url( $lang );
+			$url_host = $origin['host'] ?? null;
 
 			if ( ! isset( $url_host ) ) {
 				continue;
 			}
 
 			$hosts[] = $url_host;
+			$origins[] = $origin;
 		}
 
 		$hosts = array_unique( $hosts );
@@ -133,9 +138,25 @@ abstract class AbstractOptimization {
 		}
 		// URL has domain and domain is part of the internal domains.
 		if ( ! empty( $file['host'] ) ) {
+			$default_port = 'http' === ( $file['scheme'] ?? $site['scheme'] ?? $wp_content['scheme'] ?? 'https' ) ? 80 : 443;
+			$file_port    = (int) ( $file['port'] ?? $default_port );
 			foreach ( $hosts as $host ) {
-				if ( is_string( $host ) && 0 === strcasecmp( rtrim( $file['host'], '.' ), rtrim( $host, '.' ) ) ) {
+				if ( ! is_string( $host ) || 0 !== strcasecmp( rtrim( $file['host'], '.' ), rtrim( $host, '.' ) ) ) {
+					continue;
+				}
+				// Bare CDN hosts retain ordinary HTTP/HTTPS aliases, not unrelated service ports.
+				if ( in_array( $host, $cdn_hosts, true ) && $file_port === $default_port ) {
 					return false;
+				}
+				foreach ( $origins as $origin ) {
+					if ( empty( $origin['host'] ) || 0 !== strcasecmp( rtrim( $file['host'], '.' ), rtrim( $origin['host'], '.' ) ) ) {
+						continue;
+					}
+					$origin_default_port = 'http' === ( $origin['scheme'] ?? 'https' ) ? 80 : 443;
+					$origin_port         = (int) ( $origin['port'] ?? $origin_default_port );
+					if ( $origin_port !== $origin_default_port ? $file_port === $origin_port : $file_port === $default_port ) {
+						return false;
+					}
 				}
 			}
 
