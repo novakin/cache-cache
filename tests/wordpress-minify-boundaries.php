@@ -112,6 +112,12 @@ namespace {
 			'module-single' => "<script type='module' src='https://remote.test/modules/app.js'></script>",
 			'module-unquoted' => '<script type=module src="https://remote.test/modules/app.js"></script>',
 			'module-entity' => '<script type=mod&#117;le src="https://remote.test/modules/app.js"></script>',
+			'module-slash' => '<script type="module"/ src="https://remote.test/modules/app.js"></script>',
+			'module-adjacent' => '<script type="module"src="https://remote.test/modules/app.js"></script>',
+			'module-reverse-adjacent' => '<script src="https://remote.test/modules/app.js"type="module"></script>',
+			'module-duplicate-first' => '<script type="module" type="text/javascript" src="https://remote.test/modules/app.js"></script>',
+			'optout-slash' => '<script data-no-minify="1"/ src="https://remote.test/keep.js"></script>',
+			'optout-adjacent' => '<script data-no-minify="1"src="https://remote.test/keep.js"></script>',
 			'optout' => '<script data-no-minify src="https://remote.test/keep.js"></script>',
 			'configured-exclusion' => '<script src="https://remote.test/keep.js"></script>',
 		] as $name => $tag ) {
@@ -127,6 +133,11 @@ namespace {
 		$export['assets']['https://remote.test/protected.js'] = $remote_bytes;
 		foreach ( [
 			'protected-nonce' => '<script nonce="fixture" src="https://remote.test/protected.js"></script>',
+			'protected-nonce-slash' => '<script nonce="fixture"/ src="https://remote.test/protected.js"></script>',
+			'protected-nonce-adjacent' => '<script nonce="fixture"src="https://remote.test/protected.js"></script>',
+			'protected-nonce-reverse-adjacent' => '<script src="https://remote.test/protected.js"nonce="fixture"></script>',
+			'protected-integrity-slash' => '<script integrity="' . $integrity . '"/ crossorigin=anonymous src="https://remote.test/protected.js"></script>',
+			'protected-integrity-adjacent' => '<script integrity="' . $integrity . '"crossorigin=anonymous src="https://remote.test/protected.js"></script>',
 			'protected-nonce-unquoted' => '<script NONCE=fixture src="https://remote.test/protected.js"></script>',
 			'protected-nonce-padded' => '<script NONCE=fixture= src="https://remote.test/protected.js"></script>',
 			'protected-integrity' => '<script integrity="' . $integrity . '" crossorigin=anonymous src="https://remote.test/protected.js"></script>',
@@ -265,6 +276,16 @@ namespace {
 			$remote_bytes = $recovered_bytes;
 		}
 		$remote_status = 200;
+		foreach ( [
+			'quoted-noise' => '<script data-note="type=module nonce=fixture integrity=invalid" src="https://site.test/native.js"></script>',
+			'adjacent-classic' => '<script data-note="fixture"src="https://site.test/native.js"></script>',
+		] as $name => $tag ) {
+			foreach ( [ 'minify' => $minify, 'combine' => $new_combine() ] as $mode => $owner ) {
+				$output = $owner->optimize( $document( $tag ) );
+				minify_check( false !== strpos( $output, 'data-minify="1"' ) && false === strpos( $output, 'src="https://site.test/native.js"' ), $name . ': ' . $mode . ' keeps classic optimization for real source attributes' );
+				$export['pages'][ 'classic-self-csp-' . $name . '-' . $mode ] = $output;
+			}
+		}
 		file_put_contents( $fixture . '/empty.js', '' );
 		$mixed = $document( '<script src="https://site.test/native.js"></script><script src="https://site.test/empty.js"></script>' );
 		$output = $new_combine()->optimize( $mixed );

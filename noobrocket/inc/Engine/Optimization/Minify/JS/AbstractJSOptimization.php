@@ -108,13 +108,15 @@ abstract class AbstractJSOptimization extends AbstractOptimization {
 		// Preserve module URL resolution and native script security attributes.
 		// These guards and opt-outs apply even without dynamic templates.
 		preg_match( '/^<script\b(?<attributes>(?:"[^"]*"|\'[^\']*\'|[^\'">])*)>/i', $tag[0], $script );
-		$attribute_regex = '/(?:^|\s)\K(?<name>type|nonce|integrity|data-minify|data-no-minify)(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?(?=\s|$)|"[^"]*"(*SKIP)(*FAIL)|\'[^\']*\'(*SKIP)(*FAIL)/i';
-		preg_match_all( $attribute_regex, $script['attributes'] ?? '', $attributes, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL );
-		foreach ( $attributes as $attribute ) {
-			if ( 'type' !== strtolower( $attribute['name'] ) ) {
+		foreach ( $this->get_html_attributes( $script['attributes'] ?? '' ) as $attribute ) {
+			$name = strtolower( $attribute['name'][0] );
+			if ( ! in_array( $name, [ 'type', 'nonce', 'integrity', 'data-minify', 'data-no-minify' ], true ) ) {
+				continue;
+			}
+			if ( 'type' !== $name ) {
 				return true;
 			}
-			$type = $attribute['double'] ?? $attribute['single'] ?? $attribute['unquoted'] ?? '';
+			$type = $attribute['double'][0] ?? $attribute['single'][0] ?? $attribute['unquoted'][0] ?? '';
 			if ( 'module' === strtolower( trim( html_entity_decode( $type, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) ) ) {
 				return true;
 			}

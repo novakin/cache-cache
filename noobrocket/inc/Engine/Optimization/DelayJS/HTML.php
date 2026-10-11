@@ -247,9 +247,12 @@ class HTML {
 
 		// Skip other quoted values so their text cannot masquerade as src/type.
 		// Keep the original assignment bytes, including unquoted values and entities.
-		$attribute_regex = '/(?:^|\s)\K(?<name>type|src)(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?(?=\s|$)|"[^"]*"(*SKIP)(*FAIL)|\'[^\']*\'(*SKIP)(*FAIL)/i';
-		preg_match_all( $attribute_regex, $matches['attr'], $attributes, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL );
-		foreach ( $attributes as $attribute ) {
+		$attributes = [];
+		foreach ( $this->get_html_attributes( $matches['attr'] ) as $attribute ) {
+			if ( ! in_array( strtolower( $attribute['name'][0] ), [ 'type', 'src' ], true ) ) {
+				continue;
+			}
+			$attributes[] = $attribute;
 			if ( 'type' !== strtolower( $attribute['name'][0] ) ) {
 				continue;
 			}
