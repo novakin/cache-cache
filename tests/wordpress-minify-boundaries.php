@@ -6,6 +6,7 @@ namespace {
 	if ( ! extension_loaded( 'mbstring' ) ) { throw new \RuntimeException( 'PHP mbstring is required by the shipped CSS path converter.' ); }
 	$fixture = sys_get_temp_dir() . '/noobrocket-minify-boundaries-' . bin2hex( random_bytes( 6 ) );
 	mkdir( $fixture );
+	define( 'WEEK_IN_SECONDS', 7 * 24 * 60 * 60 );
 	define( 'NOOBROCKET_MINIFY_CACHE_PATH', $fixture . '/min/' );
 	define( 'NOOBROCKET_MINIFY_CACHE_URL', 'https://site.test/min/' );
 	$checks = 0;
@@ -21,6 +22,7 @@ namespace {
 	$remote_bytes = 'window.nativeOrder = [...(window.nativeOrder || []), "remote"]; window.nativeRemoteRuns = (window.nativeRemoteRuns || 0) + 1;';
 	function minify_check( $condition, $message ) { if ( ! $condition ) { throw new \RuntimeException( 'FAIL: ' . $message ); } ++$GLOBALS['checks']; }
 	function apply_filters( $hook, $value, ...$args ) { return 'noobrocket_cdn_hosts' === $hook ? $GLOBALS['cdn_hosts'] : ( $GLOBALS['dynamic_filters'][ $hook ] ?? $value ); }
+	function is_noobrocket_post_excluded_option() { return $GLOBALS['defer_post_excluded'] ?? false; }
 	function wp_parse_url( $url, $part = -1 ) { return parse_url( $url, $part ); }
 	function get_noobrocket_parse_url( $url ) { return parse_url( $url ); }
 	function content_url() { return 'https://site.test/wp-content'; }
@@ -66,6 +68,10 @@ namespace {
 	class MinifyDefer extends \NoobRocket\Engine\Optimization\DeferJS\DeferJS {
 		public function __construct() {}
 		public function get_excluded(): array { return []; }
+	}
+	class DeferLists extends \NoobRocket\Engine\Optimization\DynamicLists\DefaultLists\DataManager {
+		public function __construct() {}
+		public function get_lists() { return json_decode( file_get_contents( dirname( __DIR__ ) . '/noobrocket/dynamic-lists.json' ) ); }
 	}
 	class MinifyOwner extends \NoobRocket\Engine\Optimization\Minify\JS\Minify {
 		public function external( $url ) { return $this->is_external_file( $url ); }
@@ -119,6 +125,12 @@ namespace {
 			'module-single' => "<script type='module' src='https://remote.test/modules/app.js'></script>",
 			'module-unquoted' => '<script type=module src="https://remote.test/modules/app.js"></script>',
 			'module-entity' => '<script type=mod&#117;le src="https://remote.test/modules/app.js"></script>',
+			'module-slash' => '<script type="module"/ src="https://remote.test/modules/app.js"></script>',
+			'module-adjacent' => '<script type="module"src="https://remote.test/modules/app.js"></script>',
+			'module-reverse-adjacent' => '<script src="https://remote.test/modules/app.js"type="module"></script>',
+			'module-duplicate-first' => '<script type="module" type="text/javascript" src="https://remote.test/modules/app.js"></script>',
+			'optout-slash' => '<script data-no-minify="1"/ src="https://remote.test/keep.js"></script>',
+			'optout-adjacent' => '<script data-no-minify="1"src="https://remote.test/keep.js"></script>',
 			'optout' => '<script data-no-minify src="https://remote.test/keep.js"></script>',
 			'configured-exclusion' => '<script src="https://remote.test/keep.js"></script>',
 		] as $name => $tag ) {
@@ -134,6 +146,11 @@ namespace {
 		$export['assets']['https://remote.test/protected.js'] = $remote_bytes;
 		foreach ( [
 			'protected-nonce' => '<script nonce="fixture" src="https://remote.test/protected.js"></script>',
+			'protected-nonce-slash' => '<script nonce="fixture"/ src="https://remote.test/protected.js"></script>',
+			'protected-nonce-adjacent' => '<script nonce="fixture"src="https://remote.test/protected.js"></script>',
+			'protected-nonce-reverse-adjacent' => '<script src="https://remote.test/protected.js"nonce="fixture"></script>',
+			'protected-integrity-slash' => '<script integrity="' . $integrity . '"/ crossorigin=anonymous src="https://remote.test/protected.js"></script>',
+			'protected-integrity-adjacent' => '<script integrity="' . $integrity . '"crossorigin=anonymous src="https://remote.test/protected.js"></script>',
 			'protected-nonce-unquoted' => '<script NONCE=fixture src="https://remote.test/protected.js"></script>',
 			'protected-nonce-padded' => '<script NONCE=fixture= src="https://remote.test/protected.js"></script>',
 			'protected-integrity' => '<script integrity="' . $integrity . '" crossorigin=anonymous src="https://remote.test/protected.js"></script>',
@@ -163,6 +180,45 @@ namespace {
 			minify_check( false !== strpos( $output, $tag ) && $before === count( $requests ), $name . ': combine preserves intrinsic attributes and inline bytes without fetching' );
 			$export['pages'][ $name . '-combine' ] = $output;
 		}
+		$defer_options = new \NoobRocket\Admin\Options_Data( [ 'defer_all_js' => 1 ] );
+		$defer = new \NoobRocket\Engine\Optimization\DeferJS\DeferJS( $defer_options, new DeferLists() );
+		foreach ( [
+			'module-double' => '<script type="module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-single' => "<script type='module'>import { value as jQuery } from 'https://remote.test/modules/dep.js'; window.nativeDeferModuleValue = jQuery;</script>",
+			'module-entity' => '<script TYPE=mod&#117;le>import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-slash' => '<script type="module"/>import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-adjacent-after' => '<script type="module"id="defer-module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-adjacent-before' => '<script id="defer-module"type="module">import { value as jQuery } from "https://remote.test/modules/dep.js"; window.nativeDeferModuleValue = jQuery;</script>',
+			'module-padded' => '<script type=" MODULE ">jQuery("body");</script>',
+			'json' => '<script id="defer-data" type="application/json">{"example":"jQuery"}</script>',
+			'json-entity' => '<script id="defer-data" TYPE=application&#47;json>{"example":"jQuery"}</script>',
+			'json-slash' => '<script id="defer-data" type="application/json"/>{"example":"jQuery"}</script>',
+			'json-adjacent-after' => '<script type="application/json"id="defer-data">{"example":"jQuery"}</script>',
+			'json-adjacent-before' => '<script id="defer-data"type="application/json">{"example":"jQuery"}</script>',
+			'jsonld' => '<script id="defer-data" type="application/ld+json">{"example":"jQuery"}</script>',
+			'importmap' => '<script type="importmap">{"imports":{"jQuery":"./jquery.js"}}</script>',
+			'speculationrules' => '<script type="speculationrules">{"prefetch":[{"source":"document","where":{"selector_matches":"a.jQuery"}}]}</script>',
+			'custom-data' => '<script type="text/template"><div>jQuery</div></script>',
+		] as $name => $tag ) {
+			minify_check( $tag === $defer->defer_inline_js( $tag ), $name . ': inline deferral preserves nonclassic script bytes' );
+			if ( 0 === strpos( $name, 'json' ) || ( 0 === strpos( $name, 'module' ) && 'module-padded' !== $name ) ) {
+				$export['pages'][ 'defer-' . $name ] = $document( $tag );
+			}
+		}
+		foreach ( [ '', ' type', ' type=""', ' type="text/javascript"', " TYPE='TEXT/JAVASCRIPT'", ' type=text/java&#115;cript', ' type="text/jscript"', ' data-type="module"', ' typewriter="module"', ' type="text/javascript"/', ' type="text/javascript"id="defer-classic"', ' id="defer-classic"type="text/javascript"', ' data-note="type=module >" type="text/javascript"' ] as $attributes ) {
+			$tag = '<script' . $attributes . '>window.jQuery=function(){window.nativeDeferClassicRuns=(window.nativeDeferClassicRuns||0)+1;};jQuery();</script>';
+			$output = $defer->defer_inline_js( $tag );
+			minify_check( false !== strpos( $output, "window.addEventListener('DOMContentLoaded', function() {" ) && false !== strpos( $output, '<script' . $attributes . '>' ), 'classic type still defers with original attributes: ' . $attributes );
+			$export['pages'][ 'defer-classic-' . count( $export['pages'] ) ] = $document( $output );
+		}
+		$excluded = '<script>jQuery(function(){ document.write("fixture"); });</script>';
+		minify_check( $excluded === $defer->defer_inline_js( $excluded ), 'bundled inline exclusion remains unchanged' );
+		$defer_post_excluded = true;
+		$inline = '<script>jQuery();</script>';
+		minify_check( $inline === $defer->defer_inline_js( $inline ), 'post exclusion remains unchanged' );
+		$defer_post_excluded = false;
+		$disabled = new \NoobRocket\Engine\Optimization\DeferJS\DeferJS( new \NoobRocket\Admin\Options_Data( [ 'defer_all_js' => 0 ] ), new DeferLists() );
+		minify_check( $inline === $disabled->defer_inline_js( $inline ), 'disabled inline deferral remains unchanged' );
 		$inline_classic = '<script>window.nativeInlineRuns = (window.nativeInlineRuns || 0) + 1;</script>';
 		$output = $new_combine()->optimize( $document( $inline_classic ) );
 		minify_check( false === strpos( $output, $inline_classic ) && false !== strpos( $output, 'data-minify="1"' ), 'ordinary inline classic script still combines into optimized delivery' );
@@ -233,6 +289,16 @@ namespace {
 			$remote_bytes = $recovered_bytes;
 		}
 		$remote_status = 200;
+		foreach ( [
+			'quoted-noise' => '<script data-note="type=module nonce=fixture integrity=invalid" src="https://site.test/native.js"></script>',
+			'adjacent-classic' => '<script data-note="fixture"src="https://site.test/native.js"></script>',
+		] as $name => $tag ) {
+			foreach ( [ 'minify' => $minify, 'combine' => $new_combine() ] as $mode => $owner ) {
+				$output = $owner->optimize( $document( $tag ) );
+				minify_check( false !== strpos( $output, 'data-minify="1"' ) && false === strpos( $output, 'src="https://site.test/native.js"' ), $name . ': ' . $mode . ' keeps classic optimization for real source attributes' );
+				$export['pages'][ 'classic-self-csp-' . $name . '-' . $mode ] = $output;
+			}
+		}
 		file_put_contents( $fixture . '/empty.js', '' );
 		$mixed = $document( '<script src="https://site.test/native.js"></script><script src="https://site.test/empty.js"></script>' );
 		$output = $new_combine()->optimize( $mixed );

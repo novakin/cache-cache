@@ -29,13 +29,22 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body });
     });
     await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
-    if (name.startsWith('module-')) {
+    if (name.startsWith('defer-module-')) {
+      await page.waitForFunction(() => window.nativeDeferModuleValue === 42);
+      assert.equal(await page.evaluate(() => window.nativeDeferModuleValue), 42, `${name}: original static module import executes`); checks++;
+    } else if (name.startsWith('defer-json')) {
+      assert.deepEqual(await page.locator('#defer-data').evaluate((script) => JSON.parse(script.textContent)), { example: 'jQuery' }, `${name}: original data block remains valid JSON`); checks++;
+    } else if (name.startsWith('defer-classic-')) {
+      assert.equal(await page.evaluate(() => window.nativeDeferClassicRuns), 1, `${name}: classic jQuery callback executes once after DOMContentLoaded`); checks++;
+    } else if (name.startsWith('module-')) {
       await page.waitForFunction(() => window.nativeModuleValue === 42);
       assert.equal(await page.locator('script[type="module"]').count(), 1, `${name}: original module type remains`); checks++;
       assert.equal(await page.evaluate(() => window.nativeModuleValue), 42, `${name}: relative module import executes from its original URL`); checks++;
+      assert.equal(await page.locator('script[type="module"]').getAttribute('src'), 'https://remote.test/modules/app.js', `${name}: original module URL remains`); checks++;
     } else if (name.startsWith('protected-')) {
       await page.waitForFunction(() => window.nativeRemoteRuns === 1);
       assert.equal(await page.evaluate(() => window.nativeRemoteRuns), 1, `${name}: protected original executes once`); checks++;
+      assert.equal(await page.locator('script[src]').getAttribute('src'), 'https://remote.test/protected.js', `${name}: protected source URL remains`); checks++;
       if (name.includes('nonce')) {
         assert.equal(await page.locator('script[nonce]').evaluate((script) => script.nonce), name.includes('nonce-padded') ? 'fixture=' : 'fixture', `${name}: CSP nonce remains on original script`); checks++;
       } else {
