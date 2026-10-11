@@ -151,13 +151,17 @@ class WPML implements Subscriber_Interface {
 	/**
 	 * Reset cache when changing the option.
 	 *
-	 * @param array $new new configurations.
-	 * @param array $old old configurations.
+	 * @param mixed $new New option value.
+	 * @param mixed $old Previous option value, or false when absent.
 	 *
-	 * @return array
+	 * @return mixed Unchanged new option value.
 	 */
-	public function on_change_directory_for_default_language_clean_cache( array $new, array $old ): array { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.newFound
-		if ( ! key_exists( 'urls', $old ) || ! key_exists( 'directory_for_default_language', $old['urls'] ) || ! key_exists( 'urls', $new ) || ! key_exists( 'directory_for_default_language', $new['urls'] ) || $new['urls']['directory_for_default_language'] === $old['urls']['directory_for_default_language'] ) {
+	public function on_change_directory_for_default_language_clean_cache( $new, $old ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.newFound
+		if ( ! is_array( $old ) || ! is_array( $new ) || ! is_array( $old['urls'] ?? null ) || ! is_array( $new['urls'] ?? null ) ) {
+			return $new;
+		}
+
+		if ( ! key_exists( 'directory_for_default_language', $old['urls'] ) || ! key_exists( 'directory_for_default_language', $new['urls'] ) || $new['urls']['directory_for_default_language'] === $old['urls']['directory_for_default_language'] ) {
 			return $new;
 		}
 
@@ -177,7 +181,7 @@ class WPML implements Subscriber_Interface {
 	 */
 	public function maybe_clear_on_disable(): void {
 		$option = get_option( 'icl_sitepress_settings' );
-		if ( ! $option || ! is_array( $option ) || ! key_exists( 'urls', $option ) || ! key_exists( 'directory_for_default_language', $option['urls'] ) || false === $option['urls']['directory_for_default_language'] ) {
+		if ( ! is_array( $option ) || ! is_array( $option['urls'] ?? null ) || ! key_exists( 'directory_for_default_language', $option['urls'] ) || false === $option['urls']['directory_for_default_language'] ) {
 			return;
 		}
 
