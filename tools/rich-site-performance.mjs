@@ -8,6 +8,8 @@ import { createServer as createHttpServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import lighthouse, { Audit, Gatherer, generateReport } from 'lighthouse';
+import desktopConfig from 'lighthouse/core/config/desktop-config.js';
+import { defaultSettings } from 'lighthouse/core/config/constants.js';
 
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
 assert(nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 19), 'Lighthouse requires Node 22.19 or later.');
@@ -193,17 +195,24 @@ try {
             if (!report.networkBoundary) report.networkBoundary = await proveNetworkBoundary(browser, proxy);
             await browser.newPage();
             report.browser = browser.version();
+            const deviceSettings = device === 'desktop' ? desktopConfig.settings : defaultSettings;
             const config = {
               extends: 'lighthouse:default',
-              settings: { disableFullPageScreenshot: true, skipAudits: ['screenshot-thumbnails', 'final-screenshot'] },
+              settings: { ...(device === 'desktop' ? desktopConfig.settings : {}), disableFullPageScreenshot: true, skipAudits: ['screenshot-thumbnails', 'final-screenshot'] },
               artifacts: [{ id: 'OwnedNetwork', gatherer: { implementation: OwnedNetwork } }],
               audits: [{ implementation: OwnedNetworkAudit }],
               categories: { owned: { title: 'Disposable ownership', auditRefs: [{ id: 'owned-network', weight: 1 }] } },
             };
-            if (device === 'desktop') Object.assign(config.settings, { formFactor: 'desktop', screenEmulation: { mobile: false, width: 1365, height: 900, deviceScaleFactor: 1, disabled: false }, throttling: { rttMs: 40, throughputKbps: 10240, cpuSlowdownMultiplier: 1, requestLatencyMs: 0, downloadThroughputKbps: 0, uploadThroughputKbps: 0 } });
             measuredUrl = url;
             const result = await lighthouse(url, { port, logLevel: 'error', output: ['json', 'html'], onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo', 'owned'], enableErrorReporting: false }, config);
             assert(result?.lhr && !result.lhr.runtimeError, result?.lhr.runtimeError?.message || 'Lighthouse report missing.');
+            for (const key of ['formFactor', 'screenEmulation', 'throttling', 'emulatedUserAgent']) {
+              assert.deepEqual(result.lhr.configSettings[key], deviceSettings[key], `Measured ${device} ${key} must match the native Lighthouse preset.`);
+            }
+            assert.equal(result.lhr.configSettings.throttlingMethod, 'simulate');
+            // Lighthouse substitutes the host Chrome milestone in its native emulated UA.
+            const expectedUserAgent = deviceSettings.emulatedUserAgent.replace(/(Chrome\/)[\d.]+/, `$1${browser.version().split('.')[0]}.0.0.0`);
+            assert.equal(result.lhr.environment.networkUserAgent, expectedUserAgent, `Measured ${device} network user agent must match its preset.`);
             delete result.lhr.fullPageScreenshot;
             delete result.lhr.audits['screenshot-thumbnails'];
             delete result.lhr.audits['final-screenshot'];
@@ -215,7 +224,7 @@ try {
             assert(Object.values(scores).every(Number.isFinite), 'All requested category scores required.');
             const metrics = Object.fromEntries(['first-contentful-paint', 'largest-contentful-paint', 'total-blocking-time', 'cumulative-layout-shift', 'speed-index'].map((key) => [key, result.lhr.audits[key].numericValue]));
             assert(Object.values(metrics).every(Number.isFinite), 'Numeric lab metrics required.');
-            report.samples.push({ profile, page: spec.name, device, iteration, scores, metrics, settings: current.profile, firstHttp: first, secondHttp: second, measuredCache: result.lhr.audits['owned-network'].details.main, lighthouseVersion: result.lhr.lighthouseVersion, settingsUsed: result.lhr.configSettings, report: `${name}.html` });
+            report.samples.push({ profile, page: spec.name, device, iteration, scores, metrics, settings: current.profile, firstHttp: first, secondHttp: second, measuredCache: result.lhr.audits['owned-network'].details.main, lighthouseVersion: result.lhr.lighthouseVersion, settingsUsed: result.lhr.configSettings, networkUserAgent: result.lhr.environment.networkUserAgent, report: `${name}.html` });
             process.stdout.write(`PASS Lighthouse ${name}; performance ${Math.round(scores.performance * 100)}\n`);
           } finally { await browser.close(); }
         }

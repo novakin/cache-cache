@@ -47,7 +47,11 @@ $rich_theme_path = WP_CONTENT_DIR . '/themes/cache-cache-rich-site';
 $rich_checks = 0;
 function rich_check( $condition, $message ) {
 	global $rich_checks;
-	if ( ! $condition ) { throw new RuntimeException( 'FAIL rich fixture: ' . $message ); }
+	if ( ! $condition ) {
+		// Keep fixture-owned labels visible when WordPress disables fatal output.
+		fwrite( STDERR, 'FAIL rich fixture: ' . $message . "\n" );
+		throw new RuntimeException( 'FAIL rich fixture: ' . $message );
+	}
 	++$rich_checks;
 }
 function rich_json_write( $path, array $data, $private = false ) {
@@ -267,7 +271,8 @@ if ( 'cleanup' === $rich_phase ) {
 	switch_theme( $state['original']['theme'] );
 	update_option( 'show_on_front', $state['original']['show_on_front'] );
 	update_option( 'page_on_front', $state['original']['page_on_front'] );
-	rich_check( get_option( 'show_on_front' ) === $state['original']['show_on_front'] && get_option( 'page_on_front' ) === $state['original']['page_on_front'], 'original front-page settings restored' );
+	// Database reads can return an ID string; update_option caches its sanitized integer.
+	rich_check( get_option( 'show_on_front' ) === $state['original']['show_on_front'] && (int) get_option( 'page_on_front' ) === (int) $state['original']['page_on_front'], 'original front-page settings restored' );
 	foreach ( array_merge( $state['posts'], $state['pages'] ) as $id ) {
 		rich_check( '1' === get_post_meta( $id, '_rich_fixture_owned', true ), 'cleanup post belongs to fixture' );
 		rich_check( (bool) wp_delete_post( $id, true ), 'owned post removed natively' );
