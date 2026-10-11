@@ -29,7 +29,12 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body });
     });
     await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
-    if (name.startsWith('defer-module-')) {
+    if (name === 'alternate-port-minify') {
+      await page.waitForFunction(() => window.nativePortIdentity === 'alternate-service');
+      assert.equal(await page.evaluate(() => window.nativePortIdentity), 'alternate-service', 'alternate-port generated JS executes its declared service bytes'); checks++;
+      assert.equal(await page.locator('script[data-minify]').count(), 1, 'alternate-port resource retains optimized delivery'); checks++;
+      assert.ok((await page.locator('script[src]').getAttribute('src')).includes('/external/'), 'alternate-port optimized identity stays separate from canonical-local assets'); checks++;
+    } else if (name.startsWith('defer-module-')) {
       await page.waitForFunction(() => window.nativeDeferModuleValue === 42);
       assert.equal(await page.evaluate(() => window.nativeDeferModuleValue), 42, `${name}: original static module import executes`); checks++;
     } else if (name.startsWith('defer-json')) {
