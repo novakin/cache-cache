@@ -2352,6 +2352,26 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-wpml-settings-persistence",
+      "path": "tests/wordpress-wpml-settings-persistence.php",
+      "purpose": "Native WordPress option creation and malformed old/new values preserve the actual WPML callback payload without TypeError.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Creates/removes the otherwise absent WPML option on a site without WPML; no providers, preload reset or cache purge expected.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     }
   ]
 }
