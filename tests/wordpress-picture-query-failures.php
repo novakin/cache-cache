@@ -76,7 +76,10 @@ try {
 	$check( $generator instanceof NoobRocket\Engine\Media\Picture\Generator && has_action( 'noobrocket_generate_images', [ $generator, 'process_batch' ] ) !== false, 'production container and cron hook supply the registered image owner' );
 	$check( $normalize( ( new ReflectionClass( $generator ) )->getFileName() ) === $normalize( $installed . $owner_file ), 'native image owner loads from the selected copied plugin' );
 	$check( (bool) array_filter( $generator->capabilities() ), 'native image editor supports an actual modern format' );
-	$check( 0 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_noobrocket_image_pending'" ), 'disposable site has no unrelated pending image work' );
+	$existing = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_mime_type IN ('image/jpeg','image/png')" );
+	$check( null !== $existing && '' === $wpdb->last_error && 0 === (int) $existing, 'disposable site has no existing eligible image attachments' );
+	$pending = $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_noobrocket_image_pending'" );
+	$check( null !== $pending && '' === $wpdb->last_error && 0 === (int) $pending, 'disposable site has no unrelated pending image work' );
 	foreach ( [ 1 => 'initial pending', 2 => 'library scan', 3 => 'post-scan pending', 4 => 'completion pending' ] as $stage => $label ) {
 		$id = $make_attachment( 'r' . $stage, 79 + $stage );
 		if ( 1 === $stage ) { update_post_meta( $id, '_noobrocket_image_pending', 2 ); }
