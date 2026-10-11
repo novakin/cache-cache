@@ -104,6 +104,7 @@ async function createDenyingProxy() {
   });
   const denySocket = (kind, request, socket) => {
     requests.push({ kind, target: request.url });
+    socket.on('error', () => {}); // A denied Chrome tunnel can close before the refusal arrives.
     socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
   };
   server.on('connect', (request, socket) => denySocket('connect', request, socket));

@@ -10,6 +10,7 @@ add_action( 'wp_enqueue_scripts', static function () {
 	$base = get_stylesheet_directory_uri() . '/assets/';
 	wp_enqueue_style( 'rich-base', $base . 'base.css', [], '1.0.0' );
 	wp_enqueue_style( 'rich-components', $base . 'components.css', [ 'rich-base' ], '1.0.0' );
+	wp_enqueue_style( 'rich-background', $base . 'generated-background.css', [ 'rich-components' ], '1.0.0' );
 	wp_enqueue_script( 'rich-core', $base . 'core.js', [], '1.0.0', false );
 	wp_enqueue_script( 'rich-interactions', $base . 'interactions.js', [ 'rich-core' ], '1.0.0', true );
 	wp_enqueue_script_module( 'rich-module', $base . 'module.js', [], '1.0.0' );

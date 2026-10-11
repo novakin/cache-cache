@@ -179,7 +179,8 @@ async function adminSaveAndCancel() {
     check(rejected[0]?.status() === 403, 'Invalid native settings nonce refuses mutation.');
     await page.goto(`${origin}/wp-admin/options-general.php?page=noobrocket#file_optimization`, { waitUntil: 'networkidle' });
     check(await checkbox.isChecked() === original, 'Refused native settings write leaves persisted value unchanged.');
-    check(errors.length === 0, 'Native save/cancel/rejection flow has no JavaScript exceptions.');
+    report.adminMutationErrors = errors;
+    check(errors.length === 0, `Native save/cancel/rejection flow has no JavaScript exceptions: ${errors.join('; ')}`);
   } finally { await target.close(); }
 }
 async function readyScripts(page) {
@@ -255,7 +256,7 @@ async function frontendMatrix(profile) {
           check(errors.length === 0, `${profile}/${width}/${name}: frontend has no JavaScript exceptions.`);
           const source = await response.text();
           samples.push({ name, width, status: response.status(), belowImages: await images.count(), backgroundVisible,
-            hasOptimizedAsset: /\/cache\/min\//.test(source), hasLazyMarkup: /data-(?:lazy-src|noobrocket-lazy-bg|bg)/.test(source),
+            hasOptimizedAsset: /\/cache\/noobrocket\/min\//.test(source), hasLazyMarkup: /data-(?:lazy-src|noobrocket-lazy-bg|bg)/.test(source),
             moduleOriginalUrlRetained: /module\.js/.test(source), jsonldRetained: true, consoleErrors: errors.length });
         } finally { await page.close(); }
       }
@@ -328,7 +329,7 @@ async function responseBoundaries() {
     const page = await target.newPage();
     for (const name of ['Private', 'NoStore', 'SetCookie', 'Missing', 'Search']) {
       const response = await page.goto(pageByName(name).url, { waitUntil: 'networkidle' });
-      const headers = response.headers();
+      const headers = await response.allHeaders();
       check(!/\bhit\b/i.test(headers['cache-status'] || ''), `${name}: excluded/private/action state is not delivered from shared cache.`);
       if (['Private', 'Missing'].includes(name)) check(response.status() === 404, `${name}: anonymous native response remains unavailable.`);
       if (['NoStore', 'SetCookie'].includes(name)) check(/private|no-store/i.test(headers['cache-control'] || ''), `${name}: native privacy header is retained.`);

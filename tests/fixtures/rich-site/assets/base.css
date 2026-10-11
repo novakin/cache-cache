@@ -1,6 +1,5 @@
 @import url("font.css");
 @import url("layout.css");
-@import url("generated-background.css");
 :root { --rich-ink: #243d39; --rich-paper: #f4f1e9; --rich-accent: #bb4b2c; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--rich-paper); color: var(--rich-ink); font: 18px/1.65 RichFixture, system-ui, sans-serif; }
