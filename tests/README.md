@@ -78,6 +78,8 @@ HTTP/stale/local CSS fixtures additionally require the configured loopback serve
 
 ## Browser and server proof
 
+`fast --fixture wordpress-minify-boundaries` invokes the actual minify/combine and dynamic-resource owners with modeled WordPress/HTTP boundaries and owned files. Dynamic CSS/JS cases reject 404, 500, transport and empty-200 responses without publishing primary/gzip files, retry the same source with healthy integer/string-200 responses, and reuse readable healthy files without another fetch. Source/context exclusions and filename/delivery filters retain their contracts. `browser --fixture minify-boundaries-browser` loads those actual owner URLs/bytes with per-phase intercepted status/MIME responses at desktop and narrow widths; failed CSS/JS never applies, recovered/warm bytes do. Both require PHP mbstring for the shipped CSS path converter, failing before filesystem work when absent. No WordPress bootstrap, real HTTP transport, production settings or browser network-cache reuse is claimed.
+
 ```sh
 npm ci --prefix noobrocket/local-css
 python tools/check.py browser --chromium /absolute/path/to/chromium --wordpress /absolute/path/to/wordpress-core

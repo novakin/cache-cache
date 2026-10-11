@@ -298,7 +298,11 @@ class CacheDynamicResource extends AbstractOptimization implements Subscriber_In
 	 * @return string|bool
 	 */
 	protected function get_url_content( $url ) {
-		$content = wp_remote_retrieve_body( wp_remote_get( $url ) );
+		$response = wp_remote_get( $url );
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return false;
+		}
+		$content = wp_remote_retrieve_body( $response );
 
 		if ( ! $content ) {
 			return false;

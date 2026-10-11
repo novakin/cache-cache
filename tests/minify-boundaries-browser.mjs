@@ -86,7 +86,39 @@ try {
     assert.deepEqual(errors, [], `${name}: no JavaScript errors`); checks++;
     await page.close();
   }
-  console.log(`PASS: native minifier browser delivery (${checks} assertions; generated classic scripts and original module imports).`);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    for (const scenario of fixture.dynamic_resources) {
+      const { name, format, phase, html, requested_url, responses } = scenario;
+      const label = `${name}/${phase}/${viewport.width}`;
+      const page = await browser.newPage({ viewport });
+      const requested = [];
+      const unexpected = [];
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.route('**/*', async (route) => {
+        const url = route.request().url();
+        if (url === 'https://site.test/fixture.html') return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+        requested.push(url);
+        const response = responses[url];
+        if (!response) { unexpected.push(url); return route.abort(); }
+        if (response.status === 'transport') return route.abort('failed');
+        return route.fulfill(response);
+      });
+      await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
+      assert.deepEqual(requested, [requested_url], `${label}: browser loads exactly the actual owner URL`); checks++;
+      assert.deepEqual(unexpected, [], `${label}: no unowned network request`); checks++;
+      if (format === 'js') {
+        assert.deepEqual(await page.evaluate(() => [window.dynamicErrorApplied ?? false, window.dynamicHealthyRuns ?? 0]), [false, phase === 'failure' ? 0 : 1], `${label}: failed bytes never execute and healthy delivery executes once`); checks++;
+      } else {
+        const style = await page.locator('#dynamic').evaluate((element) => ({ color: getComputedStyle(element).color, width: getComputedStyle(element).width }));
+        assert.equal(style.color, phase === 'failure' ? 'rgb(0, 0, 0)' : 'rgb(0, 128, 0)', `${label}: failed CSS never applies and healthy CSS applies`); checks++;
+        if (phase !== 'failure') { assert.equal(style.width, '64px', `${label}: generated CSS retains healthy dimensions`); checks++; }
+      }
+      assert.deepEqual(errors, [], `${label}: no JavaScript errors`); checks++;
+      await page.close();
+    }
+  }
+  console.log(`PASS: actual optimizer browser delivery (${checks} assertions; generated/retained JS and dynamic CSS/JS, intercepted HTTP).`);
 } finally {
   await browser.close();
 }

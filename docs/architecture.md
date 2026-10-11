@@ -77,6 +77,7 @@ The shared settings JavaScript, admin styles, views and enqueues own Save/Cancel
 | Area | Owner and boundary |
 | --- | --- |
 | Buffer transformations | `inc/Engine/Optimization/Buffer/`, `Minify/`, `DelayJS/`, `DeferJS/`; preserve original output when selected resources cannot be safely transformed. |
+| PHP-generated static CSS/JS | `inc/Engine/Optimization/CacheDynamicResource.php`; existing loader source filters admit local PHP sources without meaningful query arguments. Cold fetches publish only nonempty HTTP 200 bodies; transport/non-200 failures preserve the source URL and can retry. Readable cached files retain existing reuse until purge. |
 | Local critical/used CSS | `inc/Engine/Optimization/LocalCSS/Jobs.php`, `Frontend.php`, `Subscriber.php`, `Diagnostics.php`; existing per-site used-CSS table holds separately named local queues. Fingerprints/claims/leases reject stale publication. |
 | Same-server CSS execution | `noobrocket/local-css/worker.mjs`, `generator.mjs` and PHP bridge; unprivileged Chromium samples public pages. Explicit origins constrain browser requests. See [worker setup](../noobrocket/local-css/README.md). |
 | Modern images | `inc/Engine/Media/Picture/Generator.php` and `Subscriber.php`; bounded cron generation with owned outputs and AVIF/WebP/original picture delivery. Original files remain available. |
