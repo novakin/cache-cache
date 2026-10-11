@@ -27,6 +27,9 @@ if ( $worker ) {
 	$_SERVER['SERVER_PORT'] = $target['port'] ?? 80;
 	$_SERVER['REQUEST_URI'] = $target['path'];
 }
+// Match the native admin context before core parses PHP_SELF, including on WordPress 5.8.
+$_SERVER['SCRIPT_NAME'] = rtrim( $_SERVER['REQUEST_URI'], '/' ) . '/wp-admin/index.php';
+$_SERVER['PHP_SELF'] = $_SERVER['SCRIPT_NAME'];
 require_once $wordpress . '/wp-includes/plugin.php';
 add_filter( 'noobrocket_generate_advanced_cache_file', '__return_false' );
 add_filter( 'noobrocket_disable_htaccess', '__return_true' );
