@@ -74,6 +74,19 @@
       "minimum_wordpress": "5.8"
     },
     {
+      "name": "cache-secondary-purge-boundaries",
+      "path": "tests/cache-secondary-purge-boundaries.php",
+      "purpose": "Registered content purge stays within exact host/user buckets and agrees with native writer URL paths, variants and link ownership.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": ["php", "wordpress-core"],
+      "mutation": "Native core hooks/parser/filesystem and actual writer paths with owned temporary files and no-op selection controls; no site bootstrap, database or HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
       "name": "inline-background-lazyload",
       "path": "tests/inline-background-lazyload.php",
       "purpose": "Actual inline-background parser preserves layered, repeated and unsupported CSS while retaining single URL delivery, exclusions, real attributes and the Avada filter.",
