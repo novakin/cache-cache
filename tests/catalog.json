@@ -8,6 +8,30 @@
   ],
   "fixtures": [
     {
+      "name": "picture-literal-replacement",
+      "path": "tests/picture-literal-replacement.php",
+      "purpose": "Actual nonnative picture replacement preserves dollar0-dollar9, backslashes and alt/title while retaining responsive sources, noscript, exclusions and ordinary image delivery.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Read-only bundled owner with modeled filters; no WordPress bootstrap or writes.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "picture-literal-replacement-browser",
+      "path": "tests/picture-literal-replacement-browser.mjs",
+      "purpose": "Actual picture output parses literal attributes and loads responsive/noscript images using both shipped lazyload runtime modes at desktop/mobile sizes.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": ["node22", "php", "chromium", "worker-dependencies"],
+      "mutation": "Owned Chromium profiles and intercepted image responses only; no WordPress bootstrap or providers.",
+      "args": ["{php}", "{chromium}"],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "stylesheet-background-selectors",
       "path": "tests/stylesheet-background-selectors.php",
       "purpose": "Actual formatter preserves complete functional, quoted, escaped and bracket selector lists before deduplication, with ordinary pseudo removal and malformed-input controls.",

@@ -490,7 +490,13 @@ class Image {
 
 			$safe_img = str_replace( '/', '\/', preg_quote( $img[0], '#' ) );
 
-			$new_html = preg_replace( '#<noscript[^>]*>.*' . $safe_img . '.*<\/noscript>(*SKIP)(*FAIL)|' . $safe_img . '#i', $img_lazy, $html );
+			$new_html = preg_replace_callback(
+				'#<noscript[^>]*>.*' . $safe_img . '.*<\/noscript>(*SKIP)(*FAIL)|' . $safe_img . '#i',
+				static function () use ( $img_lazy ) {
+					return $img_lazy;
+				},
+				$html
+			);
 
 			if ( ! $new_html ) {
 				continue;
