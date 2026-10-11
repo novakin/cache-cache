@@ -174,6 +174,12 @@ try {
 	foreach ( new DirectoryIterator( $owned ) as $file ) { if ( ! $file->isDot() ) { if ( ! $file->isFile() ) { throw new RuntimeException( 'Unexpected entry in owned config root.' ); } unlink( $file->getPathname() ); } }
 	rmdir( $owned );
 }
-$check( $debug_before === ( is_file( $debug_file ) ? file_get_contents( $debug_file ) : '' ), 'native operations add no WordPress database or PHP diagnostics' );
+$debug_after = is_file( $debug_file ) ? file_get_contents( $debug_file ) : '';
+if ( $debug_before !== $debug_after ) {
+	$delta = substr( $debug_after, 0, strlen( $debug_before ) ) === $debug_before ? substr( $debug_after, strlen( $debug_before ) ) : $debug_after;
+	$lines = preg_split( '/\r\n|\r|\n/', substr( $delta, 0, 4096 ) );
+	fwrite( STDERR, "Native config diagnostic delta (" . strlen( $delta ) . " bytes; first 20 lines, at most 4096 bytes):\n" . implode( "\n", array_slice( $lines, 0, 20 ) ) . "\n" );
+}
+$check( $debug_before === $debug_after, 'native operations add no WordPress database or PHP diagnostics' );
 $completed = true;
 echo 'PASS native config alias retention: ', $checks, " checks\n";
