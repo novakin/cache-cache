@@ -13,10 +13,11 @@ $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['REQUEST_METHOD'] = 'POST';
 if ( $reader ) { $_SERVER = array_merge( $_SERVER, $input['server'] ); $_COOKIE = $input['cookies']; }
 $completed = false;
+set_exception_handler( static function ( $error ) { fwrite( STDERR, 'FAIL native cookie fixture: ' . $error->getMessage() . "\n" ); exit( 2 ); } );
 register_shutdown_function( static function () use ( &$completed ) { if ( ! $completed ) { fwrite( STDERR, "FAIL: native cookie fixture did not complete.\n" ); exit( 2 ); } } );
 require_once $wordpress . '/wp-includes/plugin.php';
 // A request retains its initial early configuration; generate then initialize this reader once.
-add_filter( 'enable_loading_advanced_cache_dropin', '__return_false' );
+add_filter( 'enable_loading_advanced_cache_dropin', static function () { return false; } );
 require $wordpress . '/wp-load.php';
 if ( $reader ) {
 	$config = new NoobRocket\Buffer\Config( [ 'config_dir_path' => NOOBROCKET_CONFIG_PATH ] );
