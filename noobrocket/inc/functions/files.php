@@ -923,6 +923,11 @@ function noobrocket_clean_home_feeds() {
  * @param WP_Filesystem_Direct|null $filesystem Optional. Instance of filesystem handler.
  */
 function noobrocket_clean_domain( $lang = '', $filesystem = null ) {
+	// This public helper is exposed before the remaining purge dependencies load.
+	if ( ! function_exists( 'noobrocket_is_importing' ) || ! function_exists( 'get_noobrocket_i18n_uri' ) ) {
+		return false;
+	}
+
 	if ( did_action( 'noobrocket_after_clean_domain' ) ) {
 		return;
 	}
