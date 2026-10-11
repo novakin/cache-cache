@@ -20,6 +20,7 @@ function purge_check( $condition, string $message ): void {
 }
 function apply_filters( $hook, $value, ...$args ) { return 'noobrocket_url_no_dots' === $hook ? $GLOBALS['no_dots'] : $value; }
 function do_action( $hook, ...$args ) { $GLOBALS['actions'][] = [ $hook, $args ]; }
+function did_action( $hook ) { return count( array_filter( $GLOBALS['actions'], static function ( $action ) use ( $hook ) { return $hook === $action[0]; } ) ); }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
 function wp_normalize_path( $path ) { return str_replace( '\\', '/', $path ); }
 function noobrocket_get_constant( $name, $default = null ) { return defined( $name ) ? constant( $name ) : $default; }
@@ -62,6 +63,9 @@ function purge_url( string $path, $filesystem = null, bool $actions = false ): b
 
 try {
 	$sentinel = purge_file( 'outside-owned/sentinel.txt' );
+	purge_check( false === noobrocket_clean_domain( '', $filesystem ) && is_file( $sentinel ) && [] === $actions, 'early domain purge declines without helpers, hooks or deletion' );
+	function noobrocket_is_importing() { return ! empty( $GLOBALS['domain_importing'] ); }
+	purge_check( false === noobrocket_clean_domain( '', $filesystem ), 'partial API initialization still declines until i18n loads' );
 	purge_file( 'pages/example.test/keep/index.html' );
 	$ability = new NoobRocket\Engine\Cache\Abilities\ClearUrlCache();
 	$url = 'https://example.test/%2e%2e/%2e%2e/outside-owned/';
@@ -155,6 +159,18 @@ try {
 	}
 	noobrocket_rrmdir( $preserve_parent, [ $preserve_pattern ], $filesystem );
 	purge_check( is_file( $preserved ) && ! is_file( $removed ), 'recursive helper retains preserved directories' );
+	function get_noobrocket_i18n_uri() { return [ 'https://example.test/domain-ready/' ]; }
+	function get_noobrocket_i18n_to_preserve( $lang, $path ) { return []; }
+	$domain_file = purge_file( 'pages/example.test/domain-ready/index.html' );
+	_noobrocket_get_cache_dirs( '', '', true );
+	$GLOBALS['domain_importing'] = true;
+	noobrocket_clean_domain( '', $filesystem );
+	purge_check( is_file( $domain_file ) && ! did_action( 'noobrocket_after_clean_domain' ), 'importing preserves cache and completion state' );
+	$GLOBALS['domain_importing'] = false;
+	purge_check( ! did_action( 'noobrocket_loaded' ) && true === noobrocket_clean_domain( '', $filesystem ) && ! is_file( $domain_file ), 'initialized dependencies permit purge before final loaded hook' );
+	$domain_file = purge_file( 'pages/example.test/domain-ready/index.html' );
+	noobrocket_clean_domain( '', $filesystem );
+	purge_check( is_file( $domain_file ) && 1 === did_action( 'noobrocket_after_clean_domain' ), 'existing repeated-purge guard remains intact' );
 	echo 'PASS cache purge boundaries: ', $checks, " checks\n";
 } finally {
 	$resolved = realpath( $root );
