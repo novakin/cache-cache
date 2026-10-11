@@ -74,7 +74,7 @@ $enabled = true;
 $enable_backgrounds = static function () use ( &$enabled ) { return $enabled; };
 $buffer = null;
 $check = static function ( $condition, $message ) use ( &$checks ) {
-	if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); }
+	if ( ! $condition ) { fwrite( STDERR, 'FAIL: ' . $message . "\n" ); throw new RuntimeException( 'FAIL: ' . $message ); }
 	++$checks;
 };
 $stylesheet = static function ( $html ) {
@@ -109,6 +109,8 @@ try {
 	$owned_buffer->add_filter( 'noobrocket_buffer', [ $owner, 'maybe_replace_css_images' ], 110000, 1 );
 	$GLOBALS['wp_filter']['noobrocket_buffer'] = $owned_buffer;
 	$html = '<!doctype html><html><HEAD><link rel="stylesheet" href="' . $source_url . '?ver=7&amp;theme=light"><style>.inline{background-image:url(https://background-fixture.invalid/inline.png)}</style><!-- </head> --><script>const example="</head>";</script></HEAD><body><div class="hero"></div><div class="inline"></div></body></html>';
+	// Native eligibility initializes an empty cache directory; admission must preserve its contents.
+	$before_csp_files = iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) );
 	foreach ( [
 		'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
 		'<META HTTP-EQUIV=content-security-policy content="default-src \'self\'">',
@@ -118,7 +120,8 @@ try {
 		'<noscript><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></noscript>',
 	] as $meta ) {
 		$csp_html = str_replace( '<HEAD>', '<HEAD>' . $meta, $html );
-		$check( apply_filters( 'noobrocket_buffer', $csp_html ) === $csp_html && $requests === 0 && ! is_dir( $cache->get_root_path() ), 'registered native pipeline preserves enforcing meta CSP before any fetch or publication' );
+		$check( apply_filters( 'noobrocket_buffer', $csp_html ) === $csp_html && $requests === 0, 'registered native pipeline preserves enforcing meta CSP before any fetch' );
+		$check( $before_csp_files === iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) ), 'registered native enforcing meta CSP publishes no CSS or mapping' );
 	}
 	$first = apply_filters( 'noobrocket_buffer', $html );
 	$first_url = $stylesheet( $first );
