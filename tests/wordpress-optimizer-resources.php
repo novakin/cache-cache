@@ -178,12 +178,28 @@ namespace {
 	}
 	foreach ( [
 		'<script type=application/ld+json>{"kind":"fixture"}</script>',
+		'<script type="application/ld+json"/ id="fixture-data">{"kind":"fixture"}</script>',
+		'<script type="application/ld+json"id="fixture-data">{"kind":"fixture"}</script>',
+		'<script id="fixture-data"type="application/ld+json">{"kind":"fixture"}</script>',
+		'<script type="application/ld+json" type="text/javascript">{"kind":"fixture"}</script>',
+		'<script type="text/javascript" type="application/ld+json">{"kind":"fixture"}</script>',
 		'<script type="application&#47;ld+json">{"kind":"fixture"}</script>',
 	] as $original ) {
 		resource_check( false !== strpos( $subscriber->delay_js( '<html><head>' . $original . '</head></html>' ), $original ), 'non-JavaScript types retain their original tag and contents' );
 	}
 	$transformed = $subscriber->delay_js( '<html><head><script type src=/app.js></script></head></html>' );
 	resource_check( false !== strpos( $transformed, 'data-noobrocket-src=/app.js' ) && false === strpos( $transformed, 'data-noobrocket-type' ), 'bare empty type does not leave a duplicate executable type attribute' );
+	foreach ( [
+		'<script type="module"/ src="/app.js"></script>',
+		'<script type="module"src="/app.js"></script>',
+		'<script src="/app.js"type="module"></script>',
+	] as $original ) {
+		$transformed = $subscriber->delay_js( '<html><head>' . $original . '</head></html>' );
+		resource_check( false !== strpos( $transformed, 'data-noobrocket-type="module"' ) && false !== strpos( $transformed, 'data-noobrocket-src="/app.js"' ), 'module attributes keep their native type and source across slash/adjacent boundaries' );
+	}
+	$original = '<script data-note="type=application/ld+json src=/wrong.js >"src="/app.js?a=1&amp;b=2" id="exact-fixture"></script>';
+	$transformed = $subscriber->delay_js( '<html><head>' . $original . '</head></html>' );
+	resource_check( false !== strpos( $transformed, 'data-note="type=application/ld+json src=/wrong.js >"data-noobrocket-src="/app.js?a=1&amp;b=2" id="exact-fixture"' ), 'quoted noise and original value/adjacent bytes survive source renaming' );
 	$runtime_version = '-empty';
 	$filesystem->files[ NOOBROCKET_PATH . 'assets/js/lazyload-scripts-empty.min.js' ] = '';
 	resource_check( $report_only === $subscriber->delay_js( $report_only ), 'unusable selected runtime preserves original scripts even when default runtime exists' );

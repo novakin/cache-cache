@@ -33,9 +33,11 @@ try {
       await page.waitForFunction(() => window.nativeModuleValue === 42);
       assert.equal(await page.locator('script[type="module"]').count(), 1, `${name}: original module type remains`); checks++;
       assert.equal(await page.evaluate(() => window.nativeModuleValue), 42, `${name}: relative module import executes from its original URL`); checks++;
+      assert.equal(await page.locator('script[type="module"]').getAttribute('src'), 'https://remote.test/modules/app.js', `${name}: original module URL remains`); checks++;
     } else if (name.startsWith('protected-')) {
       await page.waitForFunction(() => window.nativeRemoteRuns === 1);
       assert.equal(await page.evaluate(() => window.nativeRemoteRuns), 1, `${name}: protected original executes once`); checks++;
+      assert.equal(await page.locator('script[src]').getAttribute('src'), 'https://remote.test/protected.js', `${name}: protected source URL remains`); checks++;
       if (name.includes('nonce')) {
         assert.equal(await page.locator('script[nonce]').evaluate((script) => script.nonce), name.includes('nonce-padded') ? 'fixture=' : 'fixture', `${name}: CSP nonce remains on original script`); checks++;
       } else {

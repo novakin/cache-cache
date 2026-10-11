@@ -5,6 +5,18 @@ namespace NoobRocket\Engine\Optimization;
 
 trait RegexTrait {
 	/**
+	 * Read complete attributes in source order, retaining original byte offsets.
+	 *
+	 * @param string $attributes Original opening-tag attributes.
+	 * @return array Attribute captures and their byte offsets.
+	 */
+	protected function get_html_attributes( string $attributes ): array {
+		$pattern = '/(?<name>[^\s"\'\/=<>`]+)(?:\s*=\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\s"\'<>`]+)))?/';
+		preg_match_all( $pattern, $attributes, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL );
+		return $matches;
+	}
+
+	/**
 	 * Locate an insertion boundary without matching tag-like comments, raw text or attributes.
 	 *
 	 * @param string $html HTML content.
