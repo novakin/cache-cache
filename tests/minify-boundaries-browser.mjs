@@ -34,6 +34,8 @@ try {
       assert.equal(await page.evaluate(() => window.nativeDeferModuleValue), 42, `${name}: original static module import executes`); checks++;
     } else if (name.startsWith('defer-json')) {
       assert.deepEqual(await page.locator('#defer-data').evaluate((script) => JSON.parse(script.textContent)), { example: 'jQuery' }, `${name}: original data block remains valid JSON`); checks++;
+    } else if (name.startsWith('defer-excluded-')) {
+      assert.deepEqual(await page.evaluate(() => [window.nativeDeferExcludedRuns, window.nativeDeferExcludedState]), [1, 'loading'], `${name}: protected classic executes immediately once`); checks++;
     } else if (name.startsWith('defer-classic-')) {
       assert.equal(await page.evaluate(() => window.nativeDeferClassicRuns), 1, `${name}: classic jQuery callback executes once after DOMContentLoaded`); checks++;
     } else if (name.startsWith('module-')) {
