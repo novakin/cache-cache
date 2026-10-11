@@ -29,6 +29,11 @@ define( 'WP_DISABLE_FATAL_ERROR_HANDLER', true );
 $_SERVER['HTTP_HOST'] = '127.0.0.1';
 $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['REQUEST_METHOD'] = 'POST';
+// Match the native admin context before core parses PHP_SELF, including on WordPress 5.8.
+$_SERVER['SCRIPT_NAME'] = rtrim( $_SERVER['REQUEST_URI'], '/' ) . '/wp-admin/index.php';
+$_SERVER['PHP_SELF'] = $_SERVER['SCRIPT_NAME'];
+$debug_file = $wordpress . '/wp-content/debug.log';
+$debug_before = is_file( $debug_file ) ? file_get_contents( $debug_file ) : '';
 require $wordpress . '/wp-load.php';
 $container = apply_filters( 'noobrocket_container', null );
 $queue = $container->get( 'preload_queue' );
@@ -104,5 +109,12 @@ try {
 	remove_filter( 'pre_option_noobrocket_preload_paused', $pause );
 	remove_filter( 'noobrocket_preload_exclude', $exclude, 10 );
 }
+$debug_after = is_file( $debug_file ) ? file_get_contents( $debug_file ) : '';
+if ( $debug_before !== $debug_after ) {
+	$delta = substr( $debug_after, 0, strlen( $debug_before ) ) === $debug_before ? substr( $debug_after, strlen( $debug_before ) ) : $debug_after;
+	$lines = preg_split( '/\r\n|\r|\n/', substr( $delta, 0, 4096 ) );
+	fwrite( STDERR, "Native sitemap diagnostic delta (" . strlen( $delta ) . " bytes; first 20 lines, at most 4096 bytes):\n" . implode( "\n", array_slice( $lines, 0, 20 ) ) . "\n" );
+}
+$check( $debug_before === $debug_after, 'native operations add no WordPress database or PHP diagnostics' );
 $complete = true;
 echo "PASS: $checks native sitemap traversal assertions; registered hook, actual scheduler/storage, six mocked requests, no external HTTP.\n";
