@@ -11,4 +11,3 @@ foreach ( [ 'locale', 'determine_locale' ] as $rich_locale_filter ) {
 		return in_array( $requested, [ 'en_US', 'fr_FR' ], true ) ? $requested : $locale;
 	} );
 }
-

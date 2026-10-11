@@ -33,4 +33,3 @@ $rich_hero = $rich_media[0] ?? 0;
 <?php endwhile; endif; ?>
 </main><footer><p>All data, controls and media are synthetic. Every request stays on the disposable site's origin.</p><?php get_search_form(); ?></footer>
 <?php wp_footer(); ?></body></html>
-

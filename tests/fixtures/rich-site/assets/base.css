@@ -15,4 +15,3 @@ img { display: block; width: 100%; height: auto; }
 .rich-skip:focus { top: 1rem; }
 .rich-unused-rule-one { border: 20px solid rebeccapurple; }
 .rich-unused-rule-two { transform: rotate(75deg); }
-

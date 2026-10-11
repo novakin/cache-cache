@@ -7,4 +7,3 @@ dialog::backdrop { background: rgb(20 35 30 / 55%); }
 #rich-form input { display: block; width: 100%; padding: .5rem; }
 .rich-article:has(.rich-controls) > h2 { border-bottom: 1px solid #bac9bd; }
 @supports (display: grid) { .rich-controls { display: grid; gap: .8rem; } }
-

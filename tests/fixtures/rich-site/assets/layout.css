@@ -11,4 +11,3 @@ main, footer { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; }
 .rich-late-background { min-height: 420px; padding: 2rem; background-size: cover; background-position: center; color: white; }
 footer { padding-block: 3rem; }
 @media (max-width: 700px) { .rich-hero { grid-template-columns: 1fr; } .rich-header { flex-wrap: wrap; } #rich-menu { width: 100%; flex-direction: column; } .rich-controls { padding: 1rem; } }
-

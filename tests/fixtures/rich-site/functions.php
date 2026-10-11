@@ -62,4 +62,3 @@ $rich_status = static function () {
 };
 add_action( 'wp_ajax_nopriv_rich_fixture_status', $rich_status );
 add_action( 'wp_ajax_rich_fixture_status', $rich_status );
-
