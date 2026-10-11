@@ -12,7 +12,7 @@ if ( ! realpath( $fixture_plugin ) || $normalize( realpath( $fixture_plugin ) ) 
 	fwrite( STDERR, "The selected site must contain a real plugin copy, not a source junction.\n" );
 	exit( 2 );
 }
-foreach ( [ 'inc/Engine/Common/Cache/FilesystemCache.php', 'inc/Engine/Media/Lazyload/CSS/Subscriber.php', 'inc/Engine/Media/Lazyload/CSS/Front/FileResolver.php', 'inc/Engine/Media/Lazyload/CSS/Front/ContentFetcher.php' ] as $file ) {
+foreach ( [ 'inc/Engine/Common/Cache/FilesystemCache.php', 'inc/Engine/Optimization/RegexTrait.php', 'inc/Engine/Media/Lazyload/CSS/Subscriber.php', 'inc/Engine/Media/Lazyload/CSS/Front/FileResolver.php', 'inc/Engine/Media/Lazyload/CSS/Front/ContentFetcher.php' ] as $file ) {
 	if ( hash_file( 'sha256', $source . '/' . $file ) !== hash_file( 'sha256', $fixture_plugin . '/' . $file ) ) {
 		fwrite( STDERR, "Copy the current background-CSS owners into the disposable plugin before this check.\n" );
 		exit( 2 );
@@ -113,6 +113,7 @@ try {
 		'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
 		'<META HTTP-EQUIV=content-security-policy content="default-src \'self\'">',
 		'<meta http-equiv="Content-Security-&#80;olicy" content="default-src \'self\'">',
+		'<noscript><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></noscript>',
 	] as $meta ) {
 		$csp_html = str_replace( '<HEAD>', '<HEAD>' . $meta, $html );
 		$check( apply_filters( 'noobrocket_buffer', $csp_html ) === $csp_html && $requests === 0 && ! is_dir( $cache->get_root_path() ), 'registered native pipeline preserves enforcing meta CSP before any fetch or publication' );

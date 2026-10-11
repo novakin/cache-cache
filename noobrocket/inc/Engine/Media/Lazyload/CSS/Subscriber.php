@@ -173,7 +173,8 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 				return $html;
 			}
 		}
-		foreach ( $this->find_html_tags( $html, 'meta' ) as $tag ) {
+		// A head noscript meta policy can also block recovery with JavaScript disabled.
+		foreach ( $this->find_html_tags( $html, 'meta', false, true ) as $tag ) {
 			foreach ( $this->get_html_attributes( substr( $tag[0], 5, -1 ) ) as $attribute ) {
 				if ( 0 !== strcasecmp( $attribute['name'][0], 'http-equiv' ) ) {
 					continue;

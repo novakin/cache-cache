@@ -261,6 +261,7 @@ namespace {
 			'csp-meta-single' => [ [], str_replace( '<head>', '<head><meta http-equiv=\'Content-Security-Policy\' content="' . $policy . '">', $html ) ],
 			'csp-meta-case' => [ [], str_replace( '<head>', '<head><META HTTP-EQUIV=content-security-policy content="' . $policy . '">', $html ) ],
 			'csp-meta-entity' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&#80;olicy" content="' . $policy . '">', $html ) ],
+			'csp-meta-noscript' => [ [], str_replace( '<head>', '<head><noscript><meta http-equiv="Content-Security-Policy" content="' . $policy . '"></noscript>', $html ) ],
 			'csp-meta-first-attribute' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy" http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '">', $html ) ],
 		] as $name => [ $response_headers, $input ] ) {
 			$csp_pages[ $name ] = $owner->maybe_replace_css_images( $input );
@@ -293,7 +294,11 @@ namespace {
 			'raw-text CSP' => [ [], str_replace( '<head>', '<head><script>const policyMarkup=' . json_encode( $enforcing_meta ) . ';</script>', $html ) ],
 			'template CSP' => [ [], str_replace( '<head>', '<head><template>' . $enforcing_meta . '</template>', $html ) ],
 			'attribute CSP' => [ [], str_replace( '<head>', '<head data-example=\'' . $enforcing_meta . '\'>', $html ) ],
-			'noscript CSP' => [ [], str_replace( '<head>', '<head><noscript>' . $enforcing_meta . '</noscript>', $html ) ],
+			'noscript report-only CSP' => [ [], str_replace( '<head>', '<head><noscript><meta http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '"></noscript>', $html ) ],
+			'noscript commented CSP' => [ [], str_replace( '<head>', '<head><noscript><!-- ' . $enforcing_meta . ' --></noscript>', $html ) ],
+			'noscript raw-text CSP' => [ [], str_replace( '<head>', '<head><noscript><script>const policyMarkup=' . json_encode( $enforcing_meta ) . ';</script></noscript>', $html ) ],
+			'noscript template CSP' => [ [], str_replace( '<head>', '<head><noscript><template>' . $enforcing_meta . '</template></noscript>', $html ) ],
+			'noscript attribute CSP' => [ [], str_replace( '<head>', '<head><noscript><span data-example=\'' . $enforcing_meta . '\'></span></noscript>', $html ) ],
 		] as $name => [ $response_headers, $input ] ) {
 			$before_generation = $generation_calls;
 			$output = $owner->maybe_replace_css_images( $input );
