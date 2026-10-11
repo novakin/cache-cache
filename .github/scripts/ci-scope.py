@@ -36,13 +36,15 @@ def select(paths, full=False):
     server = infrastructure or any(
         path.startswith(('noobrocket/inc/Engine/Cache/', 'noobrocket/inc/Engine/Preload/',
                          'noobrocket/inc/Engine/Optimization/', 'noobrocket/inc/Engine/LocalCSS/',
+                         'noobrocket/inc/Engine/Admin/Settings/', 'noobrocket/inc/Engine/Media/',
+                         'noobrocket/inc/admin/', 'noobrocket/assets/', 'noobrocket/views/',
                          'noobrocket/inc/classes/Buffer/', 'noobrocket/inc/functions/',
                          'noobrocket/inc/Dependencies/', 'noobrocket/vendor/',
                          'noobrocket/local-css/', 'noobrocket/nginx/', 'noobrocket/inc/deprecated/'))
         or path in {'noobrocket/noobrocket.php', 'noobrocket/uninstall.php'}
-        or path.startswith(('tools/linux-', 'tools/production-', 'tools/server-load',
+        or path.startswith(('tools/linux-', 'tools/production-', 'tools/server-load', 'tools/rich-site-',
                             'tests/linux-', 'tests/wordpress-cache-', 'tests/wordpress-local-css',
-                            'tests/wordpress-stale-refresh'))
+                            'tests/wordpress-stale-refresh', 'tests/wordpress-rich-site', 'tests/fixtures/rich-site/'))
         for path in paths
     )
     return {'wordpress': native, 'browser': browser, 'server': server}
@@ -55,13 +57,17 @@ def git(*args):
 def main():
     if '--self-test' in sys.argv:
         assert select(['docs/development.md']) == dict(wordpress=False, browser=False, server=False)
-        assert select(['noobrocket/inc/admin/ui/enqueue.php']) == dict(wordpress=True, browser=True, server=False)
+        assert select(['noobrocket/inc/admin/ui/enqueue.php']) == dict(wordpress=True, browser=True, server=True)
         for path in ('noobrocket/inc/Engine/Admin/Settings/Page.php',
                      'noobrocket/inc/Engine/Admin/Settings/Settings.php'):
-            assert select([path]) == dict(wordpress=True, browser=True, server=False), f'Admin settings browser bypass: {path}'
+            assert select([path]) == dict(wordpress=True, browser=True, server=True), f'Admin settings installed-site bypass: {path}'
+        for path in ('noobrocket/inc/Engine/Media/Lazyload/Subscriber.php', 'noobrocket/assets/css/noobrocket-settings.css', 'noobrocket/views/settings/page.php'):
+            assert select([path])['server'], f'Rich installed-site check bypass: {path}'
         assert select(['noobrocket/inc/Engine/Cache/AdvancedCache.php']) == dict(wordpress=True, browser=False, server=True)
         assert select(['noobrocket/local-css/worker.mjs']) == dict(wordpress=False, browser=True, server=True)
         assert select(['noobrocket/inc/Engine/Optimization/DelayJS/Subscriber.php']) == dict(wordpress=True, browser=True, server=True)
+        for path in ('tools/rich-site-performance.mjs', 'tests/wordpress-rich-site.php', 'tests/wordpress-rich-site-browser.mjs', 'tests/fixtures/rich-site/style.css'):
+            assert select([path])['server'], f'Rich installed-site check bypass: {path}'
         for path in ('tests/catalog.json', 'tools/requirements.txt', 'tools/package-lock.json',
                      'tools/build.py', 'tools/check.py', 'tools/php-quality/phpstan.neon',
                      'noobrocket/composer.lock', '.gitattributes'):

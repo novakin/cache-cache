@@ -20,6 +20,7 @@ fpm_bin=$(command -v "${PHP_FPM:-php-fpm$php_version}") || { echo "Missing match
 apache_modules=${APACHE_MODULE_DIR:-/usr/lib/apache2/modules}
 test -d "$apache_modules" || { echo "Missing Apache module directory: $apache_modules" >&2; exit 2; }
 test -d "$(dirname "$dependencies")/node_modules" || { echo 'Install worker dependencies with npm ci before server proof.' >&2; exit 2; }
+test -f "$workspace/tools/node_modules/lighthouse/package.json" || { echo 'Install development dependencies with npm ci --prefix tools before server proof.' >&2; exit 2; }
 for command in unzip mariadb mariadbd mariadb-install-db apache2 nginx; do
   command -v "$command" >/dev/null || { echo "Missing server prerequisite: $command" >&2; exit 2; }
 done
@@ -175,7 +176,7 @@ listen 127.0.0.1:8875;
 server_name 127.0.0.1;
 root $wordpress;
 index index.php;
-location ~ ^/wp-content/cache/noobrocket/pages/.*\\.html$ { add_header X-NoobRocket-Static hit always; }
+location ~ ^/wp-content/cache/noobrocket/pages/.*\\.html$ { add_header X-NoobRocket-Static hit always; add_header Cache-Status "NoobRocket; hit" always; }
 location / { if (-f \$document_root\$cache_file) { rewrite ^ \$cache_file last; } try_files \$uri \$uri/ /index.php?\$args; }
 location ~ \\.php$ { include /etc/nginx/fastcgi_params; fastcgi_param HTTP_HOST \$http_host; fastcgi_param SERVER_PORT \$server_port; fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name; fastcgi_pass unix:$proof/run/fpm.sock; }
 }
@@ -195,6 +196,39 @@ sampler_pid=$!
 wait "$sampler_pid"
 sampler_pid=''
 "$php_bin" "$workspace/tests/linux-production.php" "$wordpress" worker-check
+assert_http_boundary() {
+  if [ -s "$wordpress/wp-content/http-audit-blocked.txt" ]; then
+    echo "Unexpected HTTP blocked during $1; ignored errors cannot pass." >&2
+    python3 - "$wordpress/wp-content/http-audit.jsonl" <<'HTTPDIAGNOSTIC'
+import json, sys
+from pathlib import Path
+blocked = [row for row in map(json.loads, Path(sys.argv[1]).read_text().splitlines()) if row.get('blocked')]
+seen = set()
+for row in blocked:
+    safe = {key: row.get(key) for key in ['origin_kind', 'scheme', 'port', 'owned_origin_ready', 'caller_functions']}
+    safe['root_path'] = row.get('path', '/') in ['', '/']
+    entry = json.dumps(safe, sort_keys=True)
+    if entry not in seen and len(seen) < 8:
+        print('Blocked fixture HTTP: ' + entry)
+        seen.add(entry)
+print('Blocked fixture HTTP attempts: ' + str(len(blocked)))
+HTTPDIAGNOSTIC
+    exit 1
+  fi
+}
+assert_http_boundary before-rich-seed
+rich_reports=${NOOBROCKET_RICH_REPORT_DIR:-$proof/rich-reports}
+test ! -e "$rich_reports" || { echo 'Rich reports destination must be fresh.' >&2; exit 2; }
+mkdir -p "$rich_reports"
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" seed
+assert_http_boundary rich-seed
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" profile-eager
+"$node" "$workspace/tests/wordpress-rich-site-browser.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --out "$rich_reports/browser.json"
+assert_http_boundary rich-browser
+"$node" "$workspace/tools/rich-site-performance.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --out "$rich_reports/lighthouse"
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" check
+"$php_bin" "$workspace/tests/wordpress-rich-site.php" "$wordpress" cleanup
+assert_http_boundary rich-cleanup
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" network-install
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" network-activate
 HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-bootstrap-construction.php" "$wordpress" multisite
@@ -209,10 +243,7 @@ HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-mobile-loader-mu
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" check
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" invalid-site
 "$node" "$workspace/tools/production-check.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --site-url http://127.0.0.1:8875/subsite/ --dependencies "$dependencies" --require-linux yes --require-mysql yes --require-multisite yes --out "$proof/multisite-preflight.json"
-if [ -s "$wordpress/wp-content/http-audit-blocked.txt" ]; then
-  echo 'Unexpected HTTP blocked during the Linux production proof; ignored errors cannot pass.' >&2
-  exit 1
-fi
+assert_http_boundary final-network-proof
 if [ -s "$wordpress/wp-content/debug.log" ]; then
   echo 'WordPress debug log is not empty after the production proof:' >&2
   tail -n 20 "$wordpress/wp-content/debug.log" >&2

@@ -4,6 +4,7 @@
     "generate:settings": "node generate-settings-assets.mjs"
   },
   "devDependencies": {
+    "lighthouse": "13.5.0",
     "terser": "5.44.0"
   }
 }

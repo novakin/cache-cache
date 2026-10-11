@@ -1362,6 +1362,20 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-http-audit-boundaries",
+      "path": "tests/wordpress-http-audit-boundaries.php",
+      "purpose": "Actual PHP audit accepts the exact owned bare origin and paths, rejects other schemes/hosts/ports and preserves preempted responses.",
+      "profile": "fast",
+      "environment": "modeled-wordpress-owned-files",
+      "prerequisites": [
+        "php"
+      ],
+      "mutation": "Owned temporary audit files only; no WordPress bootstrap or HTTP requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-http-audit",
       "path": "tests/wordpress-http-audit.php",
       "purpose": "Test fixture only. Install as a must-use plugin in a disposable WordPress site.",
@@ -2493,6 +2507,32 @@
       "default": true,
       "minimum_php": "7.4",
       "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "wordpress-rich-site",
+      "path": "tests/wordpress-rich-site.php",
+      "purpose": "Populated native WordPress seed, validated optimization profiles, purge and cleanup for the owned Linux rehearsal.",
+      "profile": "server",
+      "environment": "native-linux-mariadb",
+      "prerequisites": ["linux", "mariadb", "nginx", "php-fpm", "owned-server-proof"],
+      "mutation": "Creates synthetic content/media/theme/users and native settings only inside the marked copied-plugin site; private auth stays outside its document root. Run through tools/linux-production-proof.sh.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "8.3"
+    },
+    {
+      "name": "wordpress-rich-site-browser",
+      "path": "tests/wordpress-rich-site-browser.mjs",
+      "purpose": "Actual populated WordPress/browser interactions, privacy, cache evidence and admin locale/theme/size states on the owned Linux rehearsal.",
+      "profile": "server",
+      "environment": "native-linux-mariadb",
+      "prerequisites": ["linux", "node22", "chromium", "worker-dependencies", "owned-server-proof"],
+      "mutation": "Disposable browser/session/form/settings interactions only; owned-origin HTTP guard and sandbox enabled. Functional interception is separate from measured Lighthouse requests.",
+      "args": [],
+      "default": false,
+      "kind": "helper",
+      "minimum_php": "8.3"
     },
     {
       "name": "cache-secondary-purge-boundaries",
