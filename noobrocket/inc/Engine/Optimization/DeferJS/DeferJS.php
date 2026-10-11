@@ -139,7 +139,8 @@ class DeferJS {
 				continue;
 			}
 
-			if ( empty( $inline_exclusions ) || preg_match( "/({$inline_exclusions})/msi", $inline_js['content'] ) ) {
+			// An exclusion match or regex failure must retain the original script.
+			if ( empty( $inline_exclusions ) || 0 !== @preg_match( "#({$inline_exclusions})#msi", $inline_js['content'] ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 				continue;
 			}
 
