@@ -101,7 +101,7 @@ The Linux script reads `PHP_FPM` and optional `APACHE_MODULE_DIR` from the envir
 
 ## Focused Abilities schema proof
 
-For the writable Abilities schema, `fast --fixture wordpress-settings-domain-api` checks the actual registration owner with modeled writers, default/sparse enum JSON and existing permission/read-only controls. `wordpress --fixture wordpress-abilities-option-schema --fixture wordpress-abilities-option-schema-sparse --wordpress /path/to/disposable-wordpress` requires WordPress 6.9+ and a marked copied-plugin installation. It checks the subscriber's registered schema with native WordPress input validation, both allowlists and denied calls without writing options. This is schema/Abilities API proof; it does not exercise an external MCP client.
+For the writable Abilities schema, `fast --fixture wordpress-settings-domain-api` checks the actual registration owner with modeled writers, default/sparse enum JSON and existing permission/read-only controls. `wordpress --fixture wordpress-abilities-option-schema --fixture wordpress-abilities-option-schema-sparse --wordpress /path/to/disposable-wordpress` requires WordPress 6.9+ and an activated marked copied-plugin installation. The default group runs both schema fixtures after `acceptance:activate` and `acceptance:settings`; include those phases in a focused selection for a fresh site, because copying the plugin does not register its abilities. It checks the subscriber's registered schema with native WordPress input validation, both allowlists and denied calls without writing options. This is schema/Abilities API proof; it does not exercise an external MCP client.
 
 ## Focused lazy-load proof
 

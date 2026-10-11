@@ -50,32 +50,6 @@
       "minimum_php": "7.4"
     },
     {
-      "name": "wordpress-abilities-option-schema",
-      "path": "tests/wordpress-abilities-option-schema.php",
-      "purpose": "Registered writable-option JSON enum, native schema validation and capability/read-only rejection controls.",
-      "profile": "wordpress",
-      "environment": "native-wordpress",
-      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
-      "mutation": "Bootstraps a marked copied-plugin site with HTTP blocked; request-local users and rejected ability calls only; no option writes.",
-      "args": ["{wordpress}"],
-      "default": true,
-      "minimum_php": "7.4",
-      "minimum_wordpress": "6.9"
-    },
-    {
-      "name": "wordpress-abilities-option-schema-sparse",
-      "path": "tests/wordpress-abilities-option-schema.php",
-      "purpose": "Native sparse allowlist filter produces a JSON list while preserving writable order and read-only/permission controls.",
-      "profile": "wordpress",
-      "environment": "native-wordpress",
-      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
-      "mutation": "Same marked-site boundary; request-local allowlist filter and users, no option writes or external HTTP.",
-      "args": ["{wordpress}", "sparse"],
-      "default": true,
-      "minimum_php": "7.4",
-      "minimum_wordpress": "6.9"
-    },
-    {
       "name": "php-quality",
       "path": "tests/php-quality.py",
       "purpose": "Real Git changed-file selection and installed PHPCS/PHPStan negative controls plus representative maintained owners.",
@@ -171,6 +145,32 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-abilities-option-schema",
+      "path": "tests/wordpress-abilities-option-schema.php",
+      "purpose": "Registered writable-option JSON enum, native schema validation and capability/read-only rejection controls.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
+      "mutation": "Bootstraps a marked copied-plugin site with HTTP blocked; request-local users and rejected ability calls only; no option writes.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "6.9"
+    },
+    {
+      "name": "wordpress-abilities-option-schema-sparse",
+      "path": "tests/wordpress-abilities-option-schema.php",
+      "purpose": "Native sparse allowlist filter produces a JSON list while preserving writable order and read-only/permission controls.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb"],
+      "mutation": "Same marked-site boundary; request-local allowlist filter and users, no option writes or external HTTP.",
+      "args": ["{wordpress}", "sparse"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "6.9"
     },
     {
       "name": "acceptance:import",

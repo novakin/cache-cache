@@ -63,6 +63,16 @@ define('WP_CONTENT_DIR', dirname($argv[1], 2));
             with self.assertRaisesRegex(checks.CheckFailure, 'catalog differs'):
                 checks.catalog(root)
 
+    def test_native_abilities_schema_follows_site_initialization(self):
+        entries = checks.catalog(ROOT)
+        native_defaults = [entry['name'] for entry in entries if entry['profile'] == 'wordpress' and entry['default']]
+        activation = native_defaults.index('acceptance:activate')
+        settings = native_defaults.index('acceptance:settings')
+        self.assertLess(activation, settings)
+        for name in ('wordpress-abilities-option-schema', 'wordpress-abilities-option-schema-sparse'):
+            with self.subTest(fixture=name):
+                self.assertGreater(native_defaults.index(name), settings)
+
     def test_case_insensitive_workstation_cannot_hide_broken_linux_links(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
