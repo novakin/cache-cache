@@ -13,7 +13,7 @@
   },
   "output": {
     "files": 219,
-    "sha256": "7c882088a67e37a18adb8aa41515c8e13057b729cc2c6fcdfc07a95dad13ea9a",
+    "sha256": "b7f9901e9f36ea0f5f60c51ebc115be18bb23a6907ca8c462afd3c6d78d53b26",
     "hash_format": "SHA256 of sorted UTF-8 relative path + NUL + raw SHA256(file bytes) + LF for every file."
   },
   "omitted": [
@@ -36,6 +36,12 @@
     "wpr_": "nbr_"
   },
   "patches": [
+    {
+      "path": "inc/Dependencies/BerlinDB/Database/Query.php",
+      "reason": "Expire generation-specific query results after one hour so persistent caches can reclaim retired generations (#8388); retain stable item and metadata expiry semantics.",
+      "before": "\t\t\t\t// Add value to the cache\n\t\t\t\t$this->cache_add( $cache_key, $cache_value, $this->cache_group );",
+      "after": "\t\t\t\t// Retired result generations must expire in persistent object caches.\n\t\t\t\t$this->cache_add( $cache_key, $cache_value, $this->cache_group, HOUR_IN_SECONDS );"
+    },
     {
       "path": "inc/Dependencies/BerlinDB/Database/Table.php",
       "reason": "Preserve the existing multisite creation fix: options tables do not exist yet during wp_initialize_site.",

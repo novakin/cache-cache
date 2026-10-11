@@ -2,6 +2,10 @@
 
 namespace NoobRocket\Engine\Media\Lazyload\CSS\Front;
 
+use Symfony\Component\CssSelector\Exception\SyntaxErrorException;
+use Symfony\Component\CssSelector\Parser\Reader;
+use Symfony\Component\CssSelector\Parser\Tokenizer\Tokenizer;
+
 class MappingFormatter {
 
 	/**
@@ -105,7 +109,7 @@ class MappingFormatter {
 	 * @return string
 	 */
 	protected function remove_pseudo_classes( string $selector ): string {
-		$selectors = explode( ',', $selector );
+		$selectors = $this->split_selector_list( $selector );
 
 		$selectors = array_map( [ $this, 'remove_pseudo_classes_for_selector' ], $selectors );
 
@@ -114,5 +118,57 @@ class MappingFormatter {
 		$selector = implode( ',', $selectors );
 
 		return (string) $selector;
+	}
+
+	/**
+	 * Split complete selectors without dividing functional or attribute arguments.
+	 *
+	 * @param string $selector Original selector list.
+	 * @return string[]
+	 */
+	private function split_selector_list( string $selector ): array {
+		if ( false === strpos( $selector, ',' ) ) {
+			return [ $selector ];
+		}
+
+		try {
+			$tokens = ( new Tokenizer() )->tokenize( new Reader( $selector ) );
+		} catch ( SyntaxErrorException $exception ) {
+			return [ $selector ];
+		}
+
+		$selectors = [];
+		$closers   = [];
+		$start     = 0;
+
+		while ( true ) {
+			$token = $tokens->getNext();
+			if ( $token->isFileEnd() ) {
+				break;
+			}
+			if ( ! $token->isDelimiter() ) {
+				continue;
+			}
+
+			$value = $token->getValue();
+			if ( '(' === $value || '[' === $value ) {
+				$closers[] = '(' === $value ? ')' : ']';
+			} elseif ( ')' === $value || ']' === $value ) {
+				if ( array_pop( $closers ) !== $value ) {
+					return [ $selector ];
+				}
+			} elseif ( ',' === $value && ! $closers ) {
+				$position    = $token->getPosition();
+				$selectors[] = trim( substr( $selector, $start, $position - $start ) );
+				$start       = $position + 1;
+			}
+		}
+
+		if ( $closers ) {
+			return [ $selector ];
+		}
+		$selectors[] = trim( substr( $selector, $start ) );
+
+		return $selectors;
 	}
 }
