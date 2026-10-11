@@ -32,6 +32,8 @@ The `php-dependency-reconstruction` fast fixture verifies the 219 pinned prefixe
 | `server` | Owned Linux/MariaDB/Apache/Nginx/PHP-FPM/worker/multisite rehearsal | Linux dependencies, verified WordPress archive, unprivileged execution; owned service cleanup. |
 | `package` | Existing ZIP structure/integrity and optional exact source equality | `--zip FILE`; `--compare-source` only for a ZIP intended to match the checkout. |
 
+`wordpress --fixture wpml-settings-shape --wordpress /path/to/wordpress-core` exercises the actual WPML subscriber through native WordPress hook dispatch and plugin event registration. It verifies absent/malformed settings, exact mixed-value pass-through, strict flag comparison and existing reset/purge order for update and activation/deactivation callbacks. Options and purge sinks are modeled; no site is bootstrapped and the proprietary WPML plugin is not executed.
+
 ## PHP quality gate
 
 Install only the isolated tool manifest; never use Composer install/update in `noobrocket/` for this gate:
@@ -163,3 +165,5 @@ UI changes require real output review for affected light/dark, EN/FR, desktop/na
 For Tools option feedback, `fast --fixture tools-action-feedback` runs the actual AJAX owners with modeled nonce/capability/storage boundaries on PHP 7.4/current. `wordpress --fixture wordpress-tools-action-feedback --wordpress /path/to/disposable-wordpress` invokes registered callbacks with native nonce/capability/options and refused/adjusted writer filters; CLI cases refresh request-local options snapshots between scenarios, restore exact saved options and use no providers. `browser --fixture tools-action-feedback-browser --php /path/to/php --chromium /path/to/chromium --wordpress /path/to/wordpress-core` serves the full generated bundle, native jQuery and actual Tools templates/catalogs against synthetic HTTP outcomes. It covers EN/FR, light/dark, 1365×900/390×844, keyboard focus, duplicate submission, transport errors, retained values and successful retry. The renderer is an explicitly catalogued helper; native HTTP/admin-page output review and screen-reader behavior remain separate proof.
 
 Performance needs matched settings/environment and cold/hit state, sample count and variability; see [BENCHMARKS](../tools/BENCHMARKS.md). PHP 7.4/WordPress 5.8 and a recent compatible pair must execute before a passing matrix is claimed. Historical logs, a successful workflow file parse and an assigned QA task are not current runtime proof.
+
+Native WPML shape proof adds `wordpress --fixture wordpress-wpml-settings-persistence` on a marked copied-plugin site without WPML or existing WPML configuration. It registers the actual compatibility callback with native option filtering, persists missing/malformed values and confirms no reset or purge. Genuine language-directory changes remain covered by the registered core-hook fixture; this does not claim execution of proprietary WPML.
