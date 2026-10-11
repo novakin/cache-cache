@@ -669,7 +669,7 @@
     {
       "name": "minify-boundaries-browser",
       "path": "tests/minify-boundaries-browser.mjs",
-      "purpose": "Execute native generated scripts and retained module imports; localhost interception only, no WordPress.",
+      "purpose": "Execute generated scripts, retained module imports/data blocks and inline classic deferral; intercepted delivery only, no WordPress.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": [
@@ -1437,7 +1437,7 @@
     {
       "name": "wordpress-minify-boundaries",
       "path": "tests/wordpress-minify-boundaries.php",
-      "purpose": "Native minification/combining with owned temporary files and mocked remote bytes; no site bootstrap.",
+      "purpose": "Actual minification/combining and inline script-type deferral with owned files and modeled platform/remote boundaries; no site bootstrap.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": [
@@ -1617,7 +1617,7 @@
     {
       "name": "wordpress-picture-generator",
       "path": "tests/wordpress-picture-generator.php",
-      "purpose": "Standalone native-editor/queue contracts and real filesystem publication/ownership checks.",
+      "purpose": "Image queue/library read refusal and recovery, standalone editor contracts and real filesystem publication/ownership checks.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": [
@@ -1626,6 +1626,19 @@
       "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
       "args": [],
       "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-picture-query-failures",
+      "path": "tests/wordpress-picture-query-failures.php",
+      "purpose": "Registered image generator retains scan/queue/publication state through four native SQL read refusals and healthy recovery.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "php-gd-webp", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Owned attachments/uploads and native SQL refusal/editor work in a marked copied-plugin site; exact queue state/cron restored; no provider HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
     },
     {
@@ -1990,7 +2003,7 @@
     {
       "name": "stylesheet-background-publication",
       "path": "tests/stylesheet-background-publication.php",
-      "purpose": "Safe stylesheet fetching, local/PHP/query/CDN preservation, immutable publication, atomic failure recovery and structural head boundaries.",
+      "purpose": "Safe stylesheet fetching, failed HTTP admission and recovery, local/PHP/query/CDN preservation, immutable publication, atomic failure recovery and structural head boundaries.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": ["php", "php-mbstring"],
@@ -2002,7 +2015,7 @@
     {
       "name": "stylesheet-background-publication-browser",
       "path": "tests/stylesheet-background-publication-browser.mjs",
-      "purpose": "Actual PHP publication output and runtime bytes: browser-cache reuse, background visibility and no-JS recovery.",
+      "purpose": "Actual PHP publication output and runtime bytes: failed HTTP delivery, healthy recovery, browser-cache reuse, background visibility and no-JS recovery.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": ["node22", "php", "php-mbstring", "chromium", "worker-dependencies"],
@@ -2013,7 +2026,7 @@
     {
       "name": "wordpress-stylesheet-background-publication",
       "path": "tests/wordpress-stylesheet-background-publication.php",
-      "purpose": "Registered native stylesheet-background fetching, safe URL/redirect policy, local imports, PHP queries, development origins and publication reuse.",
+      "purpose": "Registered native stylesheet-background fetching, failed HTTP admission/recovery, safe URL/redirect policy, local imports, PHP queries, development origins and publication reuse.",
       "profile": "wordpress",
       "environment": "native-wordpress",
       "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
@@ -2294,6 +2307,31 @@
       "default": false,
       "minimum_php": "7.4",
       "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "preload-sitemap-traversal",
+      "path": "tests/preload-sitemap-traversal.php",
+      "purpose": "Actual sitemap owners skip exact self references and duplicate children within one document while preserving case, query and existing page admission.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Actual parser/fetch/queue owners with modeled HTTP, scheduler and page storage; no native site or external requests.",
+      "args": [],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-preload-sitemap-traversal",
+      "path": "tests/wordpress-preload-sitemap-traversal.php",
+      "purpose": "Registered sitemap parsing uses native scheduler/storage without recreating self jobs or duplicate children from one document.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Uniquely owned scheduler actions and one page row on a marked copied-plugin site; owned data removed, HTTP mocked, no external requests.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
     }
   ]
 }
