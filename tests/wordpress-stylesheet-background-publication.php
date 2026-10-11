@@ -113,6 +113,8 @@ try {
 		'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
 		'<META HTTP-EQUIV=content-security-policy content="default-src \'self\'">',
 		'<meta http-equiv="Content-Security-&#80;olicy" content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#80olicy" content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#x50olicy" content="default-src \'self\'">',
 		'<noscript><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></noscript>',
 	] as $meta ) {
 		$csp_html = str_replace( '<HEAD>', '<HEAD>' . $meta, $html );

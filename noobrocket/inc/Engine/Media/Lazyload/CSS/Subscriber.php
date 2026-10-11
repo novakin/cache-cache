@@ -180,6 +180,8 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 					continue;
 				}
 				$value = $attribute['double'][0] ?? $attribute['single'][0] ?? $attribute['unquoted'][0] ?? '';
+				// HTML accepts numeric references without a semicolon; PHP decoding does not.
+				$value = preg_replace( '/&#(x[0-9a-f]+|[0-9]+);?/i', '&#$1;', $value ) ?? $value;
 				if ( 0 === strcasecmp( trim( html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), 'Content-Security-Policy' ) ) {
 					return $html;
 				}

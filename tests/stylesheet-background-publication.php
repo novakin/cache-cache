@@ -261,6 +261,8 @@ namespace {
 			'csp-meta-single' => [ [], str_replace( '<head>', '<head><meta http-equiv=\'Content-Security-Policy\' content="' . $policy . '">', $html ) ],
 			'csp-meta-case' => [ [], str_replace( '<head>', '<head><META HTTP-EQUIV=content-security-policy content="' . $policy . '">', $html ) ],
 			'csp-meta-entity' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&#80;olicy" content="' . $policy . '">', $html ) ],
+			'csp-meta-decimal-reference' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&#80olicy" content="' . $policy . '">', $html ) ],
+			'csp-meta-hex-reference' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&#x50olicy" content="' . $policy . '">', $html ) ],
 			'csp-meta-noscript' => [ [], str_replace( '<head>', '<head><noscript><meta http-equiv="Content-Security-Policy" content="' . $policy . '"></noscript>', $html ) ],
 			'csp-meta-first-attribute' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy" http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '">', $html ) ],
 		] as $name => [ $response_headers, $input ] ) {
@@ -290,6 +292,7 @@ namespace {
 			'csp-report-header' => [ [ 'Content-Security-Policy-Report-Only: ' . $policy ], $html ],
 			'csp-report-meta' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '">', $html ) ],
 			'first duplicate attribute' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy-Report-Only" http-equiv="Content-Security-Policy" content="' . $policy . '">', $html ) ],
+			'escaped CSP entity' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&amp;#80;olicy" content="' . $policy . '">', $html ) ],
 			'commented CSP' => [ [], str_replace( '<head>', '<head><!-- ' . $enforcing_meta . ' -->', $html ) ],
 			'raw-text CSP' => [ [], str_replace( '<head>', '<head><script>const policyMarkup=' . json_encode( $enforcing_meta ) . ';</script>', $html ) ],
 			'template CSP' => [ [], str_replace( '<head>', '<head><template>' . $enforcing_meta . '</template>', $html ) ],
