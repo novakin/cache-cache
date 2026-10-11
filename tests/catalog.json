@@ -669,14 +669,15 @@
     {
       "name": "minify-boundaries-browser",
       "path": "tests/minify-boundaries-browser.mjs",
-      "purpose": "Execute native generated scripts and retained module imports; localhost interception only, no WordPress.",
+      "purpose": "Execute actual generated/retained scripts and dynamic CSS/JS failure, recovery and warm delivery at desktop/narrow widths; per-phase intercepted HTTP, no WordPress.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": [
         "node22",
         "chromium",
         "worker-dependencies",
-        "php"
+        "php",
+        "php-mbstring"
       ],
       "mutation": "Owned loopback listeners, temporary profiles and ignored screenshots/receipts; no provider requests.",
       "args": [
@@ -1437,11 +1438,12 @@
     {
       "name": "wordpress-minify-boundaries",
       "path": "tests/wordpress-minify-boundaries.php",
-      "purpose": "Native minification/combining with owned temporary files and mocked remote bytes; no site bootstrap.",
+      "purpose": "Actual minify/combine and dynamic-resource owners with HTTP failure/recovery/warm publication, source/context exclusions and filters; modeled WordPress/HTTP, owned files, no site bootstrap.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": [
-        "php"
+        "php",
+        "php-mbstring"
       ],
       "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
       "args": [],
