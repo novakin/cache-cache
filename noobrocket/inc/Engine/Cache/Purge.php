@@ -65,11 +65,14 @@ class Purge {
 		foreach ( _noobrocket_get_cache_dirs( $parsed_url['host'] ) as $dir ) {
 			$path = $dir . $parsed_url['path'];
 
-			if ( ! $this->filesystem->exists( $path ) ) {
+			if ( ! $this->filesystem->exists( $path ) || is_link( $path ) || ! noobrocket_cache_path_is_within( $path, $dir ) ) {
 				continue;
 			}
 
 			foreach ( $this->get_iterator( $path ) as $item ) {
+				if ( $item->isDot() || ! noobrocket_cache_path_is_within( $item->getPathname(), $dir ) ) {
+					continue;
+				}
 
 				if ( $item->isFile() ) {
 					$this->filesystem->delete( $item->getPathname() );
@@ -77,12 +80,15 @@ class Purge {
 				}
 
 				if ( str_contains( $item->getPathname(), '#' ) ) {
-					$this->filesystem->delete( $item->getPathname(), true );
+					noobrocket_rrmdir( $item->getPathname(), [], $this->filesystem );
 				}
 			}
 
 			if ( $pagination ) {
-				$this->maybe_remove_dir( $path . DIRECTORY_SEPARATOR . $wp_rewrite->pagination_base );
+				$pagination_path = $path . DIRECTORY_SEPARATOR . $wp_rewrite->pagination_base;
+				if ( noobrocket_cache_path_is_within( $pagination_path, $dir ) ) {
+					$this->maybe_remove_dir( $pagination_path );
+				}
 			}
 		}
 	}
@@ -127,6 +133,7 @@ class Purge {
 	 */
 	private function parse_url( $url ) {
 		$parsed_url = get_noobrocket_parse_url( $url );
+		$parsed_url['path'] = noobrocket_normalize_cache_url_path( $parsed_url['path'] );
 
 		/** This filter is documented in inc/front/htaccess.php */
 		if ( apply_filters( 'noobrocket_url_no_dots', false ) ) {
