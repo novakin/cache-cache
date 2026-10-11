@@ -36,6 +36,8 @@ python tools/check.py fast --fixture php-quality --php /path/to/php
 
 With no revision arguments, `quality` selects tracked local changes and untracked maintained PHP files. `--base REF --head REF` checks the full files changed between those exact revisions; omitted head means `HEAD`. For a source copy without Git, pass repeated relative `--file noobrocket/inc/path.php` arguments. Deleted files, non-PHP files and bundled dependency paths are excluded. An empty scope explicitly skips analyzers; it is not an analyzer pass. The [verification guide](../tests/README.md#php-quality-gate) owns the staged rule scope and remaining limits. Never load the inherited `noobrocket/phpstan-baseline.neon` to hide changed-file errors.
 
+The analysis-only bootstrap declares optional qTranslate, Polylang and WPML compatibility symbols from their published APIs so the full i18n owner can be checked without installing or booting those plugins. These declarations are absent from the distributed plugin and do not prove integration runtime behavior; native config fixtures separately check the maintained language/path owner and ordinary qTranslate flag output.
+
 Install worker dependencies only for browser/local CSS work:
 
 ```sh
