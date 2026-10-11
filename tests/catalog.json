@@ -669,7 +669,7 @@
     {
       "name": "minify-boundaries-browser",
       "path": "tests/minify-boundaries-browser.mjs",
-      "purpose": "Execute native generated scripts and retained module imports; localhost interception only, no WordPress.",
+      "purpose": "Execute generated scripts, retained module imports/data blocks and inline classic deferral; intercepted delivery only, no WordPress.",
       "profile": "browser",
       "environment": "synthetic-browser",
       "prerequisites": [
@@ -1437,7 +1437,7 @@
     {
       "name": "wordpress-minify-boundaries",
       "path": "tests/wordpress-minify-boundaries.php",
-      "purpose": "Native minification/combining with owned temporary files and mocked remote bytes; no site bootstrap.",
+      "purpose": "Actual minification/combining and inline script-type deferral with owned files and modeled platform/remote boundaries; no site bootstrap.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": [

@@ -29,7 +29,14 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body });
     });
     await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
-    if (name.startsWith('module-')) {
+    if (name.startsWith('defer-module-')) {
+      await page.waitForFunction(() => window.nativeDeferModuleValue === 42);
+      assert.equal(await page.evaluate(() => window.nativeDeferModuleValue), 42, `${name}: original static module import executes`); checks++;
+    } else if (name.startsWith('defer-json')) {
+      assert.deepEqual(await page.locator('#defer-data').evaluate((script) => JSON.parse(script.textContent)), { example: 'jQuery' }, `${name}: original data block remains valid JSON`); checks++;
+    } else if (name.startsWith('defer-classic-')) {
+      assert.equal(await page.evaluate(() => window.nativeDeferClassicRuns), 1, `${name}: classic jQuery callback executes once after DOMContentLoaded`); checks++;
+    } else if (name.startsWith('module-')) {
       await page.waitForFunction(() => window.nativeModuleValue === 42);
       assert.equal(await page.locator('script[type="module"]').count(), 1, `${name}: original module type remains`); checks++;
       assert.equal(await page.evaluate(() => window.nativeModuleValue), 42, `${name}: relative module import executes from its original URL`); checks++;
