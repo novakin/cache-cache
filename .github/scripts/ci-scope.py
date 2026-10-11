@@ -36,6 +36,8 @@ def select(paths, full=False):
     server = infrastructure or any(
         path.startswith(('noobrocket/inc/Engine/Cache/', 'noobrocket/inc/Engine/Preload/',
                          'noobrocket/inc/Engine/Optimization/', 'noobrocket/inc/Engine/LocalCSS/',
+                         'noobrocket/inc/Engine/Admin/Settings/', 'noobrocket/inc/Engine/Media/',
+                         'noobrocket/inc/admin/', 'noobrocket/assets/', 'noobrocket/views/',
                          'noobrocket/inc/classes/Buffer/', 'noobrocket/inc/functions/',
                          'noobrocket/inc/Dependencies/', 'noobrocket/vendor/',
                          'noobrocket/local-css/', 'noobrocket/nginx/', 'noobrocket/inc/deprecated/'))
@@ -55,10 +57,12 @@ def git(*args):
 def main():
     if '--self-test' in sys.argv:
         assert select(['docs/development.md']) == dict(wordpress=False, browser=False, server=False)
-        assert select(['noobrocket/inc/admin/ui/enqueue.php']) == dict(wordpress=True, browser=True, server=False)
+        assert select(['noobrocket/inc/admin/ui/enqueue.php']) == dict(wordpress=True, browser=True, server=True)
         for path in ('noobrocket/inc/Engine/Admin/Settings/Page.php',
                      'noobrocket/inc/Engine/Admin/Settings/Settings.php'):
-            assert select([path]) == dict(wordpress=True, browser=True, server=False), f'Admin settings browser bypass: {path}'
+            assert select([path]) == dict(wordpress=True, browser=True, server=True), f'Admin settings installed-site bypass: {path}'
+        for path in ('noobrocket/inc/Engine/Media/Lazyload/Subscriber.php', 'noobrocket/assets/css/noobrocket-settings.css', 'noobrocket/views/settings/page.php'):
+            assert select([path])['server'], f'Rich installed-site check bypass: {path}'
         assert select(['noobrocket/inc/Engine/Cache/AdvancedCache.php']) == dict(wordpress=True, browser=False, server=True)
         assert select(['noobrocket/local-css/worker.mjs']) == dict(wordpress=False, browser=True, server=True)
         assert select(['noobrocket/inc/Engine/Optimization/DelayJS/Subscriber.php']) == dict(wordpress=True, browser=True, server=True)

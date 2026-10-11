@@ -39,9 +39,18 @@ const report = {
 };
 let checks = 0;
 const check = (condition, label) => { assert.ok(condition, label); checks++; };
-const textError = error => String(error.message).replace(/https?:\/\/[^\s)]+/g, value => {
+const safeURL = value => {
   try { const url = new URL(value); return `${url.origin}${url.pathname}`; } catch { return '[URL]'; }
-}).slice(0, 500);
+};
+const safeText = value => {
+  let text = String(value || '');
+  for (const secret of Object.values(auth)) if (typeof secret === 'string' && secret) text = text.replaceAll(secret, '[redacted]');
+  return text.replace(/https?:\/\/[^\s)]+/g, url => {
+    const position = url.match(/:\d+:\d+$/)?.[0] || '';
+    return safeURL(position ? url.slice(0, -position.length) : url) + position;
+  }).slice(0, 1800);
+};
+const textError = error => safeText(error.message).slice(0, 500);
 async function scenario(name, run) {
   const result = { name, status: 'RUNNING', checks: 0 };
   const before = checks;
@@ -149,17 +158,6 @@ async function adminSaveAndCancel() {
   const errors = [];
   const details = { stage: 'login', stages: [], errors: [], responses: [], requestFailures: [] };
   let page;
-  const safeURL = value => {
-    try { const url = new URL(value); return `${url.origin}${url.pathname}`; } catch { return '[URL]'; }
-  };
-  const safeText = value => {
-    let text = String(value || '').replace(/https?:\/\/[^\s)]+/g, url => {
-      const position = url.match(/:\d+:\d+$/)?.[0] || '';
-      return safeURL(position ? url.slice(0, -position.length) : url) + position;
-    });
-    for (const secret of [auth.username, auth.password]) if (secret) text = text.replaceAll(secret, '[redacted]');
-    return text.slice(0, 1800);
-  };
   const stage = name => {
     details.stage = name;
     details.stages.push({ name, url: page ? safeURL(page.url()) : null });
@@ -172,8 +170,9 @@ async function adminSaveAndCancel() {
     await login(target);
     page = await target.newPage();
     page.on('pageerror', error => {
-      errors.push(safeText(error.message).slice(0, 500));
-      if (details.errors.length < 20) details.errors.push({ stage: details.stage, url: safeURL(page.url()), message: safeText(error.message), stack: safeText(error.stack) });
+      const receipt = { stage: details.stage, url: safeURL(page.url()), message: safeText(error.message), stack: safeText(error.stack) };
+      errors.push(receipt);
+      if (details.errors.length < 20) details.errors.push(receipt);
     });
     page.on('response', response => {
       const request = response.request();
@@ -218,17 +217,27 @@ async function adminSaveAndCancel() {
     check(await nonce.count() === 1, 'Native settings mutation includes its WordPress nonce.');
     await nonce.evaluate(node => { node.value = 'invalid-disposable-fixture-nonce'; });
     stage('submit-invalid-nonce');
-    const rejected = await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle' }), submit.click()]);
-    details.rejectedNavigation = rejected[0] ? responseDetails(rejected[0]) : { status: null, url: safeURL(page.url()), method: null };
+    const optionsURL = `${origin}/wp-admin/options.php`;
+    const [rejected] = await Promise.all([
+      page.waitForResponse(response => response.url() === optionsURL && response.request().method() === 'POST' && response.request().isNavigationRequest() && response.request().frame() === page.mainFrame()),
+      submit.click()
+    ]);
+    await page.waitForURL(optionsURL, { waitUntil: 'networkidle' });
+    details.rejectedNavigation = responseDetails(rejected);
     stage('check-invalid-nonce-response');
-    check(rejected[0]?.status() === 403, 'Invalid native settings nonce refuses mutation.');
+    check(rejected.status() === 403, 'Invalid native settings nonce refuses mutation.');
     stage('reopen-after-rejection');
     await page.goto(`${origin}/wp-admin/options-general.php?page=noobrocket#file_optimization`, { waitUntil: 'networkidle' });
     check(await checkbox.isChecked() === original, 'Refused native settings write leaves persisted value unchanged.');
     stage('check-javascript-errors');
-    check(errors.length === 0, `Native save/cancel/rejection flow has no JavaScript exceptions: ${errors.join('; ')}`);
+    // WordPress 7 admin opts into cross-document transitions; wp_die's 403 page does not.
+    // Chrome rejects its native transition promise without a script stack in that denied navigation.
+    const isDeniedNavigationTransition = error => rejected.status() === 403 && error.stage === 'submit-invalid-nonce' && error.url === optionsURL && error.stack === '' && error.message === 'Transition was aborted because of invalid state. ViewTransition opt-in disabled';
+    details.nativeTransitionDiagnostics = errors.filter(isDeniedNavigationTransition);
+    const unexpectedErrors = errors.filter(error => !isDeniedNavigationTransition(error));
+    check(unexpectedErrors.length === 0, `Native save/cancel/rejection flow has no unexpected JavaScript exceptions: ${unexpectedErrors.map(error => error.message).join('; ')}`);
   } finally {
-    report.adminMutationErrors = errors;
+    report.adminMutationErrors = errors.map(error => error.message);
     report.adminMutationDetails = { ...details, lastStage: details.stage, url: page ? safeURL(page.url()) : null };
     await target.close();
   }
@@ -377,14 +386,16 @@ async function responseBoundaries() {
   const receipts = [];
   try {
     const page = await target.newPage();
-    for (const name of ['Private', 'NoStore', 'SetCookie', 'Missing', 'Search']) {
+    for (const name of ['Private', 'NoStore', 'SetCookie', 'Missing', 'Search']) for (const attempt of [1, 2]) {
+      // A fresh visitor must also miss after the first response could have published a file.
+      await target.clearCookies();
       const response = await page.goto(pageByName(name).url, { waitUntil: 'networkidle' });
       const headers = await response.allHeaders();
       check(!/\bhit\b/i.test(headers['cache-status'] || ''), `${name}: excluded/private/action state is not delivered from shared cache.`);
       if (['Private', 'Missing'].includes(name)) check(response.status() === 404, `${name}: anonymous native response remains unavailable.`);
       if (['NoStore', 'SetCookie'].includes(name)) check(/private|no-store/i.test(headers['cache-control'] || ''), `${name}: native privacy header is retained.`);
       if (name === 'SetCookie') check(!!headers['set-cookie'], 'Synthetic Set-Cookie response still sets its cookie.');
-      receipts.push({ name, status: response.status(), hasCacheHit: /\bhit\b/i.test(headers['cache-status'] || ''), privateOrNoStore: /private|no-store/i.test(headers['cache-control'] || '') });
+      receipts.push({ name, attempt, status: response.status(), hasCacheHit: /\bhit\b/i.test(headers['cache-status'] || ''), privateOrNoStore: /private|no-store/i.test(headers['cache-control'] || '') });
     }
     await target.clearCookies();
     await page.goto(pageByName('Article').url, { waitUntil: 'networkidle' });
