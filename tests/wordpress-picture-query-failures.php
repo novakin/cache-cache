@@ -27,6 +27,9 @@ define( 'WP_DISABLE_FATAL_ERROR_HANDLER', true );
 define( 'WP_ADMIN', true );
 $_SERVER['HTTP_HOST'] = '127.0.0.1';
 $_SERVER['REQUEST_URI'] = '/wp-admin/';
+// WP_ADMIN must describe an actual admin request on older core.
+$_SERVER['SCRIPT_NAME'] = rtrim( $_SERVER['REQUEST_URI'], '/' ) . '/index.php';
+$_SERVER['PHP_SELF'] = $_SERVER['SCRIPT_NAME'];
 $_SERVER['REQUEST_METHOD'] = 'POST';
 require $wordpress . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/admin.php';
