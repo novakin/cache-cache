@@ -206,13 +206,14 @@ class AdminSubscriber implements Event_Manager_Aware_Subscriber_Interface {
 			foreach ( get_sites( [ 'fields' => 'ids', 'number' => 0 ] ) as $site_id ) {
 				switch_to_blog( $site_id );
 				try {
-					$configs[] = $this->generate_config_path();
+					list( $site_configs ) = get_noobrocket_config_file();
+					$configs              = array_merge( $configs, $site_configs );
 				} finally {
 					restore_current_blog();
 				}
 			}
 		} else {
-			$configs[] = $this->generate_config_path();
+			list( $configs ) = get_noobrocket_config_file();
 		}
 
 		$contents = $this->filesystem->dirlist( NOOBROCKET_CONFIG_PATH );
@@ -236,17 +237,6 @@ class AdminSubscriber implements Event_Manager_Aware_Subscriber_Interface {
 
 			$this->filesystem->delete( $content );
 		}
-	}
-
-	/**
-	 * Generate the path to the config for the current website.
-	 *
-	 * @return string
-	 */
-	protected function generate_config_path() {
-		$file         = get_noobrocket_parse_url( untrailingslashit( home_url() ) );
-		$file['path'] = ( ! empty( $file['path'] ) ) ? str_replace( '/', '.', untrailingslashit( $file['path'] ) ) : '';
-		return NOOBROCKET_CONFIG_PATH . strtolower( $file['host'] ) . $file['path'] . '.php';
 	}
 
 	/**

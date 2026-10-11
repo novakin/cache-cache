@@ -2234,6 +2234,66 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "config-alias-retention",
+      "path": "tests/wordpress-config-alias-retention.php",
+      "purpose": "Actual registered domain-change generation/pruning retains canonical, language and filtered aliases across modeled native-core blog contexts.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Owned temporary config files and modeled site options/hooks; actual owners and core filesystem classes, no site bootstrap, database or HTTP.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "wordpress-config-alias-retention",
+      "path": "tests/wordpress-config-alias-retention-native.php",
+      "purpose": "Native generation/pruning preserves language/filter aliases, replacement-path policy, stale-file ownership and ordinary qTranslate flag output.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Actual admin initialization and owned temporary config root in a marked copied-plugin site; advanced-loader and htaccess writes disabled, no listener or external HTTP.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "wordpress-config-alias-retention-multisite",
+      "path": "tests/wordpress-config-alias-retention-native.php",
+      "purpose": "Native active sibling policy survives root memoization and complete path retention; failures restore the exact originating switched-blog stack before deletion.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "multisite"
+      ],
+      "mutation": "Creates/removes owned active and settings-free blogs, activates/configures sibling in fresh PHP requests and cleans owned config files; restores blog/stack and blocks external HTTP.",
+      "args": [
+        "{wordpress}",
+        "multisite"
+      ],
+      "default": false,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     }
   ]
 }

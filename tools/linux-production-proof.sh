@@ -199,6 +199,7 @@ sampler_pid=''
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" network-activate
 HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-bootstrap-construction.php" "$wordpress" multisite
 HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-database-transients.php" "$wordpress" multisite
+HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-config-alias-retention-native.php" "$wordpress" multisite
 HTTP_HOST=127.0.0.1:8875 "$php_bin" "$workspace/tests/wordpress-mobile-loader-multisite.php" "$wordpress"
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" prepare
 "$php_bin" "$workspace/tests/linux-multisite.php" "$wordpress" prepare subsite
