@@ -32,6 +32,8 @@ The `php-dependency-reconstruction` fast fixture verifies the 219 pinned prefixe
 | `server` | Owned Linux/MariaDB/Apache/Nginx/PHP-FPM/worker/multisite rehearsal | Linux dependencies, verified WordPress archive, unprivileged execution; owned service cleanup. |
 | `package` | Existing ZIP structure/integrity and optional exact source equality | `--zip FILE`; `--compare-source` only for a ZIP intended to match the checkout. |
 
+`wordpress --fixture wpml-settings-shape --wordpress /path/to/wordpress-core` exercises the actual WPML subscriber through native WordPress hook dispatch and plugin event registration. It verifies absent/malformed settings, exact mixed-value pass-through, strict flag comparison and existing reset/purge order for update and activation/deactivation callbacks. Options and purge sinks are modeled; no site is bootstrapped and the proprietary WPML plugin is not executed.
+
 ## PHP quality gate
 
 Install only the isolated tool manifest; never use Composer install/update in `noobrocket/` for this gate:

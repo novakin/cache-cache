@@ -2334,6 +2334,24 @@
       "default": true,
       "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wpml-settings-shape",
+      "path": "tests/wordpress-wpml-settings-shape.php",
+      "purpose": "Actual registered WPML subscriber accepts absent/malformed option settings through native core hooks, preserves mixed filter values and valid cache-action order.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": [
+        "php",
+        "wordpress-core"
+      ],
+      "mutation": "Native core hook dispatch with modeled options/purge sinks; no site bootstrap, database/filesystem mutation, proprietary integration or network requests.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
     }
   ]
 }
