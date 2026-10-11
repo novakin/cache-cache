@@ -39,13 +39,19 @@ $requests = 0;
 $blocked = 0;
 $request_args = [];
 $extra_sources = [];
+$extra_responses = [];
 $source_url = 'https://192.0.2.8/styles/theme.css';
 $source_css = '.hero{width:64px;height:64px;background-image:url(https://background-fixture.invalid/hero.png);color:red}';
-$http = static function ( $pre, $args, $url ) use ( $source_url, $source_css, &$requests, &$blocked, &$request_args, &$extra_sources ) {
+$http = static function ( $pre, $args, $url ) use ( $source_url, $source_css, &$requests, &$blocked, &$request_args, &$extra_sources, &$extra_responses ) {
 	if ( $url === $source_url . '?ver=7&theme=light' || $url === $source_url . '?ver=7&theme=dark' ) {
 		++$requests;
 		$request_args[] = [ $url, $args ];
 		return [ 'headers' => [], 'body' => strpos( $url, 'theme=dark' ) !== false ? str_replace( 'color:red', 'color:black', $source_css ) : $source_css, 'response' => [ 'code' => 200, 'message' => 'OK' ], 'cookies' => [] ];
+	}
+	if ( array_key_exists( $url, $extra_responses ) ) {
+		++$requests;
+		$request_args[] = [ $url, $args ];
+		return $extra_responses[ $url ];
 	}
 	if ( array_key_exists( $url, $extra_sources ) ) {
 		++$requests;
@@ -244,6 +250,24 @@ try {
 			} finally { remove_filter( 'http_allowed_safe_ports', $allow_dev_port ); }
 		}
 	} finally { remove_filter( 'http_request_host_is_external', $allow_dev ); }
+	foreach ( [ '404' => 404, '500' => 500, 'error' => 0 ] as $name => $status ) {
+		$failed_url = home_url( '/dynamic-http-' . $name . '.php?theme=dark&size=2' );
+		$failed_html = '<html><head><link rel="stylesheet" href="' . htmlspecialchars( $failed_url, ENT_QUOTES, 'UTF-8' ) . '"></head></html>';
+		$extra_responses[ $failed_url ] = $status ? [ 'headers' => [], 'body' => str_replace( 'color:red', 'color:green', $source_css ), 'response' => [ 'code' => $status, 'message' => 'Failure' ], 'cookies' => [] ] : new WP_Error( 'background_fixture_failure', 'Owned stylesheet failure.' );
+		$before_files = iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) );
+		$before_requests = $requests;
+		$failed = $owner->create_lazy_css_files( [ 'html' => $failed_html, 'css_files' => [ htmlspecialchars( $failed_url, ENT_QUOTES, 'UTF-8' ) ] ] );
+		$check( $failed['html'] === $failed_html && ! $failed['lazyloaded_images'], $name . ' native HTTP failure retains exact source markup without mapping' );
+		$check( $before_files === iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) ), $name . ' native failure publishes no CSS or pointer' );
+		$check( $requests === $before_requests + 1 && end( $request_args )[0] === $failed_url && ! empty( end( $request_args )[1]['reject_unsafe_urls'] ), $name . ' native failure keeps query-dependent safe fetching' );
+		$extra_responses[ $failed_url ] = [ 'headers' => [], 'body' => $source_css, 'response' => [ 'code' => '500' === $name ? '200' : 200, 'message' => 'OK' ], 'cookies' => [] ];
+		$recovered = apply_filters( 'noobrocket_buffer', $failed_html );
+		$recovered_url = $stylesheet( $recovered );
+		$check( $recovered_url !== $failed_url && $requests === $before_requests + 2, $name . ' native healthy response retries and publishes through registered hooks' );
+		$recovered_asset = WP_CONTENT_DIR . substr( wp_parse_url( $recovered_url, PHP_URL_PATH ), strlen( wp_parse_url( WP_CONTENT_URL, PHP_URL_PATH ) ) );
+		$check( strpos( file_get_contents( $recovered_asset ), 'color:red' ) !== false && strpos( $recovered, 'const noobrocket_pairs = [];' ) === false, $name . ' native recovery publishes healthy CSS and mapping' );
+		$check( apply_filters( 'noobrocket_buffer', $failed_html ) === $recovered && $requests === $before_requests + 2, $name . ' native healthy publication is reused without refetching' );
+	}
 	$owner->clear_generated_css();
 	$check( ! is_dir( $cache->get_root_path() ), 'production purge owner removes its generated background cache' );
 	$check( $blocked === 0, 'native pipeline attempted no unowned HTTP requests' );

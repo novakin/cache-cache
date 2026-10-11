@@ -27,6 +27,8 @@ namespace {
 	$resolver_inputs = [];
 	$resolver_result = '/controlled/main.css';
 	$remote_css = '.remote{background-image:url(https://images.example.test/hero.png);color:green}';
+	$remote_status = 200;
+	$remote_error = false;
 	$browser_origin = $argv[1] ?? '';
 	$site_origin = $browser_origin ?: 'https://site.test';
 	function check( $condition, string $message ): void { if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); } ++$GLOBALS['checks']; }
@@ -46,8 +48,11 @@ namespace {
 	function noobrocket_realpath( $path ) { return $path; }
 	function wp_http_validate_url( $url ) { return 0 === strpos( $url, 'https://93.184.216.34/' ) || 0 === strpos( $url, 'http://93.184.216.34/' ) || 0 === strpos( $url, home_url() . '/' ) ? $url : false; }
 	function wp_remote_get( $url, $args = [] ) { $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => $GLOBALS['remote_css'] ]; }
-	function wp_safe_remote_get( $url, $args = [] ) { $args['reject_unsafe_urls'] = true; $GLOBALS['requests'][] = [ $url, $args ]; return [ 'body' => wp_http_validate_url( $url ) ? $GLOBALS['remote_css'] : '' ]; }
-	function wp_remote_retrieve_body( $response ) { return $response['body'] ?? ''; }
+	function wp_safe_remote_get( $url, $args = [] ) { $args['reject_unsafe_urls'] = true; $GLOBALS['requests'][] = [ $url, $args ]; return $GLOBALS['remote_error'] ? new WP_Error() : [ 'body' => wp_http_validate_url( $url ) ? $GLOBALS['remote_css'] : '', 'response' => [ 'code' => $GLOBALS['remote_status'] ] ]; }
+	class WP_Error {}
+	function is_wp_error( $response ) { return $response instanceof WP_Error; }
+	function wp_remote_retrieve_response_code( $response ) { return is_wp_error( $response ) ? '' : ( $response['response']['code'] ?? '' ); }
+	function wp_remote_retrieve_body( $response ) { return is_wp_error( $response ) ? '' : ( $response['body'] ?? '' ); }
 	function wp_generate_uuid4() { return bin2hex( random_bytes( 16 ) ); }
 	function wp_json_encode( $value ) { return json_encode( $value ); }
 	function current_time() { return $GLOBALS['clock']; }
@@ -198,6 +203,33 @@ namespace {
 		$unsafe_html = '<html><head><link rel="stylesheet" href="' . $unsafe_url . '"></head></html>';
 		$unsafe_output = $real_owner->create_lazy_css_files( [ 'html' => $unsafe_html, 'css_files' => [ $unsafe_url ] ] );
 		check( $unsafe_html === $unsafe_output['html'] && ! $unsafe_output['lazyloaded_images'], 'rejected remote stylesheet retains original HTML and no lazy mapping' );
+		$http_pages = [];
+		$http_originals = [];
+		foreach ( [ '404' => 404, '500' => 500, 'error' => 0 ] as $name => $status ) {
+			$remote_status = $status;
+			$remote_error = 'error' === $name;
+			$remote_css = str_replace( 'color:red', 'color:green', $fetcher->content );
+			$failed_url = home_url() . '/http/' . $name . '.css?theme=dark&size=2';
+			$failed_html = '<!doctype html><html><head><link rel="stylesheet" href="' . $failed_url . '"></head><body><div class="hero"></div></body></html>';
+			$before_files = iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) );
+			$before_requests = count( $requests );
+			$failed = $real_owner->create_lazy_css_files( [ 'html' => $failed_html, 'css_files' => [ $failed_url ] ] );
+			check( $failed['html'] === $failed_html && ! $failed['lazyloaded_images'], $name . ' failure retains exact original markup without mapping' );
+			check( $before_files === iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) ), $name . ' failure publishes no CSS or pointer' );
+			check( $before_requests + 1 === count( $requests ) && end( $requests )[0] === $failed_url && ! empty( end( $requests )[1]['reject_unsafe_urls'] ), $name . ' failure preserves the query-dependent safe request' );
+			$http_pages[ 'http-' . $name ] = $failed['html'];
+			$http_originals[ '/http/' . $name . '.css' ] = [ 'status' => $status ?: 502, 'body' => $remote_error ? '' : $remote_css ];
+			$remote_error = false;
+			$remote_status = '500' === $name ? '200' : 200;
+			$remote_css = $fetcher->content;
+			$recovered = $real_owner->create_lazy_css_files( [ 'html' => $failed_html, 'css_files' => [ $failed_url ] ] );
+			check( stylesheet( $recovered['html'] ) !== $failed_url && ! empty( $recovered['lazyloaded_images'] ) && count( $requests ) === $before_requests + 2, $name . ' healthy response retries and publishes without a failed cache hit' );
+			check( false !== strpos( delivered_css( $cache, stylesheet( $recovered['html'] ) ), 'color:red' ), $name . ' recovered CSS uses healthy response bytes' );
+			$warm = $real_owner->create_lazy_css_files( [ 'html' => $failed_html, 'css_files' => [ $failed_url ] ] );
+			check( $warm === $recovered && count( $requests ) === $before_requests + 2, $name . ' healthy publication is reused without refetching' );
+			$http_pages[ 'http-' . $name . '-recovered' ] = $real_owner->add_lazy_tag( $recovered )['html'];
+		}
+		$remote_status = 200;
 		$resolver_result = '/controlled/main.css';
 		$filesystem->reads = [];
 		$reference_url = $cache->generate_url( $base_source );
@@ -225,7 +257,7 @@ namespace {
 		check( 1 === substr_count( $first, 'id="noobrocket-lazyload-bg-container"' ), 'one real-head mapping container is delivered' );
 		$reads = $filesystem->reads;
 		check( ! array_filter( $reads, static function ( $path ) { return '.css' === substr( $path, -4 ); } ), 'ready hits do not read or hash full stylesheet bytes' );
-		$pages = [ 'first' => $first, 'second' => $second ];
+		$pages = [ 'first' => $first, 'second' => $second ] + $http_pages;
 		$variant_urls = [ 'light' => stylesheet( $first ) ];
 		$variant_fetches = $fetcher->calls;
 		for ( $index = 0; $index < 6; ++$index ) {
@@ -374,7 +406,7 @@ namespace {
 		}
 		$cache->clear();
 		check( ! is_dir( $cache->get_root_path() ), 'existing domain purge removes pointer, immutable outputs and temporary files' );
-		if ( $browser_origin ) { echo wp_json_encode( [ 'pages' => $pages, 'assets' => $assets, 'original' => $source_css ] ); }
+		if ( $browser_origin ) { echo wp_json_encode( [ 'pages' => $pages, 'assets' => $assets, 'original' => $source_css, 'http_originals' => $http_originals ] ); }
 		else { echo 'PASS: stylesheet-background publication (' . $checks . ' assertions; actual owners, modeled hooks, owned filesystem).' . PHP_EOL; }
 	} finally { noobrocket_rrmdir( $temp ); }
 }
