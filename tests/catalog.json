@@ -2348,6 +2348,26 @@
       "args": [],
       "default": true,
       "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-dynamic-cookie-groups",
+      "path": "tests/wordpress-dynamic-cookie-groups.php",
+      "purpose": "Native generated dynamic-cookie policy retains all named groups and selects distinct owned cache variants.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Temporarily writes and restores exact owned generated policy bytes and creates/removes uniquely owned cache variants; no providers or third-party cookie plugin.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     }
   ]
 }
