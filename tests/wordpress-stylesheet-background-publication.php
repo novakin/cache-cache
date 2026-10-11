@@ -109,6 +109,14 @@ try {
 	$owned_buffer->add_filter( 'noobrocket_buffer', [ $owner, 'maybe_replace_css_images' ], 110000, 1 );
 	$GLOBALS['wp_filter']['noobrocket_buffer'] = $owned_buffer;
 	$html = '<!doctype html><html><HEAD><link rel="stylesheet" href="' . $source_url . '?ver=7&amp;theme=light"><style>.inline{background-image:url(https://background-fixture.invalid/inline.png)}</style><!-- </head> --><script>const example="</head>";</script></HEAD><body><div class="hero"></div><div class="inline"></div></body></html>';
+	foreach ( [
+		'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
+		'<META HTTP-EQUIV=content-security-policy content="default-src \'self\'">',
+		'<meta http-equiv="Content-Security-&#80;olicy" content="default-src \'self\'">',
+	] as $meta ) {
+		$csp_html = str_replace( '<HEAD>', '<HEAD>' . $meta, $html );
+		$check( apply_filters( 'noobrocket_buffer', $csp_html ) === $csp_html && $requests === 0 && ! is_dir( $cache->get_root_path() ), 'registered native pipeline preserves enforcing meta CSP before any fetch or publication' );
+	}
 	$first = apply_filters( 'noobrocket_buffer', $html );
 	$first_url = $stylesheet( $first );
 	$check( $first_url !== $stylesheet( $html ) && preg_match( '/\.[a-f0-9]{64}\.css\?/', $first_url ), 'registered pipeline delivers a revisioned stylesheet URL' );
@@ -132,6 +140,14 @@ try {
 	$check( preg_match( '/<noscript>\s*<style id="noobrocket-lazyload-bg-nostyle">(.*?)<\/style>\s*<\/noscript>/s', $first, $fallback ) === 1 && strpos( $fallback[1], 'hero.png' ) !== false && strpos( $fallback[1], 'inline.png' ) !== false, 'actual noscript tag contains linked and inline recovery CSS' );
 	$second = apply_filters( 'noobrocket_buffer', $html );
 	$check( $stylesheet( $second ) === $first_url && $requests === 1, 'next native render reuses the exact stylesheet URL without another source fetch' );
+	foreach ( [
+		'<meta http-equiv="Content-Security-Policy-Report-Only" content="default-src \'self\'">',
+		'<!-- <meta http-equiv="Content-Security-Policy" content="default-src \'self\'"> -->',
+		'<template><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"></template>',
+	] as $meta ) {
+		$control = apply_filters( 'noobrocket_buffer', str_replace( '<HEAD>', '<HEAD>' . $meta, $html ) );
+		$check( $stylesheet( $control ) === $first_url && $requests === 1 && substr_count( $control, 'id="noobrocket-lazyload-bg-container"' ) === 1, 'registered native pipeline still optimizes report-only and inert meta controls' );
+	}
 	$check( file_get_contents( $asset_path ) === $bytes, 'cache hit preserves previously published immutable stylesheet bytes' );
 	parse_str( wp_parse_url( $first_url, PHP_URL_QUERY ), $query );
 	$check( $query === [ 'ver' => '7', 'theme' => 'light' ], 'HTML-escaped original query survives without a page-time parameter' );

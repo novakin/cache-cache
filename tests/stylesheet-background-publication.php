@@ -12,6 +12,9 @@ namespace NoobRocket\Engine\Common\Cache {
 		return ! $GLOBALS['fail_rename'] && \rename( $from, $to );
 	}
 }
+namespace NoobRocket\Engine\Media\Lazyload\CSS {
+	function headers_list(): array { return $GLOBALS['response_headers']; }
+}
 namespace {
 	if ( ! function_exists( 'mb_substr' ) || ! function_exists( 'mb_strlen' ) ) {
 		fwrite( STDERR, "The real stylesheet fetcher fixture requires the PHP mbstring extension.\n" );
@@ -19,6 +22,8 @@ namespace {
 	}
 	$checks = 0;
 	$filters = [];
+	$response_headers = [];
+	$generation_calls = 0;
 	$clock = 100;
 	$before_rename = null;
 	$fail_rename = false;
@@ -146,6 +151,7 @@ namespace {
 	$extract = new NoobRocket\Engine\Common\ExtractCSS\Subscriber();
 	$extract->set_logger( new NoobRocket\Logger\Logger() );
 	$filters['noobrocket_generate_lazyloaded_css'] = [
+		static function ( $data ) { ++$GLOBALS['generation_calls']; return $data; },
 		[ $extract, 'extract_css_files_from_html' ], [ $extract, 'extract_inline_css_from_html' ],
 		[ $owner, 'create_lazy_css_files' ], [ $owner, 'create_lazy_inline_css' ], [ $owner, 'add_lazy_tag' ],
 	];
@@ -244,6 +250,26 @@ namespace {
 		check( str_replace( home_url(), 'https://cdn.test', $reference_url ) === $mixed_url, 'normalized cache URL preserves the existing delivery filter' );
 		array_pop( $filters['noobrocket_css_url'] );
 		$constant_overrides = [];
+		$policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'";
+		$csp_pages = [ 'csp-baseline' => $html ];
+		$csp_headers = [ 'csp-baseline' => [ 'Content-Security-Policy' => $policy ] ];
+		$before_files = iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) );
+		foreach ( [
+			'csp-header' => [ [ 'Content-Security-Policy: ' . $policy ], $html ],
+			'csp-header-case' => [ [ 'content-security-policy: ' . $policy ], $html ],
+			'csp-meta-quoted' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy" content="' . $policy . '">', $html ) ],
+			'csp-meta-single' => [ [], str_replace( '<head>', '<head><meta http-equiv=\'Content-Security-Policy\' content="' . $policy . '">', $html ) ],
+			'csp-meta-case' => [ [], str_replace( '<head>', '<head><META HTTP-EQUIV=content-security-policy content="' . $policy . '">', $html ) ],
+			'csp-meta-entity' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-&#80;olicy" content="' . $policy . '">', $html ) ],
+			'csp-meta-first-attribute' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy" http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '">', $html ) ],
+		] as $name => [ $response_headers, $input ] ) {
+			$csp_pages[ $name ] = $owner->maybe_replace_css_images( $input );
+			check( $input === $csp_pages[ $name ], $name . ' retains exact original markup under enforcing CSP' );
+			check( 0 === $generation_calls && 0 === $fetcher->calls, $name . ' stops before generation or source fetching' );
+			check( $before_files === iterator_count( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $cache->get_root_path(), FilesystemIterator::SKIP_DOTS ) ) ), $name . ' publishes no CSS or mapping' );
+			if ( $response_headers ) { $csp_headers[ $name ] = [ 'Content-Security-Policy' => $policy ]; }
+		}
+		$response_headers = [];
 		$source_css = $fetcher->content;
 		$first = $owner->maybe_replace_css_images( $html );
 		$clock = 200;
@@ -257,7 +283,25 @@ namespace {
 		check( 1 === substr_count( $first, 'id="noobrocket-lazyload-bg-container"' ), 'one real-head mapping container is delivered' );
 		$reads = $filesystem->reads;
 		check( ! array_filter( $reads, static function ( $path ) { return '.css' === substr( $path, -4 ); } ), 'ready hits do not read or hash full stylesheet bytes' );
-		$pages = [ 'first' => $first, 'second' => $second ] + $http_pages;
+		$pages = [ 'first' => $first, 'second' => $second ] + $http_pages + $csp_pages;
+		$enforcing_meta = '<meta http-equiv="Content-Security-Policy" content="' . $policy . '">';
+		foreach ( [
+			'csp-report-header' => [ [ 'Content-Security-Policy-Report-Only: ' . $policy ], $html ],
+			'csp-report-meta' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy-Report-Only" content="' . $policy . '">', $html ) ],
+			'first duplicate attribute' => [ [], str_replace( '<head>', '<head><meta http-equiv="Content-Security-Policy-Report-Only" http-equiv="Content-Security-Policy" content="' . $policy . '">', $html ) ],
+			'commented CSP' => [ [], str_replace( '<head>', '<head><!-- ' . $enforcing_meta . ' -->', $html ) ],
+			'raw-text CSP' => [ [], str_replace( '<head>', '<head><script>const policyMarkup=' . json_encode( $enforcing_meta ) . ';</script>', $html ) ],
+			'template CSP' => [ [], str_replace( '<head>', '<head><template>' . $enforcing_meta . '</template>', $html ) ],
+			'attribute CSP' => [ [], str_replace( '<head>', '<head data-example=\'' . $enforcing_meta . '\'>', $html ) ],
+			'noscript CSP' => [ [], str_replace( '<head>', '<head><noscript>' . $enforcing_meta . '</noscript>', $html ) ],
+		] as $name => [ $response_headers, $input ] ) {
+			$before_generation = $generation_calls;
+			$output = $owner->maybe_replace_css_images( $input );
+			check( $generation_calls === $before_generation + 1 && stylesheet( $output ) !== $source && false !== strpos( $output, 'noobrocket-lazyload-bg-container' ), $name . ' preserves ordinary background optimization' );
+			if ( 0 === strpos( $name, 'csp-report-' ) ) { $pages[ $name ] = $output; }
+		}
+		$csp_headers['csp-report-header'] = [ 'Content-Security-Policy-Report-Only' => $policy ];
+		$response_headers = [];
 		$variant_urls = [ 'light' => stylesheet( $first ) ];
 		$variant_fetches = $fetcher->calls;
 		for ( $index = 0; $index < 6; ++$index ) {
@@ -406,7 +450,7 @@ namespace {
 		}
 		$cache->clear();
 		check( ! is_dir( $cache->get_root_path() ), 'existing domain purge removes pointer, immutable outputs and temporary files' );
-		if ( $browser_origin ) { echo wp_json_encode( [ 'pages' => $pages, 'assets' => $assets, 'original' => $source_css, 'http_originals' => $http_originals ] ); }
+		if ( $browser_origin ) { echo wp_json_encode( [ 'pages' => $pages, 'assets' => $assets, 'original' => $source_css, 'http_originals' => $http_originals, 'csp_headers' => $csp_headers ] ); }
 		else { echo 'PASS: stylesheet-background publication (' . $checks . ' assertions; actual owners, modeled hooks, owned filesystem).' . PHP_EOL; }
 	} finally { noobrocket_rrmdir( $temp ); }
 }

@@ -167,6 +167,26 @@ class Subscriber implements Subscriber_Interface, LoggerAwareInterface {
 			return $html;
 		}
 
+		// Recovery needs inline script/style. Preserve CSS under any enforcing policy.
+		foreach ( headers_list() as $header ) {
+			if ( 0 === stripos( $header, 'Content-Security-Policy:' ) ) {
+				return $html;
+			}
+		}
+		foreach ( $this->find_html_tags( $html, 'meta' ) as $tag ) {
+			foreach ( $this->get_html_attributes( substr( $tag[0], 5, -1 ) ) as $attribute ) {
+				if ( 0 !== strcasecmp( $attribute['name'][0], 'http-equiv' ) ) {
+					continue;
+				}
+				$value = $attribute['double'][0] ?? $attribute['single'][0] ?? $attribute['unquoted'][0] ?? '';
+				if ( 0 === strcasecmp( trim( html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ), 'Content-Security-Policy' ) ) {
+					return $html;
+				}
+				// Browsers keep the first occurrence of a duplicated attribute.
+				break;
+			}
+		}
+
 		/**
 		 * Generate lazyload CSS for the page.
 		 *
