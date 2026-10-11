@@ -1617,7 +1617,7 @@
     {
       "name": "wordpress-picture-generator",
       "path": "tests/wordpress-picture-generator.php",
-      "purpose": "Standalone native-editor/queue contracts and real filesystem publication/ownership checks.",
+      "purpose": "Image queue/library read refusal and recovery, standalone editor contracts and real filesystem publication/ownership checks.",
       "profile": "fast",
       "environment": "modeled-standalone",
       "prerequisites": [
@@ -1626,6 +1626,19 @@
       "mutation": "Mocked storage and/or owned temporary files; no site bootstrap.",
       "args": [],
       "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "wordpress-picture-query-failures",
+      "path": "tests/wordpress-picture-query-failures.php",
+      "purpose": "Registered image generator retains scan/queue/publication state through four native SQL read refusals and healthy recovery.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "php-gd-webp", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Owned attachments/uploads and native SQL refusal/editor work in a marked copied-plugin site; exact queue state/cron restored; no provider HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_wordpress": "5.8",
       "minimum_php": "7.4"
     },
     {

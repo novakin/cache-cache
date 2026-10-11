@@ -40,8 +40,20 @@ class WP_Error {}
 class GeneratorDatabase {
 	public $posts = 'posts';
 	public $postmeta = 'postmeta';
+	public $last_error = '';
+	public $reads = 0;
+	public $fail_at = 0;
+	public $on_failed_read = null;
 	public function prepare( $sql, ...$args ) { return [ $sql, $args ]; }
 	public function get_col( $query ) {
+		$this->last_error = '';
+		if ( ++$this->reads === $this->fail_at ) {
+			$callback = $this->on_failed_read;
+			$this->on_failed_read = null;
+			if ( $callback ) { $callback(); }
+			$this->last_error = 'Lost connection during owned SELECT';
+			return [];
+		}
 		list( $sql, $args ) = $query;
 		if ( false !== strpos( $sql, 'SELECT ID FROM' ) ) {
 			$ids = [];
@@ -57,6 +69,7 @@ class GeneratorDatabase {
 		return array_slice( $ids, 0, 2 );
 	}
 	public function get_var( $query ) {
+		$this->last_error = '';
 		$count = 0;
 		foreach ( $GLOBALS['postmeta'] as $meta ) { if ( array_key_exists( $query[1][0], $meta ) ) { $count++; } }
 		return $count;
@@ -97,6 +110,104 @@ function generator_attachment( $id, $name, $mime = 'image/jpeg', $metadata = [] 
 try {
 	$generator = new NoobRocket\Engine\Media\Picture\Generator( new NoobRocket\Admin\Options_Data( [ 'image_delivery' => 1 ] ) );
 	$disabled = new NoobRocket\Engine\Media\Picture\Generator( new NoobRocket\Admin\Options_Data( [ 'image_delivery' => 0 ] ) );
+	foreach ( [ 1 => 'initial pending', 2 => 'library scan', 3 => 'pending after scan', 4 => 'completion pending' ] as $stage => $label ) {
+		$attachments = $postmeta = $options = $events = [];
+		$encodes = $purges = 0;
+		$wpdb->reads = 0;
+		$wpdb->fail_at = $stage;
+		generator_attachment( 21, 'read-failure-' . $stage . '.jpg' );
+		$state = [ 'active' => true, 'cursor' => 20, 'generated' => 7, 'last_run' => 31, 'last_error' => '', 'dirty' => true ];
+		$options['noobrocket_image_generation'] = $state;
+		$postmeta[21] = [ 'unrelated' => 'retained' ];
+		if ( 1 === $stage ) { $postmeta[21]['_noobrocket_image_pending'] = 2; }
+		$before_meta = $postmeta;
+		generator_batch( $generator );
+		$failed = $options['noobrocket_image_generation'];
+		generator_check( true === $failed['active'] && 20 === $failed['cursor'], $label . ': a failed SELECT preserves scan activity and cursor' );
+		generator_check( 7 + ( 4 === $stage ? 2 : 0 ) === $failed['generated'] && true === $failed['dirty'], $label . ': failure retains historical totals, actual completed encodes and dirty publication' );
+		generator_check( 'database_read_failed' === $failed['last_error'] && 1 === count( $events ) && 0 === $purges, $label . ': failure is recorded and retried without purging' );
+		generator_check( 4 === $stage ? $failed['last_run'] > 31 : 31 === $failed['last_run'], $label . ': only actual encoding work advances the recorded batch time' );
+		if ( $stage <= 2 ) {
+			generator_check( $before_meta === $postmeta && 0 === $encodes, $label . ': early failure leaves pending attempts and attachment metadata intact' );
+		} elseif ( 3 === $stage ) {
+			generator_check( 0 === $postmeta[21]['_noobrocket_image_pending'] && 'retained' === $postmeta[21]['unrelated'] && 0 === $encodes, 'post-scan failure retains newly queued work without treating an unknown queue as empty' );
+		} else {
+			generator_check( ! metadata_exists( 'post', 21, '_noobrocket_image_pending' ) && 2 === count( $postmeta[21]['_noobrocket_image_files'] ), 'late failure keeps completed owned output rather than rolling back successful generation' );
+		}
+		$lock = fopen( $fixture . '/.noobrocket-image-generator.lock', 'c' );
+		generator_check( flock( $lock, LOCK_EX | LOCK_NB ), $label . ': failed read releases the existing generator lock' );
+		flock( $lock, LOCK_UN );
+		fclose( $lock );
+		$wpdb->fail_at = 0;
+		$wpdb->last_error = 'stale previous query failure';
+		for ( $batch = 0; $batch < 5 && ( $options['noobrocket_image_generation']['active'] || metadata_exists( 'post', 21, '_noobrocket_image_pending' ) ); $batch++ ) { generator_batch( $generator ); }
+		$recovered = $options['noobrocket_image_generation'];
+		generator_check( false === $recovered['active'] && 21 === $recovered['cursor'] && ! metadata_exists( 'post', 21, '_noobrocket_image_pending' ), $label . ': healthy reads finish the preserved scan and queue' );
+		generator_check( 9 === $recovered['generated'] && '' === $recovered['last_error'] && false === $recovered['dirty'] && 1 === $purges && ! $events, $label . ': recovery clears the read error and publishes exactly once without recounting completed output' );
+	}
+	foreach ( [ 'queue_library', 'settings_changed' ] as $caller ) {
+		$attachments = $postmeta = $options = $events = [];
+		$encodes = $purges = 0;
+		$wpdb->reads = 0;
+		$wpdb->fail_at = 1;
+		generator_attachment( 21, 'caller-failure-' . $caller . '.jpg' );
+		$state = [ 'active' => false, 'cursor' => 77, 'generated' => 10, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+		$options['noobrocket_image_generation'] = $state;
+		$postmeta[21] = [ '_noobrocket_image_pending' => 1, 'unrelated' => 'retained' ];
+		$before_meta = $postmeta;
+		if ( 'queue_library' === $caller ) { $generator->queue_library(); }
+		else { $generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] ); }
+		$failed = $options['noobrocket_image_generation'];
+		generator_check( 77 === $failed['cursor'] && 10 === $failed['generated'] && false === $failed['dirty'] && 31 === $failed['last_run'], $caller . ': failed pending read cannot reset existing scan history' );
+		generator_check( 'database_read_failed' === $failed['last_error'] && 1 === count( $events ) && $before_meta === $postmeta && 0 === $purges, $caller . ': unknown pending work retains metadata and schedules retry' );
+		generator_check( ( 'queue_library' === $caller ) === $failed['active'], $caller . ': only an explicit backfill request starts scan activity' );
+		$wpdb->fail_at = 0;
+		for ( $batch = 0; $batch < 5 && ( $options['noobrocket_image_generation']['active'] || metadata_exists( 'post', 21, '_noobrocket_image_pending' ) ); $batch++ ) { generator_batch( $generator ); }
+		generator_check( false === $options['noobrocket_image_generation']['active'] && 77 === $options['noobrocket_image_generation']['cursor'] && 12 === $options['noobrocket_image_generation']['generated'] && '' === $options['noobrocket_image_generation']['last_error'] && 1 === $purges && ! $events, $caller . ': healthy nonempty retry preserves the resume cursor, completes retained work and invalidates once' );
+	}
+	foreach ( [ 0, 1, 2, 3, 4 ] as $recovery_failure ) {
+		$attachments = $postmeta = $options = $events = [];
+		$encodes = $purges = 0;
+		$wpdb->reads = 0;
+		$wpdb->fail_at = 1;
+		generator_attachment( 21, 'empty-backfill-' . $recovery_failure . '.jpg' );
+		$options['noobrocket_image_generation'] = [ 'active' => false, 'cursor' => 77, 'generated' => 10, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+		$generator->queue_library();
+		$requested = $options['noobrocket_image_generation'];
+		generator_check( 77 === $requested['cursor'] && 10 === $requested['generated'] && 0 === $encodes, 'unknown explicit backfill preserves completed history before selecting resume or restart' );
+		$wpdb->reads = 0;
+		$wpdb->fail_at = $recovery_failure;
+		generator_batch( $generator );
+		$wpdb->fail_at = 0;
+		for ( $batch = 0; $batch < 5 && ( $options['noobrocket_image_generation']['active'] || metadata_exists( 'post', 21, '_noobrocket_image_pending' ) ); ++$batch ) { generator_batch( $generator ); }
+		$recovered = $options['noobrocket_image_generation'];
+		generator_check( false === $recovered['active'] && 21 === $recovered['cursor'] && 12 === $recovered['generated'] && 2 === $encodes && metadata_exists( 'post', 21, '_noobrocket_image_files' ), 'unknown then empty backfill visits attachments before the completed cursor, including repeated read failures at stage ' . $recovery_failure );
+		generator_check( empty( $recovered['backfill_pending'] ) && '' === $recovered['last_error'] && 1 === $purges && ! $events, 'completed explicit backfill clears deferred intent and publishes once' );
+	}
+	$attachments = $postmeta = $options = $events = [];
+	$encodes = $purges = 0;
+	$wpdb->reads = 0;
+	$wpdb->fail_at = 1;
+	generator_attachment( 21, 'settings-interleave.jpg' );
+	$state = [ 'active' => false, 'cursor' => 77, 'generated' => 10, 'last_run' => 31, 'last_error' => '', 'dirty' => false ];
+	$options['noobrocket_image_generation'] = $state;
+	$postmeta[21] = [ '_noobrocket_image_pending' => 1 ];
+	$wpdb->on_failed_read = static function () use ( $generator ) { generator_batch( $generator ); };
+	$generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] );
+	generator_check( 0 === $encodes && 10 === $options['noobrocket_image_generation']['generated'] && 31 === $options['noobrocket_image_generation']['last_run'], 'settings failure holds the existing lock against a controlled actual-worker interleave' );
+	$wpdb->fail_at = 0;
+	generator_batch( $generator );
+	generator_check( 2 === $encodes && 12 === $options['noobrocket_image_generation']['generated'] && 1 === $purges && ! $events, 'healthy worker after settings failure retains actual progress and publishes once' );
+	$before = $options['noobrocket_image_generation'];
+	$wpdb->reads = 0;
+	$lock = fopen( $fixture . '/.noobrocket-image-generator.lock', 'c' );
+	flock( $lock, LOCK_EX );
+	try { $generator->settings_changed( [ 'image_delivery' => 0 ], [ 'image_delivery' => 1 ] ); }
+	finally { flock( $lock, LOCK_UN ); fclose( $lock ); }
+	generator_check( 0 === $wpdb->reads && $before === $options['noobrocket_image_generation'] && 1 === count( $events ), 'contended settings activation schedules retry without reading or rewriting worker state' );
+	$attachments = $postmeta = $options = $events = [];
+	$encodes = $purges = 0;
+	$wpdb->reads = $wpdb->fail_at = 0;
 	$original = generator_attachment( 1, 'photo-scaled.jpg', 'image/jpeg', [ 'original_image' => 'photo.jpg', 'sizes' => [ 'small' => [ 'file' => 'photo-150.jpg' ], 'medium' => [ 'file' => 'photo-300.jpg' ], 'unsafe' => [ 'file' => '../outside.jpg' ] ] ] );
 	foreach ( [ 'photo.jpg', 'photo-150.jpg', 'photo-300.jpg' ] as $name ) { file_put_contents( $fixture . '/' . $name, 'Original ' . $name ); }
 	$metadata = $attachments[1]['metadata'];
