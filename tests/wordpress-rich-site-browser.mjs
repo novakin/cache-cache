@@ -440,7 +440,8 @@ async function cspBackground(profile) {
     check(/style-src 'self'/.test(policy) && /script-src 'self'/.test(policy), 'Actual native response enforces self-only style/script CSP.');
     await page.locator('#rich-late-background').scrollIntoViewIfNeeded();
     const background = await page.locator('#rich-late-background').evaluate(node => getComputedStyle(node).backgroundImage);
-    const observation = { profile, backgroundVisible: background !== 'none', violations: await page.evaluate(() => window.richCspViolations), rewrittenLazyStylesheet: /lazyload-css|noobrocket-lazyload-bg/.test(await response.text()) };
+    const rewrittenLazyStylesheet = await page.locator('link[rel~="stylesheet"]').evaluateAll(links => links.some(link => new URL(link.href).pathname.includes('/background-css/')));
+    const observation = { profile, backgroundVisible: background !== 'none', violations: await page.evaluate(() => window.richCspViolations), rewrittenLazyStylesheet };
     (report.cspObservations ||= []).push(observation);
     if (profile === 'baseline') {
       check(background !== 'none', 'Original external stylesheet displays its background under enforcing CSP.');
@@ -448,6 +449,7 @@ async function cspBackground(profile) {
     } else {
       check(background === originalCspBackground && background !== 'none', 'Optimization retains the functional external background under enforcing CSP.');
     }
+    check(!rewrittenLazyStylesheet, 'Enforcing CSP retains ordinary stylesheets before background rewriting.');
     return observation;
   } finally { await target.close(); }
 }
