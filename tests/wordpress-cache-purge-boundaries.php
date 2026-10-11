@@ -9,6 +9,13 @@ $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['REQUEST_METHOD'] = 'POST';
 define( 'WP_ADMIN', true );
 define( 'WP_DISABLE_FATAL_ERROR_HANDLER', true );
+$early_domain_checked = false;
+require_once $wordpress . '/wp-includes/plugin.php';
+add_action( 'plugins_loaded', static function () use ( &$early_domain_checked ) {
+	if ( ! function_exists( 'noobrocket_clean_domain' ) || function_exists( 'noobrocket_is_importing' ) ) { throw new RuntimeException( 'Expected public purge before API initialization at priority 8.' ); }
+	if ( false !== noobrocket_clean_domain() || did_action( 'noobrocket_after_clean_domain' ) ) { throw new RuntimeException( 'Early native domain purge must decline without completion hooks.' ); }
+	$early_domain_checked = true;
+}, 8 );
 $native_completed = false;
 register_shutdown_function( static function () use ( &$native_completed ) {
 	if ( ! $native_completed ) { fwrite( STDERR, "FAIL: native cache-purge fixture did not complete.\n" ); exit( 2 ); }
@@ -36,6 +43,7 @@ class NativePurgeRefusingFilesystem extends WP_Filesystem_Direct {
 }
 
 try {
+	native_purge_check( $early_domain_checked, 'native plugins_loaded priority 8 returns safely before API initialization' );
 	$sentinel = $owned[1] . '/index.html';
 	file_put_contents( $sentinel, 'owned sibling sentinel' );
 	$url = home_url( '/%2e%2e/' . $name . '-foreign/' );
@@ -72,6 +80,18 @@ try {
 		if ( 'Windows' !== PHP_OS_FAMILY ) { throw new RuntimeException( 'Native directory-link control requires symlink support on this platform.' ); }
 		echo "SKIP directory-link native control: OS denied symlink creation; Linux CI required.\n";
 	}
+	wp_mkdir_p( $owned[0] );
+	$domain_file = $owned[0] . '/index.html';
+	file_put_contents( $domain_file, 'owned domain cache' );
+	$domain_urls = static function () use ( $name ) { return [ home_url( '/' . $name . '/' ) ]; };
+	add_filter( 'noobrocket_clean_domain_urls', $domain_urls );
+	add_filter( 'noobrocket_is_importing', '__return_true' );
+	noobrocket_clean_domain();
+	remove_filter( 'noobrocket_is_importing', '__return_true' );
+	native_purge_check( is_file( $domain_file ), 'native importing guard retains domain cache' );
+	_noobrocket_get_cache_dirs( '', '', true );
+	native_purge_check( true === noobrocket_clean_domain() && ! is_file( $domain_file ) && is_file( $sentinel ), 'native ready domain purge removes selected cache and preserves sibling' );
+	remove_filter( 'noobrocket_clean_domain_urls', $domain_urls );
 } finally {
 	foreach ( $owned as $directory ) {
 		if ( ! is_dir( $directory ) ) { continue; }
