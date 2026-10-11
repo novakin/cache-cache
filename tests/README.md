@@ -103,6 +103,10 @@ python tools/check.py server --wordpress-zip /path/to/verified-wordpress.zip --p
 
 The Linux script reads `PHP_FPM` and optional `APACHE_MODULE_DIR` from the environment; the runner sets `PHP_CLI` from `--php`. It creates owned disposable MariaDB/site/server paths and cleans only owned processes. Each Apache/Nginx listener proves it serves that site's unique temporary file before the audit permits its exact loopback origin. The harness checks the audit's sanitized blocked-request marker before reporting success, so ignored errors in direct PHP fixtures or web requests fail the completed rehearsal. CI site setup also rejects blocked requests during installation. Both installers supply their chosen pretty-permalink structure through a scoped option filter during `wp_install`, remove the filter in `finally`, then save the real option; this avoids core's speculative loopback discovery before a listener is authorized. Real server permalink delivery is checked after origin verification. Repository CI uses verified WordPress archives and isolated jobs; production Nginx configuration is not proved by a synthetic Windows proxy.
 
+## Focused Abilities schema proof
+
+For the writable Abilities schema, `fast --fixture wordpress-settings-domain-api` checks the actual registration owner with modeled writers, default/sparse enum JSON and existing permission/read-only controls. `wordpress --fixture wordpress-abilities-option-schema --fixture wordpress-abilities-option-schema-sparse --wordpress /path/to/disposable-wordpress` requires WordPress 6.9+ and an activated marked copied-plugin installation. The default group runs both schema fixtures after `acceptance:activate` and `acceptance:settings`; include those phases in a focused selection for a fresh site, because copying the plugin does not register its abilities. It checks the subscriber's registered schema with native WordPress input validation, both allowlists and denied calls without writing options. This is schema/Abilities API proof; it does not exercise an external MCP client.
+
 ## Focused lazy-load proof
 
 ```sh
