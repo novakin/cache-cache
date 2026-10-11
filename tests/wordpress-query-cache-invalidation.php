@@ -37,6 +37,10 @@ register_shutdown_function( static function () use ( &$query_fixture_completed )
 } );
 require $wordpress . '/wp-load.php';
 ini_set( 'display_errors', 'stderr' );
+$redis_expiry = isset( $argv[2] ) && 'redis-expiry' === $argv[2];
+if ( $redis_expiry && ( ! wp_using_ext_object_cache() || ! is_callable( [ $wp_object_cache, 'redis_instance' ] ) || ! is_callable( [ $wp_object_cache, 'build_key' ] ) || ! function_exists( 'wp_cache_flush_runtime' ) ) ) {
+	throw new RuntimeException( 'Redis expiry mode requires the official Redis Object Cache drop-in on this disposable site.' );
+}
 
 use NoobRocket\Engine\Preload\Database\Queries\Cache as CacheQuery;
 use NoobRocket\Engine\Preload\Database\Tables\Cache as CacheTable;
@@ -123,6 +127,62 @@ try {
 		$reads_before = $sql_reads;
 		$check( [] === $reader->query( $args ) && $reads_before === $sql_reads, $scenario . ': repeated deletion miss stays cached' );
 		$check( false === $reader->get_item( $id ), $scenario . ': deleted item is absent from the item cache and database' );
+	}
+	if ( $redis_expiry ) {
+		$redis = $wp_object_cache->redis_instance();
+		$key_method = new ReflectionMethod( NoobRocket\Dependencies\BerlinDB\Database\Query::class, 'get_cache_key' );
+		$key_method->setAccessible( true );
+		$writer = new QueryCacheFixtureQuery( $name );
+		$reader = new QueryCacheFixtureQuery( $name );
+		$args = [ 'url' => 'https://query-cache.invalid/redis-expiry' ];
+		$id = $writer->add_item( [ 'url' => $args['url'], 'status' => 'pending' ] );
+		$check( $id > 0, 'Redis: owned native insertion succeeds' );
+		$check( 1 === count( $reader->query( $args ) ), 'Redis: initial result is populated' );
+		$keys = [ $key_method->invoke( $reader ) ];
+		$reads_before = $sql_reads;
+		$check( 1 === count( $reader->query( $args ) ) && $reads_before === $sql_reads, 'Redis: result is reused before expiry without table SELECTs' );
+		foreach ( [ 'completed', 'failed', 'pending' ] as $status ) {
+			$check( 1 === $writer->update_item( $id, [ 'status' => $status ] ), 'Redis: native mutation succeeds for ' . $status );
+			$rows = $reader->query( $args );
+			$check( 1 === count( $rows ) && $status === $rows[0]->status, 'Redis: generation change exposes ' . $status . ' immediately' );
+			$keys[] = $key_method->invoke( $reader );
+		}
+		$check( 4 === count( array_unique( $keys ) ), 'Redis: mutations create distinct retired/current result keys' );
+		foreach ( $keys as $key ) {
+			$ttl = (int) $redis->ttl( $wp_object_cache->build_key( $key, $name ) );
+			$check( $ttl > 0 && $ttl <= HOUR_IN_SECONDS, 'Redis: every actual result generation has a finite one-hour TTL' );
+		}
+		$cache_set = new ReflectionMethod( NoobRocket\Dependencies\BerlinDB\Database\Query::class, 'cache_set' );
+		$cache_set->setAccessible( true );
+		$metadata_group = $name . '_meta';
+		$cache_set->invoke( $writer, 'owned_metadata', [ 'retained' ], $metadata_group );
+		foreach ( [ [ $id, $name ], [ 'last_changed', $name ], [ 'owned_metadata', $metadata_group ] ] as $entry ) {
+			$check( -1 === (int) $redis->ttl( $wp_object_cache->build_key( $entry[0], $entry[1] ) ), 'Redis: stable item/generation/metadata entries retain their existing no-expiry semantics' );
+		}
+		$generation = wp_cache_get( 'last_changed', $name );
+		// Shorten only this fixture's known result keys after checking their real TTL.
+		// This exercises actual Redis expiration without waiting one hour.
+		foreach ( $keys as $key ) { $redis->pexpire( $wp_object_cache->build_key( $key, $name ), 1 ); }
+		usleep( 10000 );
+		wp_cache_flush_runtime();
+		foreach ( $keys as $key ) {
+			$check( -2 === (int) $redis->ttl( $wp_object_cache->build_key( $key, $name ) ) && false === wp_cache_get( $key, $name ), 'Redis: retired/current result key physically expires' );
+		}
+		$check( $generation === wp_cache_get( 'last_changed', $name ), 'Redis: result expiry preserves the current generation' );
+		$check( [ 'retained' ] === wp_cache_get( 'owned_metadata', $metadata_group ), 'Redis: result expiry preserves stable metadata' );
+		$check( false !== wp_cache_get( $id, $name ), 'Redis: result expiry preserves the stable item entry' );
+		$reads_before = $sql_reads;
+		$rows = $reader->query( $args );
+		$check( 1 === count( $rows ) && (int) $rows[0]->id === (int) $id && 'pending' === $rows[0]->status, 'Redis: expired result refills correct native database rows' );
+		$check( $sql_reads > $reads_before, 'Redis: expired result performs a database refill' );
+		$refill_key = $key_method->invoke( $reader );
+		$check( end( $keys ) === $refill_key && (int) $redis->ttl( $wp_object_cache->build_key( $refill_key, $name ) ) > 0, 'Redis: refill reuses the current generation with a new finite TTL' );
+		$reads_before = $sql_reads;
+		$check( 1 === count( $reader->query( $args ) ) && $reads_before === $sql_reads, 'Redis: refilled result is reused without another SELECT' );
+		$writer->delete_item( $id );
+		foreach ( $keys as $key ) { wp_cache_delete( $key, $name ); }
+		wp_cache_delete( 'owned_metadata', $metadata_group );
+		echo "PASS: actual Redis result TTL, accelerated physical expiry, stable-entry preservation and native DB refill.\n";
 	}
 	echo "PASS: $checks native query-cache assertions; reused/distinct writers, mutation visibility, item priming and repeated-read SQL counts.\n";
 } finally {
