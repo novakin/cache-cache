@@ -94,11 +94,15 @@ function pageByName(name) {
 }
 async function login(target) {
   const page = await target.newPage();
-  await page.goto(`${origin}/wp-login.php`, { waitUntil: 'networkidle' });
+  const settings = new URL('/wp-admin/options-general.php?page=noobrocket', origin);
+  const loginURL = new URL('/wp-login.php', origin);
+  loginURL.searchParams.set('redirect_to', settings.href);
+  await page.goto(loginURL.href, { waitUntil: 'networkidle' });
   await page.locator('#user_login').fill(auth.username);
   await page.locator('#user_pass').fill(auth.password);
-  await Promise.all([page.waitForURL(url => url.origin === origin && url.pathname.startsWith('/wp-admin/')), page.locator('#wp-submit').click()]);
-  check(new URL(page.url()).origin === origin, 'Real native login remains on owned origin.');
+  await Promise.all([page.waitForURL(url => url.origin === origin && url.pathname === settings.pathname && url.searchParams.get('page') === 'noobrocket'), page.locator('#wp-submit').click()]);
+  await page.locator('.noobrocket-app').waitFor();
+  check(new URL(page.url()).origin === origin && new URL(page.url()).pathname === settings.pathname, 'Real native login reaches the owned Cache-Cache settings page.');
   await page.close();
 }
 async function noOverflow(page, label) {
