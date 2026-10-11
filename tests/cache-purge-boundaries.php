@@ -100,8 +100,8 @@ try {
 	purge_check( purge_url( '%C3%A9/' ) && ! is_file( $encoded ), 'encoded Unicode path retains cache naming' );
 	$unicode = purge_file( 'pages/example.test/%c3%a9/index.html' );
 	purge_check( purge_url( 'é/' ) && ! is_file( $unicode ), 'literal Unicode path retains cache naming' );
-	$double_encoded = purge_file( 'pages/example.test-user-owned-secret/%2e%2e/double/index.html' );
-	purge_check( purge_url( '%252e%252e/double/' ) && ! is_file( $double_encoded ), 'path decodes once across public/user variants' );
+	$double_encoded = purge_file( 'pages/example.test-user-owned-secret/%252e%252e/double/index.html' );
+	purge_check( purge_url( '%252e%252e/double/' ) && ! is_file( $double_encoded ), 'double-encoded path retains native writer naming across public/user variants' );
 
 	$wildcard = purge_file( 'pages/example.test/assets/file1.css' );
 	$wildcard_refused = purge_file( 'pages/example.test/assets/file2.css' );

@@ -638,17 +638,7 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 		$parsed_url = get_noobrocket_parse_url( $url );
 
 		if ( ! empty( $parsed_url['host'] ) ) {
-			// Decode once, so all public/user buckets use the same cache path.
-			$parsed_url['path'] = rawurldecode( $parsed_url['path'] );
-
-			// Encode Non-latin characters if found in url path.
-			if ( false !== preg_match_all( '/(?<non_latin>[^\x00-\x7F]+)/', $parsed_url['path'], $matches ) ) {
-				$cb_encode_non_latin = function ( $non_latin ) {
-					return strtolower( rawurlencode( $non_latin ) );
-				};
-
-				$parsed_url['path'] = str_replace( $matches['non_latin'], array_map( $cb_encode_non_latin, $matches['non_latin'] ), $parsed_url['path'] );
-			}
+			$parsed_url['path'] = noobrocket_normalize_cache_url_path( $parsed_url['path'] );
 
 			foreach ( _noobrocket_get_cache_dirs( $parsed_url['host'], $cache_path ) as $dir ) {
 				$entry = $dir . $parsed_url['path'];
@@ -754,6 +744,31 @@ function noobrocket_cache_path_is_within( string $path, string $root ): bool {
 	$resolved_path = wp_normalize_path( $resolved_path );
 	$resolved_root = untrailingslashit( wp_normalize_path( $resolved_root ) );
 	return $resolved_path === $resolved_root || 0 === strpos( $resolved_path, $resolved_root . '/' );
+}
+
+/**
+ * Normalize URL paths consistently across public and content-driven cache purges.
+ *
+ * @param string $path Parsed URL path.
+ * @return string
+ */
+function noobrocket_normalize_cache_url_path( string $path ): string {
+	// The early writer removes literal dot segments and preserves URL escapes.
+	$path = '/' . ltrim( noobrocket_realpath( $path ), '/' );
+	$path = preg_replace_callback(
+		'/[^\x00-\x7F]+/',
+		static function ( $matches ) {
+			return strtolower( rawurlencode( $matches[0] ) );
+		},
+		$path
+	);
+	return preg_replace_callback(
+		'/%[0-9A-F]{2}/',
+		static function ( $matches ) {
+			return strtolower( $matches[0] );
+		},
+		$path
+	);
 }
 
 /**
