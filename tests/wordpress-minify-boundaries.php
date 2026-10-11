@@ -213,6 +213,34 @@ namespace {
 		}
 		$excluded = '<script>jQuery(function(){ document.write("fixture"); });</script>';
 		minify_check( $excluded === $defer->defer_inline_js( $excluded ), 'bundled inline exclusion remains unchanged' );
+		foreach ( [ '/wp-json/example/v1/search', 'https://service.test/search?path=/a#part', 'path#segment' ] as $literal ) {
+			$dynamic_filters = [ 'noobrocket_defer_inline_exclusions' => [ $literal, 'plugin_b_config' ] ];
+			foreach ( [ $literal, 'plugin_b_config' ] as $protected ) {
+				$tag = '<script>window.jQuery=function(){window.nativeDeferExcludedRuns=(window.nativeDeferExcludedRuns||0)+1;window.nativeDeferExcludedState=document.readyState;};jQuery();window.fixtureName=' . json_encode( $protected, JSON_UNESCAPED_SLASHES ) . ';</script>';
+				minify_check( $tag === $defer->defer_inline_js( $tag ), 'literal delimiter exclusion and unrelated exclusion retain original script: ' . $protected );
+				$export['pages'][ 'defer-excluded-' . count( $export['pages'] ) ] = $document( $tag );
+			}
+			minify_check( $excluded === $defer->defer_inline_js( $excluded ), 'delimiter exclusion does not defeat bundled exclusion' );
+			$classic = '<script>jQuery();</script>';
+			minify_check( false !== strpos( $defer->defer_inline_js( $classic ), 'DOMContentLoaded' ), 'unmatched classic script still defers with delimiter exclusions' );
+			foreach ( [ '<script type="module">import jQuery from "./dep.js";</script>', '<script type="application/json">{"example":"jQuery"}</script>' ] as $tag ) {
+				minify_check( $tag === $defer->defer_inline_js( $tag ), 'delimiter exclusions retain module/data blocks' );
+			}
+		}
+		$dynamic_filters = [ 'noobrocket_defer_inline_exclusions' => '/wp-json/legacy|plugin_b_config' ];
+		$legacy = '<script>jQuery(); window.fixtureName="plugin_b_config";</script>';
+		minify_check( $legacy === $defer->defer_inline_js( $legacy ), 'legacy pipe-separated exclusions retain all entries' );
+		$dynamic_filters = [ 'noobrocket_defer_inline_exclusions' => [ str_repeat( 'x', 65536 ) ] ];
+		set_error_handler( static function ( $severity, $message ) {
+			if ( error_reporting() & $severity ) { throw new RuntimeException( $message ); }
+			return false;
+		} );
+		try {
+			minify_check( $classic === $defer->defer_inline_js( $classic ), 'exclusion regex compilation failure conservatively preserves classic script without warning' );
+		} finally {
+			restore_error_handler();
+		}
+		$dynamic_filters = [];
 		$defer_post_excluded = true;
 		$inline = '<script>jQuery();</script>';
 		minify_check( $inline === $defer->defer_inline_js( $inline ), 'post exclusion remains unchanged' );
