@@ -34,6 +34,8 @@ The `php-dependency-reconstruction` fast fixture verifies the 219 pinned prefixe
 
 `fast --fixture cache-dynamic-cookie-groups` invokes the actual dynamic-cookie list owner, generated executable configuration and early filename reader with modeled WordPress boundaries. It preserves scalar deduplication, mixed declaration order, named groups with equal child arrays and every group's independent filename variation. The fixture writes one owned temporary configuration; it does not bootstrap a site, publish page cache or establish optional cookie-plugin integration.
 
+`wordpress --fixture wpml-settings-shape --wordpress /path/to/wordpress-core` exercises the actual WPML subscriber through native WordPress hook dispatch and plugin event registration. It verifies absent/malformed settings, exact mixed-value pass-through, strict flag comparison and existing reset/purge order for update and activation/deactivation callbacks. Options and purge sinks are modeled; no site is bootstrapped and the proprietary WPML plugin is not executed.
+
 ## PHP quality gate
 
 Install only the isolated tool manifest; never use Composer install/update in `noobrocket/` for this gate:
@@ -163,3 +165,5 @@ For Tools option feedback, `fast --fixture tools-action-feedback` runs the actua
 Performance needs matched settings/environment and cold/hit state, sample count and variability; see [BENCHMARKS](../tools/BENCHMARKS.md). PHP 7.4/WordPress 5.8 and a recent compatible pair must execute before a passing matrix is claimed. Historical logs, a successful workflow file parse and an assigned QA task are not current runtime proof.
 
 Native dynamic-cookie proof adds `wordpress --fixture wordpress-dynamic-cookie-groups` on a marked copied-plugin site. It uses native filters and the generated executable configuration, creates distinct owned cache files for each named group and restores configuration bytes. This proves native policy/filename isolation, not full HTTP delivery or any proprietary cookie integration.
+
+Native WPML shape proof adds `wordpress --fixture wordpress-wpml-settings-persistence` on a marked copied-plugin site without WPML or existing WPML configuration. It registers the actual compatibility callback with native option filtering, persists missing/malformed values and confirms no reset or purge. Genuine language-directory changes remain covered by the registered core-hook fixture; this does not claim execution of proprietary WPML.
