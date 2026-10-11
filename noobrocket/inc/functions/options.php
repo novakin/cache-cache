@@ -109,7 +109,7 @@ function is_noobrocket_post_excluded_option( $option ) { // phpcs:ignore WordPre
 		$post_id = get_queried_object_id();
 	}
 
-	if ( is_singular() && isset( $post ) ) {
+	if ( is_singular() ) {
 		$post_id = $post->ID;
 	}
 
@@ -349,7 +349,15 @@ function get_noobrocket_cache_dynamic_cookies() { // phpcs:ignore WordPress.Nami
 	 */
 	$cookies = (array) apply_filters( 'noobrocket_cache_dynamic_cookies', $cookies );
 	$cookies = array_filter( $cookies );
-	$cookies = array_unique( $cookies );
+	// Named cookie groups must retain their own identity, even with equal child lists.
+	$cookie_names = array_filter(
+		$cookies,
+		static function ( $cookie ) {
+			return ! is_array( $cookie );
+		}
+	);
+	$duplicate_names = array_diff_key( $cookie_names, array_unique( $cookie_names ) );
+	$cookies         = array_diff_key( $cookies, $duplicate_names );
 
 	return $cookies;
 }

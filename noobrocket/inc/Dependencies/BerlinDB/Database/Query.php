@@ -912,8 +912,8 @@ class Query extends Base {
 					'found_items' => intval( $this->found_items ),
 				);
 
-				// Add value to the cache
-				$this->cache_add( $cache_key, $cache_value, $this->cache_group );
+				// Retired result generations must expire in persistent object caches.
+				$this->cache_add( $cache_key, $cache_value, $this->cache_group, HOUR_IN_SECONDS );
 
 			}
 

@@ -19,6 +19,8 @@ Start from the failing layer:
 
 The dashboard's cache probe checks anonymous homepage delivery; it is not a whole-site benchmark. Object-cache diagnostics use the configured provider and an isolated temporary key, without a global flush. Provider action failure must remain distinct from an unsaved configuration or successful settings save.
 
+The one-hour query-result TTL applies to newly written result keys; an upgrade does not retroactively expire older zero-TTL entries in a persistent object cache.
+
 Database cleanup starts its transient-name keyset at the empty string; a numeric cursor can skip underscore-prefixed names under database collation. It counts stored transient values, excluding timeout companions and its own running/result state. Cleanup runs in the background; reload the Database page after completion to refresh its counts. WordPress and plugins can recreate temporary values immediately, so a later nonzero count does not establish deletion failure. With an external object cache, cleanup invalidates each selected cache key and removes its stored current-site timeout/value pair; an absent cache key or timeout is harmless, while SQL deletion errors remain failures. Arbitrary cache-only entries are not enumerated or flushed. Multisite cleanup preserves shared network transients and other sites' rows.
 
 Before deleting an auto-draft, trashed post or spam/trashed comment, cleanup reads its current category directly from the site database. Objects that no longer match after a save, restore or approval, and objects already removed, are skipped without increasing deletion or failure counts; failed category reads remain failures and retain the object. The cursor advances across skips so later eligible items still run. Native deletion vetoes and revision handling remain in place. This check does not serialize concurrent editing: a change after the category read can still race with deletion, so avoid restoring or editing selected content during destructive cleanup.
@@ -26,6 +28,8 @@ Before deleting an auto-draft, trashed post or spam/trashed comment, cleanup rea
 ## Apache, Nginx and stale refresh
 
 PHP cache delivery evaluates generated site policy. Apache may use generated direct HTML rules; Nginx needs explicitly maintained server configuration matching the effective site/cache paths and exclusions. Do not blindly reuse another site's Rocket rules. Verify authenticated, query, cookie, mobile and HTTPS behavior against representative routes. Protect config/PHP files from public static exposure; public generated CSS/images have separate delivery needs.
+
+When deploying the nested dynamic-cookie correction, regenerate the owned early configuration and clear the affected page cache. Existing configuration files still contain the older reduced declaration list until regeneration; newly restored cookie groups select distinct filenames. Verify requests that differ only in each declared group after deployment.
 
 Optional stale refresh requires PHP page delivery. Disable direct page-cache HTML rewrites in Nginx before enabling it and keep the normal PHP handler/assets. Apache omits its direct HTML rewrite while enabled. Reverse proxies/CDNs must not serve stale HTML beyond the PHP cutoff. The supported policy requires automatic preload, nonzero lifespan, legacy WebP variants off and no mandatory/dynamic cache cookies; unsupported variants expire normally. Run WordPress cron regularly. Failed refresh retains the original timestamp, and delayed cron cannot extend the one-hour PHP grace.
 
