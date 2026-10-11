@@ -12519,3 +12519,17 @@ msgstr "L’optimisation Google Fonts n’a pas pu être activée. Réessayez."
 #: views/settings/mobile-cache.php:33
 msgid "Mobile Cache could not be enabled. Try again."
 msgstr "Le cache mobile n’a pas pu être activé. Réessayez."
+
+msgid ""
+"This check makes one logged-out homepage request and may create its cache, "
+"even when preloading is off."
+msgstr ""
+"Cette vérification envoie une seule requête anonyme vers la page d’accueil "
+"et peut créer son cache, même si le préchargement est désactivé."
+
+msgid ""
+"One anonymous homepage request checks the Cache-Cache PHP cache header. "
+"Other pages and site speed are not tested."
+msgstr ""
+"Une requête anonyme vers la page d’accueil vérifie l’en-tête du cache PHP "
+"Cache-Cache. Les autres pages et la vitesse du site ne sont pas testées."

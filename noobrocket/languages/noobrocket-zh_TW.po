@@ -10342,3 +10342,15 @@ msgstr ""
 #: views/settings/mobile-cache.php:33
 msgid "Mobile Cache could not be enabled. Try again."
 msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:128
+msgid ""
+"This check makes one logged-out homepage request and may create its cache, "
+"even when preloading is off."
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:133
+msgid ""
+"One anonymous homepage request checks the Cache-Cache PHP cache header. "
+"Other pages and site speed are not tested."
+msgstr ""

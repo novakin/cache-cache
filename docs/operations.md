@@ -11,13 +11,13 @@ Start from the failing layer:
 | Symptom | Inspect first | Evidence limit |
 | --- | --- | --- |
 | Page cache appears disabled | Active plugin, filesystem permissions, owned drop-in/config, exclusion and response headers | A setting or queue count does not prove delivered cache hits. |
-| No PHP cache header | Two anonymous homepage requests, cookies/query, server static rules/proxy | Static delivery can work without PHP's `Cache-Status` header. |
+| No PHP cache header | First anonymous homepage response, cookies/query, server static rules/proxy | Static delivery can work without PHP's `Cache-Status` header. |
 | Preload remains pending | Saved enabled/paused state, cron/Action Scheduler, failure response and usable variants | Completed queue rows do not establish all-site coverage. |
 | Local CSS stays original | Selected mode, worker `--check`, queue/lease state, failures and explicit asset origins | Original delivery is the intended unavailable/failed-result fallback. |
 | Image generation remains queued | Cron and native GD/Imagick encoding support, per-batch progress | The toggle does not prove AVIF/WebP files exist or improve visual quality. |
 | Save is slow | Actual request duration and synchronous callbacks, filesystem work and font preparation | Do not infer latency from admin markup size. Measure before refactoring. |
 
-The dashboard's cache probe checks anonymous homepage delivery; it is not a whole-site benchmark. Object-cache diagnostics use the configured provider and an isolated temporary key, without a global flush. Provider action failure must remain distinct from an unsaved configuration or successful settings save.
+The dashboard's cache probe makes one anonymous homepage request and reports that response; it is not a whole-site benchmark or a purge-success test. The request may create page cache even when automatic preloading is off. A cold response without `Cache-Status: NoobRocket; hit` remains unconfirmed, rather than being reported as a MISS; a later separate check may confirm a HIT. Completed domain and homepage purge hooks discard the saved check, so Overview returns to Not checked instead of retaining an older HIT. This reset does not prove deletion succeeded. Object-cache diagnostics use the configured provider and an isolated temporary key, without a global flush. Provider action failure must remain distinct from an unsaved configuration or successful settings save.
 
 The one-hour query-result TTL applies to newly written result keys; an upgrade does not retroactively expire older zero-TTL entries in a persistent object cache.
 

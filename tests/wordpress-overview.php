@@ -56,6 +56,7 @@ function check_admin_referer() {}
 function wp_unslash( $text ) { return $text; }
 function sanitize_key( $text ) { return preg_replace( '/[^a-z_]/', '', $text ); }
 function set_transient( $key, $value, $expiration ) { $GLOBALS['transients'][ $key ] = [ $value, $expiration ]; }
+function delete_transient( $key ) { unset( $GLOBALS['transients'][ $key ] ); }
 function admin_url( $path ) { return 'https://example.test/wp-admin/' . $path; }
 function wp_safe_redirect( $url ) { throw new OverviewRedirect( $url ); }
 
@@ -101,21 +102,36 @@ function overview_document( string $html ): DOMXPath {
 $diagnostics = ( new ReflectionClass( Diagnostics::class ) )->newInstanceWithoutConstructor();
 $responses = [ [ 'status' => 200 ], [ 'status' => 200, 'headers' => [ 'cache-status' => 'NoobRocket; hit' ] ] ];
 $probe = $diagnostics->probe_cache();
-overview_check( $probe['hit'] && 'cache_hit' === $probe['code'] && 200 === $probe['status'], 'second anonymous request confirms the native hit header' );
+overview_check( ! $probe['hit'] && 'header_missing' === $probe['code'] && 200 === $probe['status'], 'first cold response without a cache header stays unconfirmed' );
 overview_check( ! isset( $probe['message'] ), 'probe evidence contains a code rather than cached translated prose' );
-overview_check( 2 === count( $requests ) && 'https://example.test/' === $requests[0]['url'], 'only the canonical homepage is requested twice' );
+overview_check( 1 === count( $requests ) && 1 === count( $responses ) && 'https://example.test/' === $requests[0]['url'], 'one check requests the canonical homepage once and leaves the later hit unused' );
 overview_check( [] === $requests[0]['args']['cookies'] && 0 === $requests[0]['args']['redirection'] && 8 === $requests[0]['args']['timeout'], 'probe retains anonymous/no-redirect/eight-second request boundaries' );
-$responses = [ [ 'status' => 200 ], new WP_Error() ];
 $probe = $diagnostics->probe_cache();
-overview_check( ! $probe['hit'] && 0 === $probe['status'] && 'transport_error' === $probe['code'], 'second-request transport failure does not retain first-request HTTP success' );
-$responses = [ [ 'status' => 301 ] ];
+overview_check( $probe['hit'] && 'cache_hit' === $probe['code'] && 200 === $probe['status'] && 2 === count( $requests ), 'a later separate check confirms the hit on its own first response' );
+$responses = [ new WP_Error() ];
+$request_count = count( $requests );
+$probe = $diagnostics->probe_cache();
+overview_check( ! $probe['hit'] && 0 === $probe['status'] && 'transport_error' === $probe['code'] && count( $requests ) === $request_count + 1, 'transport failure reports no response after one request' );
+$responses = [ [ 'status' => 301, 'headers' => [ 'cache-status' => 'NoobRocket; hit' ] ] ];
 $request_count = count( $requests );
 $probe = $diagnostics->probe_cache();
 overview_check( 'http_error' === $probe['code'] && 301 === $probe['status'] && count( $requests ) === $request_count + 1, 'redirect is reported without following it or warming again' );
-$responses = [ [ 'status' => 200 ], [ 'status' => 200 ] ];
+$responses = [ [ 'status' => 200 ] ];
 $probe = $diagnostics->probe_cache();
 overview_check( 'header_missing' === $probe['code'] && ! $probe['hit'], 'successful response without the PHP header remains unverified' );
 overview_check( str_contains( Diagnostics::probe_message( $probe ), 'Nginx or a proxy may serve cached pages without this header' ), 'missing header explains the static/proxy verification boundary' );
+$responses = [ [ 'status' => 503 ] ];
+$probe = $diagnostics->probe_cache();
+overview_check( ! $probe['hit'] && 'http_error' === $probe['code'] && 503 === $probe['status'], 'server failure remains an HTTP error' );
+
+$purge_events = Diagnostics::get_subscribed_events();
+foreach ( [ 'noobrocket_after_clean_domain', 'after_noobrocket_clean_home' ] as $hook ) {
+	set_transient( 'noobrocket_cache_delivery_probe', [ 'hit' => true, 'status' => 200, 'code' => 'cache_hit' ], DAY_IN_SECONDS );
+	set_transient( 'noobrocket_diagnostics_notice', [ 'operation' => 'retry', 'count' => 3 ], MINUTE_IN_SECONDS );
+	$diagnostics->{ $purge_events[ $hook ] }();
+	overview_check( ! isset( $transients['noobrocket_cache_delivery_probe'] ), $hook . ' discards the saved homepage result' );
+	overview_check( [ 'operation' => 'retry', 'count' => 3 ] === $transients['noobrocket_diagnostics_notice'][0], $hook . ' preserves unrelated action feedback' );
+}
 
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_POST = [ 'operation' => 'probe' ];
@@ -180,6 +196,7 @@ foreach ( [
 $xpath = overview_document( $html );
 overview_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-status-panel")][.//h3[contains(.,"Homepage cache check")]]//button[@value="probe"]' )->length, 'homepage next action stays with its status' );
 overview_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-cache-status")]//p[contains(.,"Last check")][not(ancestor::details)]' )->length, 'homepage timestamp stays visible outside cache evidence disclosure' );
+overview_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-cache-status")]//p[contains(.,"may create its cache, even when preloading is off")][not(ancestor::details)]' )->length, 'cache creation with preloading off stays visible before checking' );
 overview_check( 1 === $xpath->query( '//section[contains(@class,"noobrocket-cache-status")]//details[summary="Cache check details"][not(@open)]//p[contains(.,"Other pages and site speed are not tested.")]' )->length, 'probe scope is retained in closed cache evidence disclosure' );
 overview_check( 0 === $xpath->query( '//details[contains(@class,"noobrocket-status-evidence")][@open]' )->length, 'routine queue evidence uses closed native disclosures' );
 	overview_check( str_contains( $html, 'No pages queued' ) && str_contains( $html, 'Open a public page while logged out' ) && str_contains( $html, 'Generation needs the same-server worker.' )
