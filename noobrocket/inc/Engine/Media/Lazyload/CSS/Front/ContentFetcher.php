@@ -58,7 +58,11 @@ class ContentFetcher {
 	protected function fetch_content( string $path ) {
 		$scheme = wp_parse_url( $path, PHP_URL_SCHEME );
 		if ( in_array( strtolower( (string) $scheme ), [ 'http', 'https' ], true ) ) {
-			return wp_remote_retrieve_body( wp_safe_remote_get( $path ) );
+			$response = wp_safe_remote_get( $path );
+			if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+				return false;
+			}
+			return wp_remote_retrieve_body( $response );
 		}
 
 		// Drive letters are local paths; every other scheme is unsupported.

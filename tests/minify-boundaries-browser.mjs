@@ -29,13 +29,22 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body });
     });
     await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
-    if (name.startsWith('module-')) {
+    if (name.startsWith('defer-module-')) {
+      await page.waitForFunction(() => window.nativeDeferModuleValue === 42);
+      assert.equal(await page.evaluate(() => window.nativeDeferModuleValue), 42, `${name}: original static module import executes`); checks++;
+    } else if (name.startsWith('defer-json')) {
+      assert.deepEqual(await page.locator('#defer-data').evaluate((script) => JSON.parse(script.textContent)), { example: 'jQuery' }, `${name}: original data block remains valid JSON`); checks++;
+    } else if (name.startsWith('defer-classic-')) {
+      assert.equal(await page.evaluate(() => window.nativeDeferClassicRuns), 1, `${name}: classic jQuery callback executes once after DOMContentLoaded`); checks++;
+    } else if (name.startsWith('module-')) {
       await page.waitForFunction(() => window.nativeModuleValue === 42);
       assert.equal(await page.locator('script[type="module"]').count(), 1, `${name}: original module type remains`); checks++;
       assert.equal(await page.evaluate(() => window.nativeModuleValue), 42, `${name}: relative module import executes from its original URL`); checks++;
+      assert.equal(await page.locator('script[type="module"]').getAttribute('src'), 'https://remote.test/modules/app.js', `${name}: original module URL remains`); checks++;
     } else if (name.startsWith('protected-')) {
       await page.waitForFunction(() => window.nativeRemoteRuns === 1);
       assert.equal(await page.evaluate(() => window.nativeRemoteRuns), 1, `${name}: protected original executes once`); checks++;
+      assert.equal(await page.locator('script[src]').getAttribute('src'), 'https://remote.test/protected.js', `${name}: protected source URL remains`); checks++;
       if (name.includes('nonce')) {
         assert.equal(await page.locator('script[nonce]').evaluate((script) => script.nonce), name.includes('nonce-padded') ? 'fixture=' : 'fixture', `${name}: CSP nonce remains on original script`); checks++;
       } else {
@@ -77,7 +86,39 @@ try {
     assert.deepEqual(errors, [], `${name}: no JavaScript errors`); checks++;
     await page.close();
   }
-  console.log(`PASS: native minifier browser delivery (${checks} assertions; generated classic scripts and original module imports).`);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    for (const scenario of fixture.dynamic_resources) {
+      const { name, format, phase, html, requested_url, responses } = scenario;
+      const label = `${name}/${phase}/${viewport.width}`;
+      const page = await browser.newPage({ viewport });
+      const requested = [];
+      const unexpected = [];
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.route('**/*', async (route) => {
+        const url = route.request().url();
+        if (url === 'https://site.test/fixture.html') return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+        requested.push(url);
+        const response = responses[url];
+        if (!response) { unexpected.push(url); return route.abort(); }
+        if (response.status === 'transport') return route.abort('failed');
+        return route.fulfill(response);
+      });
+      await page.goto('https://site.test/fixture.html', { waitUntil: 'load' });
+      assert.deepEqual(requested, [requested_url], `${label}: browser loads exactly the actual owner URL`); checks++;
+      assert.deepEqual(unexpected, [], `${label}: no unowned network request`); checks++;
+      if (format === 'js') {
+        assert.deepEqual(await page.evaluate(() => [window.dynamicErrorApplied ?? false, window.dynamicHealthyRuns ?? 0]), [false, phase === 'failure' ? 0 : 1], `${label}: failed bytes never execute and healthy delivery executes once`); checks++;
+      } else {
+        const style = await page.locator('#dynamic').evaluate((element) => ({ color: getComputedStyle(element).color, width: getComputedStyle(element).width }));
+        assert.equal(style.color, phase === 'failure' ? 'rgb(0, 0, 0)' : 'rgb(0, 128, 0)', `${label}: failed CSS never applies and healthy CSS applies`); checks++;
+        if (phase !== 'failure') { assert.equal(style.width, '64px', `${label}: generated CSS retains healthy dimensions`); checks++; }
+      }
+      assert.deepEqual(errors, [], `${label}: no JavaScript errors`); checks++;
+      await page.close();
+    }
+  }
+  console.log(`PASS: actual optimizer browser delivery (${checks} assertions; generated/retained JS and dynamic CSS/JS, intercepted HTTP).`);
 } finally {
   await browser.close();
 }
