@@ -37,17 +37,19 @@ trait RegexTrait {
 	 * @param string $html HTML content.
 	 * @param string $name Element name.
 	 * @param bool   $closing Whether to find closing tags.
+	 * @param bool   $include_noscript Whether to include content active when scripting is disabled.
 	 * @return \Generator
 	 */
-	protected function find_html_tags( string $html, string $name, bool $closing = false ): \Generator {
+	protected function find_html_tags( string $html, string $name, bool $closing = false, bool $include_noscript = false ): \Generator {
 		// An unfinished tag/quoted attribute consumes the remaining document in
 		// the HTML parser; tag-like bytes inside it cannot be insertion points.
 		$attributes = '(?:"[^"]*(?:"|\z)|\'[^\']*(?:\'|\z)|[^\'">])*';
 		$name       = preg_quote( $name, '#' );
 		$target     = $closing ? '</' . $name . '\s*>' : '<' . $name . '(?=[\s/>])' . $attributes . '>';
+		$raw_text   = 'script|style|textarea|title|xmp|iframe|noembed|noframes' . ( $include_noscript ? '' : '|noscript' );
 		$pattern    = '#<!--.*?(?:-->|\z)(*SKIP)(*FAIL)'
 			. '|<plaintext(?=[\s/>])' . $attributes . '>.*\z(*SKIP)(*FAIL)'
-			. '|<(script|style|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=[\s/>])' . $attributes . '>.*?(?:</\1\s*>|\z)(*SKIP)(*FAIL)'
+			. '|<(' . $raw_text . ')(?=[\s/>])' . $attributes . '>.*?(?:</\1\s*>|\z)(*SKIP)(*FAIL)'
 			. '|' . $target
 			. '|</?template(?=[\s/>])' . $attributes . '>'
 			. '|</?[a-z][a-z0-9:-]*\b' . $attributes . '(?:>|\z)(*SKIP)(*FAIL)#is';
