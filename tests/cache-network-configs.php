@@ -6,6 +6,11 @@ require dirname( __DIR__ ) . '/noobrocket/vendor/autoload.php';
 $temporary = sys_get_temp_dir() . '/cache-cache-network-configs-' . bin2hex( random_bytes( 6 ) );
 mkdir( $temporary );
 define( 'NOOBROCKET_CONFIG_PATH', $temporary . '/' );
+define( 'ABSPATH', $temporary . '/' );
+define( 'NOOBROCKET_SLUG', 'noobrocket_settings' );
+define( 'COOKIEHASH', 'network-config-fixture' );
+define( 'LOGGED_IN_COOKIE', 'wordpress_logged_in_network_config_fixture' );
+require dirname( __DIR__ ) . '/noobrocket/inc/functions/files.php';
 $fixture = [ 'blog' => 42, 'multisite' => true, 'stack' => [], 'queries' => [], 'fail_blog' => null, 'checks' => 0, 'sites' => array_merge( range( 1, 105 ), [ 201, 202 ] ) ];
 function is_multisite() { return $GLOBALS['fixture']['multisite']; }
 function get_current_blog_id() { return $GLOBALS['fixture']['blog']; }
@@ -28,6 +33,14 @@ function home_url() {
 }
 function untrailingslashit( $value ) { return rtrim( $value, '/' ); }
 function get_noobrocket_parse_url( $url ) { return parse_url( $url ); }
+function get_option( $name, $default = false ) { return NOOBROCKET_SLUG === $name ? [ 'cache_mobile' => 0 ] : $default; }
+function apply_filters( $hook, $value, ...$args ) { return $value; }
+function noobrocket_get_home_url() { return home_url(); }
+function get_noobrocket_i18n_subdomains() { return []; }
+function noobrocket_get_ignored_parameters() { return []; }
+function get_noobrocket_cache_mandatory_cookies() { return []; }
+function get_noobrocket_cache_dynamic_cookies() { return []; }
+function wp_slash( $value ) { return $value; }
 function cache_network_check( $condition, $message ) {
 	if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); }
 	++$GLOBALS['fixture']['checks'];

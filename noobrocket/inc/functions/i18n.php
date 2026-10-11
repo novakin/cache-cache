@@ -62,7 +62,7 @@ function get_noobrocket_qtranslate_langs_for_admin_bar( $fork = '' ) { // phpcs:
 		$langlinks[ $lang ] = [
 			'code'   => $lang,
 			'anchor' => $q_config['language_name'][ $lang ],
-			'flag'   => '<img src="' . esc_url( trailingslashit( WP_CONTENT_URL ) . $q_config['flag_location'] . $q_config['flag'][ $lang ] ) . '" alt="' . esc_attr( $q_config['language_name'][ $lang ] ) . '" width="18" height="12" />',
+			'flag'   => '<img src="' . esc_url( trailingslashit( content_url() ) . $q_config['flag_location'] . $q_config['flag'][ $lang ] ) . '" alt="' . esc_attr( $q_config['language_name'][ $lang ] ) . '" width="18" height="12" />',
 		];
 
 	}
@@ -300,7 +300,7 @@ function get_noobrocket_i18n_uri() { // phpcs:ignore WordPress.NamingConventions
 	/**
 	 * Filters the value of all active languages URI
 	 *
-	 * @param array Array of active languages URI.
+	 * @param array $urls Array of active languages URI.
 	 */
 	$urls = apply_filters( 'noobrocket_get_i18n_uri', $urls );
 
@@ -596,9 +596,10 @@ function noobrocket_get_home_url( $path = '' ) {
 	global $wpml_url_filters;
 	static $home_url = [];
 	static $has_wpml;
+	$blog_id = get_current_blog_id();
 
-	if ( isset( $home_url[ $path ] ) ) {
-		return $home_url[ $path ];
+	if ( isset( $home_url[ $blog_id ][ $path ] ) ) {
+		return $home_url[ $blog_id ][ $path ];
 	}
 
 	if ( ! isset( $has_wpml ) ) {
@@ -609,13 +610,13 @@ function noobrocket_get_home_url( $path = '' ) {
 		remove_filter( 'home_url', [ $wpml_url_filters, 'home_url_filter' ], -10 );
 	}
 
-	$home_url[ $path ] = home_url( $path );
+	$home_url[ $blog_id ][ $path ] = home_url( $path );
 
 	if ( $has_wpml ) {
 		add_filter( 'home_url', [ $wpml_url_filters, 'home_url_filter' ], -10, 4 );
 	}
 
-	return $home_url[ $path ];
+	return $home_url[ $blog_id ][ $path ];
 }
 
 /**

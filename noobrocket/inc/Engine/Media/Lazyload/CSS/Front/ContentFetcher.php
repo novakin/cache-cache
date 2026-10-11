@@ -56,13 +56,17 @@ class ContentFetcher {
 	 * @return false|string
 	 */
 	protected function fetch_content( string $path ) {
-		if ( ! wp_http_validate_url( $path ) ) {
-			$file_extension = pathinfo( $path, PATHINFO_EXTENSION );
-
-			if ( strtolower( $file_extension ) !== 'php' ) {
-				return $this->filesystem->get_contents( $path );
-			}
+		$scheme = wp_parse_url( $path, PHP_URL_SCHEME );
+		if ( in_array( strtolower( (string) $scheme ), [ 'http', 'https' ], true ) ) {
+			return wp_remote_retrieve_body( wp_safe_remote_get( $path ) );
 		}
-		return wp_remote_retrieve_body( wp_remote_get( $path ) );
+
+		// Drive letters are local paths; every other scheme is unsupported.
+		if ( false === $scheme || ( $scheme && ! preg_match( '#^[a-z]:[\\\\/]#i', $path ) )
+			|| 0 === strpos( $path, '//' ) || 'php' === strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) ) {
+			return false;
+		}
+
+		return $this->filesystem->get_contents( $path );
 	}
 }
