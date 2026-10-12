@@ -102,7 +102,9 @@ class Processor {
 
 		$min = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
 
-		if ( ! $this->filesystem->exists( noobrocket_get_constant( 'NOOBROCKET_ASSETS_JS_PATH' ) . 'noobrocket-beacon' . $min . '.js' ) ) {
+		$script_file = 'noobrocket-beacon' . $min . '.js';
+		$script_path = noobrocket_get_constant( 'NOOBROCKET_ASSETS_JS_PATH' ) . $script_file;
+		if ( ! $this->filesystem->exists( $script_path ) ) {
 			return $html;
 		}
 
@@ -187,7 +189,8 @@ class Processor {
 		$inline_script = '<script>var noobrocket_beacon_data = ' . wp_json_encode( $data_modified ) . '</script>';
 
 		// Get the URL of the script.
-		$script_url = noobrocket_get_constant( 'NOOBROCKET_ASSETS_JS_URL' ) . 'noobrocket-beacon' . $min . '.js';
+		$script_version = $this->filesystem->mtime( $script_path ) ?: noobrocket_get_constant( 'NOOBROCKET_VERSION' );
+		$script_url     = esc_url( add_query_arg( 'ver', $script_version, noobrocket_get_constant( 'NOOBROCKET_ASSETS_JS_URL' ) . $script_file ) );
 
 		// Create the script tag.
 		$script_tag             = "<script data-name=\"noobrocket-noobrocket-beacon\" src='{$script_url}' async></script>"; // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript

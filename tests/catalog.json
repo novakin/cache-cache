@@ -2279,6 +2279,52 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "beacon-hosted-fonts",
+      "path": "tests/beacon-hosted-fonts.mjs",
+      "purpose": "Actual hosted-font collector retains face URL/style/weight identities, visible/pseudo style usage, loaded-style fallback and collection exclusions.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["node22"],
+      "mutation": "In-memory CSSOM/DOM/resource timing boundaries; no browser, WordPress, network or source writes.",
+      "args": [],
+      "default": true
+    },
+    {
+      "name": "beacon-hosted-fonts-browser",
+      "path": "tests/beacon-hosted-fonts-browser.mjs",
+      "purpose": "Actual source/minified beacon with native font-face CSSOM, custom glyph/font loads and intercepted hosted/external-provider collection.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": ["node22", "chromium", "worker-dependencies"],
+      "mutation": "Temporary Chromium contexts and intercepted fixture CSS/font/AJAX responses using the shipped icon font; no WordPress, providers or source writes.",
+      "args": ["{chromium}"],
+      "default": true
+    },
+    {
+      "name": "beacon-asset-version-source",
+      "path": "tests/beacon-asset-version.php",
+      "purpose": "Actual readable beacon emission uses file timestamps and preserves missing-file fallback with modeled WordPress helpers.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Owned copied assets and modeled helpers; no WordPress bootstrap or HTTP.",
+      "args": ["source"],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
+      "name": "beacon-asset-version-min",
+      "path": "tests/beacon-asset-version.php",
+      "purpose": "Actual minified beacon emission uses file timestamps and preserves missing-file fallback with modeled WordPress helpers.",
+      "profile": "fast",
+      "environment": "modeled-standalone",
+      "prerequisites": ["php"],
+      "mutation": "Owned copied assets and modeled helpers; no WordPress bootstrap or HTTP.",
+      "args": ["min"],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-bootstrap-construction",
       "path": "tests/wordpress-bootstrap-construction.php",
       "purpose": "Native schema template sanitization/reuse, mutation isolation, custom-filter fallback, nested independent queries and startup registration.",
