@@ -55,14 +55,18 @@ class Purge {
 	 *
 	 * @param string  $url        URL to be purged.
 	 * @param boolean $pagination Purge also pagination.
+	 * @param boolean $anonymous_only Restrict guest hint publication to the public host bucket.
 	 * @return void
 	 */
-	public function purge_url( string $url, $pagination = false ) {
+	public function purge_url( string $url, $pagination = false, $anonymous_only = false ) {
 		global $wp_rewrite;
 
 		$parsed_url = $this->parse_url( $url );
 
 		foreach ( _noobrocket_get_cache_dirs( $parsed_url['host'] ) as $dir ) {
+			if ( $anonymous_only && basename( $dir ) !== $parsed_url['host'] ) {
+				continue;
+			}
 			$path = $dir . $parsed_url['path'];
 
 			if ( ! $this->filesystem->exists( $path ) || is_link( $path ) || ! noobrocket_cache_path_is_within( $path, $dir ) ) {
