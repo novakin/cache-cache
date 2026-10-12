@@ -812,10 +812,10 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
           const normalized = this.cleanUrl(rawUrl);
           if (!stylesheetFonts[fontFamily].urls.includes(normalized)) {
             stylesheetFonts[fontFamily].urls.push(normalized);
-            stylesheetFonts[fontFamily].variations.add(
-              JSON.stringify({ weight, style })
-            );
           }
+          stylesheetFonts[fontFamily].variations.add(
+            JSON.stringify({ weight, style, url: normalized })
+          );
         }
       };
       const processImportRule = async (rule) => {
@@ -1007,13 +1007,22 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
           const hasContent = pseudoElement ? style.content !== "none" && style.content !== '""' : element.textContent.trim();
           if (hasContent && stylesheetFonts[fontFamily]) {
             let urls = stylesheetFonts[fontFamily].urls;
-            if (!this.isExcluded(fontFamily, urls) && !hostedFonts.has(fontFamily)) {
-              hostedFonts.set(fontFamily, {
-                elements: /* @__PURE__ */ new Set(),
-                urls,
-                variations: stylesheetFonts[fontFamily].variations
-              });
-              hostedFonts.get(fontFamily).elements.add(element);
+            if (!this.isExcluded(fontFamily, urls)) {
+              if (!hostedFonts.has(fontFamily)) {
+                hostedFonts.set(fontFamily, {
+                  elements: /* @__PURE__ */ new Set(),
+                  elementsByStyle: /* @__PURE__ */ new Map(),
+                  urls,
+                  variations: stylesheetFonts[fontFamily].variations
+                });
+              }
+              const font = hostedFonts.get(fontFamily);
+              font.elements.add(element);
+              const fontStyle = style.fontStyle.split(/\s+/)[0];
+              if (!font.elementsByStyle.has(fontStyle)) {
+                font.elementsByStyle.set(fontStyle, /* @__PURE__ */ new Set());
+              }
+              font.elementsByStyle.get(fontStyle).add(element);
             }
           }
         };
@@ -1046,21 +1055,27 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
     summarizeMatches(externalFontsResults, hostedFonts, networkLoadedFonts) {
       const allFonts = {};
       const hostedFontsResults = {};
+      const stylePreferences = { normal: ["normal", "oblique", "italic"], italic: ["italic", "oblique", "normal"], oblique: ["oblique", "italic", "normal"] };
       if (hostedFonts.size > 0) {
         hostedFonts.forEach((data, fontFamily) => {
           if (data.variations) {
             const elements = Array.from(data.elements);
             const aboveElements = elements.filter((el) => this.isElementAboveFold(el));
             const belowElements = elements.filter((el) => !this.isElementAboveFold(el));
+            const loadedStyles = new Set(data.variations.filter((variation) => networkLoadedFonts.has(variation.url)).map((variation) => variation.style.split(/\s+/)[0]));
+            const elementsByLoadedStyle = /* @__PURE__ */ new Map();
+            data.elementsByStyle.forEach((styleElements, requestedStyle) => {
+              const selectedStyle = (stylePreferences[requestedStyle] || stylePreferences.normal).find((fontStyle) => loadedStyles.has(fontStyle));
+              if (!selectedStyle) return;
+              if (!elementsByLoadedStyle.has(selectedStyle)) elementsByLoadedStyle.set(selectedStyle, /* @__PURE__ */ new Set());
+              styleElements.forEach((element) => elementsByLoadedStyle.get(selectedStyle).add(element));
+            });
             data.variations.forEach((variation) => {
-              let matchingUrl = null;
-              for (const styleUrl of data.urls) {
-                const normalizedStyleUrl = this.cleanUrl(styleUrl);
-                if (networkLoadedFonts.has(normalizedStyleUrl)) {
-                  matchingUrl = networkLoadedFonts.get(normalizedStyleUrl);
-                  break;
-                }
-              }
+              const variationElements = Array.from(elementsByLoadedStyle.get(variation.style.split(/\s+/)[0]) || []);
+              const aboveVariationElements = variationElements.filter((el) => this.isElementAboveFold(el));
+              const belowVariationElements = variationElements.filter((el) => !this.isElementAboveFold(el));
+              if (!aboveVariationElements.length) return;
+              const matchingUrl = networkLoadedFonts.get(variation.url);
               if (matchingUrl) {
                 if (!allFonts[fontFamily]) {
                   allFonts[fontFamily] = {
@@ -1082,15 +1097,15 @@ CSS (first 200 chars): ${txt.substring(0, 200)}...`
                   style: variation.style,
                   url: matchingUrl,
                   elementCount: {
-                    aboveFold: aboveElements.length,
-                    belowFold: belowElements.length,
-                    total: elements.length
+                    aboveFold: aboveVariationElements.length,
+                    belowFold: belowVariationElements.length,
+                    total: variationElements.length
                   }
                 });
-                if (aboveElements.length > 0) {
+                if (aboveVariationElements.length > 0) {
                   allFonts[fontFamily].urlCount.aboveFold.add(matchingUrl);
                 }
-                if (belowElements.length > 0) {
+                if (belowVariationElements.length > 0) {
                   allFonts[fontFamily].urlCount.belowFold.add(matchingUrl);
                 }
               }
