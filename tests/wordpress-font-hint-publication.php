@@ -39,6 +39,8 @@ $font_enabled = static function () use ( &$enabled ) { return (int) $enabled; };
 add_filter( 'pre_get_noobrocket_option_auto_preload_fonts', $font_enabled );
 add_filter( 'pre_get_noobrocket_option_cache_mobile', '__return_true' );
 add_filter( 'pre_get_noobrocket_option_do_caching_mobile_files', '__return_true' );
+// A fresh site need not have enabled user caching or created its naming secret yet.
+add_filter( 'pre_get_noobrocket_option_secret_cache_key', static function () { return 'owned-font-hint-fixture-secret'; } );
 foreach ( [ 'noobrocket_above_the_fold_optimization', 'noobrocket_lrc_optimization', 'noobrocket_preconnect_external_domains_optimization' ] as $hook ) { add_filter( $hook, '__return_false' ); }
 require $wordpress . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/admin.php';
@@ -118,6 +120,8 @@ try {
 	$url = untrailingslashit( get_permalink( $id ) );
 	$check( null === wp_parse_url( $url, PHP_URL_QUERY ), 'native proof requires configured pretty permalinks' );
 	$owned_urls[] = $url;
+	// Native post creation legitimately invalidates the homepage before this collection.
+	$seed( $home );
 	$directory = $seed( $url );
 	wp_mkdir_p( $directory . '/child/' );
 	file_put_contents( $directory . '/child/index.html', 'descendant sentinel' );
