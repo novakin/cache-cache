@@ -73,6 +73,7 @@ class ServiceProvider extends AbstractServiceProvider {
 				[
 					'preload_fonts_query',
 					'preload_fonts_context',
+					'purge',
 				]
 			);
 

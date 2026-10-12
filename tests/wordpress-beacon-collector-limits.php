@@ -18,11 +18,36 @@ namespace NoobRocket\Engine\Media\PreconnectExternalDomains\Database\Queries {
 namespace NoobRocket\Engine\Media\PreloadFonts\Database\Queries {
 	class PreloadFonts extends \BeaconLimitQuery {}
 }
+namespace NoobRocket\Engine\Cache {
+	class Purge {
+		public function purge_url( $url, $pagination = false, $anonymous_only = false ) {
+			\beacon_limit_check( false === $pagination && true === $anonymous_only, 'guest font publication selects only anonymous page files' );
+			$GLOBALS['purge_calls'][] = $url;
+		}
+	}
+}
 namespace {
 	$checks = 0;
 	$filters = [];
 	$filter_calls = [];
 	$sanitized_urls = [];
+	$purge_calls = [];
+	$home = 'https://site.test';
+	$posts = [];
+	$rejected = '';
+	class WP_Http {
+		public static function make_absolute_url( $url, $base ) { return false !== strpos( $url, '://' ) ? $url : $base . ltrim( $url, '/' ); }
+	}
+	function home_url() { return $GLOBALS['home']; }
+	function admin_url() { return $GLOBALS['home'] . '/wp-admin/'; }
+	function rest_url() { return $GLOBALS['home'] . '/wp-json/'; }
+	function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
+	function trailingslashit( $url ) { return rtrim( $url, '/' ) . '/'; }
+	function get_noobrocket_cache_reject_uri() { return $GLOBALS['rejected']; }
+	function get_post_stati() { return [ 'publish', 'private', 'draft' ]; }
+	function noobrocket_url_to_postid( $url, $statuses ) { return isset( $GLOBALS['posts'][ $url ] ) ? $url : 0; }
+	function get_post( $id ) { return $GLOBALS['posts'][ $id ] ?? false; }
+	function is_post_publicly_viewable( $post ) { return 'publish' === $post->post_status; }
 	function beacon_limit_check( $condition, $message ) {
 		if ( ! $condition ) { throw new RuntimeException( 'FAIL: ' . $message ); }
 		++$GLOBALS['checks'];
@@ -55,6 +80,7 @@ namespace {
 	require $root . 'Engine/Media/PreloadFonts/Context/Context.php';
 	require $root . 'Engine/Common/PerformanceHints/AJAX/AJAXControllerTrait.php';
 	require $root . 'Engine/Common/PerformanceHints/AJAX/ControllerInterface.php';
+	require $root . 'Engine/Preload/Controller/CheckExcludedTrait.php';
 	require $root . 'Engine/Media/PreconnectExternalDomains/AJAX/Controller.php';
 	require $root . 'Engine/Media/PreloadFonts/AJAX/Controller.php';
 
@@ -63,7 +89,7 @@ namespace {
 		if ( 'fonts' === $feature ) {
 			$query = new NoobRocket\Engine\Media\PreloadFonts\Database\Queries\PreloadFonts();
 			$context = new NoobRocket\Engine\Media\PreloadFonts\Context\Context( $options );
-			$controller = new NoobRocket\Engine\Media\PreloadFonts\AJAX\Controller( $query, $context );
+			$controller = new NoobRocket\Engine\Media\PreloadFonts\AJAX\Controller( $query, $context, new NoobRocket\Engine\Cache\Purge() );
 		} else {
 			$GLOBALS['filters']['noobrocket_preconnect_external_domains_optimization'] = $allowed;
 			$query = new NoobRocket\Engine\Media\PreconnectExternalDomains\Database\Queries\PreconnectExternalDomains();
@@ -72,10 +98,11 @@ namespace {
 		}
 		return [ $controller, $query ];
 	}
-	function beacon_limit_request( $controller, $input_key, $items, $status = '<b>success</b>' ) {
-		$_POST = [ 'url' => 'https://site.test/page/', 'is_mobile' => 'true', 'status' => $status ];
+	function beacon_limit_request( $controller, $input_key, $items, $status = '<b>success</b>', $url = 'https://site.test/page/' ) {
+		$_POST = [ 'url' => $url, 'is_mobile' => 'true', 'status' => $status ];
 		if ( null !== $items ) { $_POST['results'] = addslashes( json_encode( [ $input_key => $items ] ) ); }
 		$GLOBALS['sanitized_urls'] = [];
+		$GLOBALS['purge_calls'] = [];
 		return $controller->add_data();
 	}
 
@@ -163,6 +190,61 @@ namespace {
 	list( $controller, $query ) = beacon_limit_controller( 'fonts' );
 	beacon_limit_request( $controller, 'preload_fonts', [ 'https://cdn.test/legacy.svg', $fonts[3] ] );
 	beacon_limit_check( [ 'https://cdn.test/legacy.svg' ] === json_decode( $query->writes[0]['fonts'], true ), 'fonts: empty exclusion list retains existing extension-filter bypass' );
+
+	$filters = [];
+	foreach ( [ 'https://site.test/', 'https://site.test/page/' ] as $url ) {
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $url );
+		beacon_limit_check( [ untrailingslashit( $url ) ] === $purge_calls, 'successful nonempty collection invalidates its exact page once' );
+		$query->row = (object) $query->writes[0];
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $url );
+		beacon_limit_check( [] === $purge_calls, 'duplicate collection does not repeat invalidation' );
+	}
+	foreach ( [ [ [], 'success' ], [ [ '' ], 'success' ], [ [ $fonts[4] ], 'timeout' ], [ [ $fonts[4] ], 'script_error' ] ] as [ $items, $status ] ) {
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', $items, $status );
+		beacon_limit_check( [] === $purge_calls, 'empty or failed font collection does not invalidate' );
+	}
+	list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+	$query->write_result = false;
+	beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success' );
+	beacon_limit_check( [] === $purge_calls, 'failed persistence does not invalidate' );
+	list( $controller, $query ) = beacon_limit_controller( 'fonts', false );
+	beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success' );
+	beacon_limit_check( [] === $purge_calls, 'disabled feature does not invalidate' );
+	foreach ( [ 'https://foreign.test/page/', '/page/', 'http://site.test/page/', 'https://site.test:444/page/', 'https://user@site.test/page/', 'https://site.test/page/?action=save', 'https://site.test/page/?', 'https://site.test/page/#anchor', 'https://site.test/page/#', 'https://site.test/page/*', 'https://site.test/page/%2a', 'https://site.test/page/%2e%2e/other/', 'https://site.test/wp-admin/', 'https://site.test/wp-login.php', 'https://site.test/wp-json/wp/v2/posts' ] as $url ) {
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $url );
+		beacon_limit_check( [] === $purge_calls, 'shared nonce does not authorize invalid page purge: ' . $url );
+	}
+	$home = 'https://site.test/blog';
+	foreach ( [ 'https://site.test/other/', 'https://site.test/blogger/' ] as $url ) {
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $url );
+		beacon_limit_check( [] === $purge_calls, 'sibling site outside selected home path is preserved' );
+	}
+	list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+	beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $home . '/page/' );
+	beacon_limit_check( [ $home . '/page' ] === $purge_calls, 'selected subdirectory page can expose completed hints' );
+	$home = 'https://site.test';
+	foreach ( [ [ 'private', '' ], [ 'draft', '' ], [ 'publish', 'password' ] ] as [ $status, $password ] ) {
+		$posts['https://site.test/page'] = (object) [ 'post_status' => $status, 'post_password' => $password ];
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success' );
+		beacon_limit_check( [] === $purge_calls, 'private, draft and password-protected pages are not invalidated by guest hints' );
+	}
+	$posts = [];
+	$rejected = '/page/?';
+	list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+	beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success' );
+	beacon_limit_check( [] === $purge_calls, 'saved cache URI exclusions also prevent guest invalidation' );
+	foreach ( [ '/page/', '/(?:.+/)?embed/' ] as $pattern ) {
+		$rejected = $pattern;
+		$url = false !== strpos( $pattern, 'embed' ) ? 'https://site.test/article/embed/' : 'https://site.test/page/';
+		list( $controller, $query ) = beacon_limit_controller( 'fonts' );
+		beacon_limit_request( $controller, 'preload_fonts', [ $fonts[4] ], 'success', $url );
+		beacon_limit_check( [] === $purge_calls, 'required trailing-slash exclusions survive stored URL normalization' );
+	}
 
 	echo "PASS: $checks beacon collector limit checks; modeled WordPress/database boundaries, no site writes.\n";
 }

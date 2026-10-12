@@ -8,9 +8,15 @@ use NoobRocket\Engine\Common\PerformanceHints\AJAX\AJAXControllerTrait;
 use NoobRocket\Engine\Common\PerformanceHints\AJAX\ControllerInterface;
 use NoobRocket\Engine\Media\PreloadFonts\Database\Queries\PreloadFonts as PreloadFontsQuery;
 use NoobRocket\Engine\Optimization\UrlTrait;
+use NoobRocket\Engine\Cache\Purge;
+use NoobRocket\Engine\Preload\Controller\CheckExcludedTrait;
 
 class Controller implements ControllerInterface {
 	use AJAXControllerTrait;
+	use CheckExcludedTrait;
+
+	/** @var Purge Native nonrecursive page-cache invalidation owner. */
+	private $purge;
 
 	/**
 	 * PLFQuery instance
@@ -31,10 +37,12 @@ class Controller implements ControllerInterface {
 	 *
 	 * @param PreloadFontsQuery $query   PLFQuery instance.
 	 * @param Context           $context Context instance.
+	 * @param Purge             $purge Native page-cache owner.
 	 */
-	public function __construct( PreloadFontsQuery $query, Context $context ) {
+	public function __construct( PreloadFontsQuery $query, Context $context, Purge $purge ) {
 		$this->query   = $query;
 		$this->context = $context;
+		$this->purge   = $purge;
 	}
 
 
@@ -112,8 +120,43 @@ class Controller implements ControllerInterface {
 		}
 
 		$payload['preload_fonts'] = $item;
+		if ( 'completed' === $status_code && ! empty( array_filter( $preload_fonts ) ) && $this->can_purge_page( $url ) ) {
+			// Expose the newly collected hints without deleting child pages or recollecting them.
+			$this->purge->purge_url( $url, false, true );
+		}
 
 		return $payload;
+	}
+
+	/** A shared guest nonce must not authorize arbitrary URL-derived cache deletion. */
+	private function can_purge_page( string $url ): bool {
+		$page = wp_parse_url( $url );
+		if ( ! is_array( $page ) || empty( $page['host'] ) || isset( $page['query'] ) || isset( $page['fragment'] )
+			|| '' === $this->get_site_page_url( $url ) ) {
+			return false;
+		}
+		$path = rawurldecode( $page['path'] ?? '/' );
+		$admin_path = wp_parse_url( admin_url(), PHP_URL_PATH );
+		$rest = wp_parse_url( rest_url() );
+		if ( preg_match( '#[\x00-\x20\x7f\\\\*]|\.php(?:/|$)#i', $path )
+			|| ( is_string( $admin_path ) && 0 === strpos( trailingslashit( $path ), $admin_path ) ) ) {
+			return false;
+		}
+		if ( is_array( $rest ) && empty( $rest['query'] ) && ! empty( $rest['path'] )
+			&& 0 === strpos( trailingslashit( $path ), trailingslashit( $rest['path'] ) ) ) {
+			return false;
+		}
+		$rejected = get_noobrocket_cache_reject_uri();
+		if ( $rejected && ( preg_match( '#^(?:' . $rejected . ')$#i', $path )
+			|| preg_match( '#^(?:' . $rejected . ')$#i', trailingslashit( $path ) ) ) ) {
+			return false;
+		}
+		$post_id = noobrocket_url_to_postid( $url, get_post_stati() );
+		if ( $post_id ) {
+			$post = get_post( $post_id );
+			return $post && is_post_publicly_viewable( $post ) && empty( $post->post_password );
+		}
+		return true;
 	}
 
 	/**

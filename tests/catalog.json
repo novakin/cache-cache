@@ -2077,6 +2077,25 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-font-hint-publication",
+      "path": "tests/wordpress-font-hint-publication.php",
+      "purpose": "Registered guest font collection exposes completed hints through native nonrecursive cache invalidation while preserving unrelated pages and refusing private or unowned targets.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy"
+      ],
+      "mutation": "Creates owned fixture posts/font rows and a separate temporary cache root; restores previous hint rows; runs serially on a disposable site with HTTP blocked.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": true,
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-font-delivery",
       "path": "tests/wordpress-font-delivery.php",
       "purpose": "Asynchronous font preparation, original delivery and preserved link attributes.",

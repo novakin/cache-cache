@@ -35,9 +35,37 @@ Optional stale refresh requires PHP page delivery. Disable direct page-cache HTM
 
 Modern images use `<picture>` sources with original fallback; the same HTML serves AVIF/WebP-capable and other browsers. Accept-based HTML variants are unnecessary for this mode. Check theme selectors affected by a picture wrapper and complete responsive derivative families. Other tools' legacy WebP cache variants remain a separate compatibility path.
 
+### Site-scoped Nginx AVIF caching
+
+Check direct derivative responses as well as image generation. A media location that matches WebP but omits AVIF can serve a correct `image/avif` response without `Cache-Control` or `Expires`. Browser caching is a server-delivery concern; changing the plugin's optimization settings does not repair that location.
+
+For the Noobunbox vhost, `/etc/nginx/sites-enabled/01.www.noobunbox.net` includes its existing media rules before `common/php8.5.conf`. Keep the PNG/JPEG sidecar negotiation and WebP location unchanged. Add the following site-local block **after** that PHP/security include, before the server's closing brace:
+
+```nginx
+location ~* \.avif$ {
+    try_files $uri $uri/ /index.php?$args;
+    etag on;
+    expires 90d;
+    include /etc/nginx/rocket-nginx/conf.d/default/global.*.conf;
+    include /etc/nginx/rocket-nginx/conf.d/default/media.*.conf;
+}
+```
+
+This example uses that site's existing security-header includes and front-controller fallback. Nginx takes the first matching regex location: placing AVIF after the hidden-path denials preserves those denials, while `try_files` preserves missing-file routing. Appending `avif` to the earlier media matcher would change both behaviors. Confirm that the effective `mime.types` includes `image/avif avif;`; adapt paths and fallback to another site's own configuration rather than installing this example globally. Record the site owner and this local amendment before regenerating any inherited Rocket-Nginx configuration.
+
+Before an authorized deployment, record the resolved vhost path, ownership/mode and original checksum; retain an exact private copy outside the public document root. Prove the location order on an owned disposable Nginx listener with existing hidden-path files, missing AVIF paths with query strings, direct PNG/WebP files, PNG/JPEG sidecar negotiation and an unaffected sibling vhost. A front-controller stub proves Nginx routing, not native WordPress execution.
+
+Apply only the reviewed vhost change. Run `nginx -t` before reloading Nginx; a failed syntax check must restore the original file without reloading the candidate. After reload, verify an existing AVIF returns 200, `Content-Type: image/avif`, `Cache-Control: max-age=7776000`, an `Expires` header and an ETag; an `If-None-Match` request should return 304. Verify security headers, hidden-path denial, missing-file fallback and unchanged PNG/WebP/negotiation responses against the pre-change evidence. No plugin settings save, worker run or page-cache purge is required for this response-header change.
+
+For rollback, first confirm the live vhost still matches the deployed candidate, then restore the exact owned original file, run `nginx -t` and reload Nginx. Recheck the original headers and routing. If a write/reload reply is lost, reconnect and inspect the source checksum and runtime responses before retrying; do not overwrite a concurrent edit. Longer asset caching helps repeat delivery, but a cold-load LCP or Speed Index improvement still needs matched measurements.
+
 Image generation needs PHP GD or Imagick with AVIF/WebP encoding support, writable uploads and WordPress cron. Node.js, npm and Chromium are CSS-worker requirements, not image requirements. The image dashboard reports queued discovery and media items, last batch and historical successful encodes; encoder availability alone does not establish generated files. A scheduled batch over five minutes late warrants checking WordPress cron. Traffic-driven cron can be delayed on quiet sites; use the host's regular WordPress cron setup for reliable progress.
 
 Local CSS uses a separate Node.js/Chromium command. A passed `--check` records environment readiness but neither starts generation nor installs a schedule. For queued pages with no recent active worker report, check the actual process and service-account cron command in the [worker guide](../noobrocket/local-css/README.md). Off or paused generation shows worker history without an active setup warning; original styles remain available while results are pending.
+
+Automatic font preloading needs a completed nonempty hint row for the page and device variant. Enabling the option alone does not immediately add font links. A successful new collection invalidates that public page's existing anonymous cache files through the native nonrecursive purge owner, retaining the collected hints, authenticated buckets, child pages and unrelated caches; the next page render can emit its preloads. Duplicate, empty, failed or disabled collections do not trigger this invalidation. The shared guest nonce does not permit invalidation of foreign/sibling sites, query/action URLs, rejected cache paths or private/password-protected posts. Existing hint rows collected by an older release can require an authorized single-page cache refresh after upgrade. Font-hosting changes clear obsolete hint URLs for recollection.
+
+The shared beacon intentionally samples mobile viewports no wider than 393 pixels and no taller than 830 pixels. A 412-pixel Lighthouse visit can use already collected mobile hints but cannot collect them itself; use an ordinary eligible mobile visitor when preparing that variant. Preserve the sampling limits when measuring another viewport, compare matching delivered HTML/cache state, and measure Speed Index and layout shifts before keeping a font-loading change.
 
 ## Rollout
 

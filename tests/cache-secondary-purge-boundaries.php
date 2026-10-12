@@ -124,6 +124,16 @@ try {
 	_noobrocket_get_cache_dirs( '', '', true );
 	$actual_purge->purge_url( 'https://example.test/variants/?ignored=1', true );
 	secondary_purge_check( [] === array_filter( $variants, 'is_file' ) && is_file( $foreign ) && is_file( $sentinel ), 'scheme/device/WebP/query/pagination/current-user variants purge; foreign buckets survive' );
+	$public = secondary_purge_file( $root . '/pages/example.test/index-mobile-https.html' );
+	$user = secondary_purge_file( $root . '/pages/example.test-alice-owned-secret/index-mobile-https.html' );
+	$child = secondary_purge_file( $root . '/pages/example.test/child/index.html' );
+	$actual_purge->purge_url( 'https://example.test/', false, true );
+	secondary_purge_check( ! is_file( $public ) && is_file( $user ) && is_file( $child ) && is_file( $sentinel ), 'guest homepage hint publication preserves authenticated buckets, children and sibling sites' );
+	$public = secondary_purge_file( $root . '/pages/example.test/hint-page/index-https.html_gzip' );
+	$user = secondary_purge_file( $root . '/pages/example.test-alice-owned-secret/hint-page/index-https.html_gzip' );
+	$child = secondary_purge_file( $root . '/pages/example.test/hint-page/child/index.html' );
+	$actual_purge->purge_url( 'https://example.test/hint-page/', false, true );
+	secondary_purge_check( ! is_file( $public ) && is_file( $user ) && is_file( $child ) && is_file( $sentinel ), 'guest post hint publication preserves authenticated page variants and descendants' );
 	if ( 'WIN' !== strtoupper( substr( PHP_OS, 0, 3 ) ) ) {
 		foreach ( [ 'redirected', 'linked-page/page', 'query/#query/outside' ] as $name ) {
 			$link = $root . '/pages/example.test/' . $name;
