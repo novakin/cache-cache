@@ -58,6 +58,7 @@ class Subscriber implements Subscriber_Interface {
 	public static function get_subscribed_events(): array {
 		return [
 			'switch_theme'                              => 'truncate_tables',
+			'upgrader_process_complete'                 => [ 'truncate_on_theme_update', 10, 2 ],
 			'permalink_structure_changed'               => 'truncate_tables',
 			'noobrocket_domain_options_changed'             => 'truncate_tables',
 			'wp_trash_post'                             => 'delete_post',
@@ -91,6 +92,32 @@ class Subscriber implements Subscriber_Interface {
 	 */
 	public function truncate_tables(): void {
 		$this->controller->truncate_tables();
+	}
+
+	/**
+	 * Clear collected hints when the active theme or its parent is updated.
+	 *
+	 * @param mixed $upgrader   WordPress upgrader instance.
+	 * @param mixed $hook_extra WordPress upgrade action details.
+	 * @return void
+	 */
+	public function truncate_on_theme_update( $upgrader, $hook_extra ): void {
+		if ( noobrocket_is_importing()
+			|| ! is_array( $hook_extra )
+			|| 'update' !== ( $hook_extra['action'] ?? null )
+			|| 'theme' !== ( $hook_extra['type'] ?? null )
+			|| ! isset( $hook_extra['themes'] )
+			|| ! is_array( $hook_extra['themes'] )
+		) {
+			return;
+		}
+
+		$theme = wp_get_theme();
+		if ( empty( array_intersect( $hook_extra['themes'], [ $theme->get_template(), $theme->get_stylesheet() ] ) ) ) {
+			return;
+		}
+
+		$this->truncate_tables();
 	}
 
 	/**
