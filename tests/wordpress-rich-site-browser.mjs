@@ -302,9 +302,9 @@ async function frontendMatrix(profile) {
             await image.scrollIntoViewIfNeeded();
             await page.waitForFunction(position => {
               const node = document.querySelectorAll('.rich-below-image')[position];
-              return node && node.complete && node.naturalWidth > 0;
+              return node && node.currentSrc.length > 0 && !node.currentSrc.startsWith('data:') && node.complete && node.naturalWidth > 0;
             }, index);
-            check(await image.evaluate(node => node.currentSrc.length > 0), 'Real below-fold image loads after scrolling.');
+            check(await image.evaluate(node => node.currentSrc.length > 0), `${profile}/${width}/${name}/image-${index + 1}: Real below-fold image loads after scrolling.`);
           }
           const background = page.locator('#rich-late-background');
           let backgroundVisible = false;
