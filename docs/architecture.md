@@ -31,6 +31,8 @@ flowchart TD
 
 The early hit bypasses normal plugin boot. PHP hits expose `Cache-Status: NoobRocket; hit`; static Apache/Nginx delivery uses server rules and does not execute that header path. Publication locks prevent competing file writers from publishing partial output; they do not serialize all cold WordPress renders.
 
+The writer stores admitted query variants in `#` directories: `/post/?test=1` is nested beneath `post/`, while `/post?test=1` is a sibling named `post#test=1`. Public URL and content/archive purges select those exact nontrailing siblings even when the canonical directory is absent. Selection stays within the existing host/user bucket, excludes directory aliases and preserves adjacent slug prefixes. Public purge feedback remains unsuccessful when a selected variant cannot be deleted. Concurrent filesystem replacement is not serialized.
+
 The shared multisite loader retains mobile detection independently of the site saving settings. After selecting the request's early configuration, it loads the detector only when both mobile caching and separate mobile files are enabled. Single-site loaders omit that block when separate mobile files are disabled.
 
 Dynamic cache-cookie declarations preserve every named parent/child group, including different parent cookies with equal child lists. Plain cookie names retain their existing deduplication, keys and order; empty declarations remain filtered. The generated early policy and filename reader consume the same ordered declarations, so each group's values select the appropriate cache variant.
