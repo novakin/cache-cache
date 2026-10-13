@@ -117,7 +117,7 @@ $parallel = static function ( array $resources ) use ( &$processes, $name, $word
 
 try {
 	$table->install();
-	$check( $table->exists() && 20261010 === (int) get_option( $name . '_version' ), 'fresh native source schema installs' );
+	$check( $table->exists() && 20261013 === (int) get_option( $name . '_version' ), 'fresh native source schema installs' );
 	$full_name = $table->get_name();
 	$check( $table->column_exists( 'url_hash' ) && $table->index_exists( 'url_hash' ), 'fresh schema includes discovery column/index' );
 	$index = $wpdb->get_row( "SHOW INDEX FROM $full_name WHERE Key_name = 'url_hash'" );
@@ -211,7 +211,7 @@ try {
 	for ( $i = 0; $i < 3; ++$i ) {
 		$run( $wpdb->prepare( "INSERT INTO $full_name (url,status,modified,last_accessed,is_locked) VALUES (%s,%s,'2020-01-01 00:00:00','2020-01-02 00:00:00',%d)", $legacy, $i ? 'completed' : 'in-progress', $i % 2 ) );
 	}
-	$before = $wpdb->get_results( "SELECT * FROM $full_name ORDER BY id", ARRAY_A );
+	$before = $wpdb->get_results( "SELECT id,url,status,modified,last_accessed,is_locked,failure_reason FROM $full_name ORDER BY id", ARRAY_A );
 	$check( false === $query->create_or_nothing( [ 'url' => $legacy . '-new' ] ), 'unready schema refuses unprotected discovery' );
 	$check( 3 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM $full_name" ), 'unready schema preserves legacy rows' );
 	$reject = static function ( $sql ) use ( $full_name ) { return false !== strpos( $sql, "ALTER TABLE $full_name ADD UNIQUE INDEX" ) ? 'INVALID_SQL_FOR_DISCOVERY_UPGRADE' : $sql; };
@@ -229,8 +229,8 @@ try {
 	$check( 20261009 === (int) get_option( $name . '_version' ), 'nonunique lookalike index cannot publish migration readiness' );
 	$run( "ALTER TABLE $full_name DROP INDEX url_hash" );
 	$failed->maybe_upgrade();
-	$check( $failed->index_exists( 'url_hash' ) && 20261010 === (int) get_option( $name . '_version' ), 'native retry publishes unique key and version' );
-	$after = $wpdb->get_results( "SELECT id,url,status,modified,last_accessed,is_locked FROM $full_name ORDER BY id", ARRAY_A );
+	$check( $failed->index_exists( 'url_hash' ) && 20261013 === (int) get_option( $name . '_version' ), 'native retry publishes unique key and current version' );
+	$after = $wpdb->get_results( "SELECT id,url,status,modified,last_accessed,is_locked,failure_reason FROM $full_name ORDER BY id", ARRAY_A );
 	$check( $before === $after, 'migration preserves all row IDs, statuses, timestamps and locks' );
 	$check( 3 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM $full_name WHERE url_hash IS NULL" ), 'legacy duplicate rows retain nullable keys' );
 	$check( true === $failed->add_discovery_key(), 'native key migration is idempotent' );

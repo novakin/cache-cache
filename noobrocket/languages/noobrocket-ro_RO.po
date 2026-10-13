@@ -11361,3 +11361,31 @@ msgid ""
 "One anonymous homepage request checks the Cache-Cache PHP cache header. "
 "Other pages and site speed are not tested."
 msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:151
+msgid "Recorded failure reasons"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Request failed"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "No preload requests"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Desktop cache unavailable"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Mobile cache unavailable"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Reason unavailable"
+msgstr ""
+
+#: views/settings/partials/local-css-diagnostics.php:162
+msgid "Other HTTP responses"
+msgstr ""

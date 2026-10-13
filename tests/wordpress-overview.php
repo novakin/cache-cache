@@ -222,6 +222,15 @@ foreach ( [
 	overview_check( 1 === $state_xpath->query( '//a[contains(@href,"docs/index.html#css")][.="Worker setup and scheduling"]' )->length, $state . ' keeps one CSS worker setup destination in its owning task' );
 }
 
+$failure_html = overview_render( [ 'preload_enabled' => true, 'preload_counts' => [ 'failed' => 6 ], 'preload_failures' => [ 'transport' => 1, 'http_503' => 1, 'no_requests' => 1, 'cache_desktop' => 1, 'cache_mobile' => 1, 'unavailable' => 1, 'https://private.invalid/?raw=<script>unsafe</script>' => 1, 'http_600' => 1 ] ] );
+$failure_xpath = overview_document( $failure_html );
+overview_check( 6 === $failure_xpath->query( '//section[contains(@class,"noobrocket-preload-status")]//details[summary="Preload queue counts"]//p[.="Recorded failure reasons"]/following-sibling::div[1]/span' )->length, 'failure evidence preserves known reasons and validated status in existing queue disclosure' );
+overview_check( ! str_contains( $failure_html, 'private.invalid' ) && ! str_contains( $failure_html, 'unsafe' ), 'unknown reason keys never reach rendered diagnostics' );
+overview_check( str_contains( $failure_html, 'HTTP 503' ) && ! str_contains( $failure_html, 'HTTP 600' ), 'only validated HTTP status reaches rendered diagnostics' );
+$http_html = overview_render( [ 'preload_counts' => [ 'failed' => 10 ], 'preload_failures' => [ 'http_201' => 1, 'http_302' => 2, 'http_403' => 3, 'http_other' => 4 ] ] );
+overview_check( str_contains( $http_html, 'HTTP 201' ) && str_contains( $http_html, 'HTTP 302' ) && str_contains( $http_html, 'HTTP 403' ) && str_contains( $http_html, 'Other HTTP responses' ) && ! str_contains( $http_html, 'server error' ), 'HTTP summary shows actual statuses and remainder without mislabeling redirects or successful response classes' );
+overview_check( 0 === overview_document( overview_render( [ 'preload_counts' => [ 'failed' => 0 ], 'preload_failures' => [ 'transport' => 2 ] ] ) )->query( '//p[.="Recorded failure reasons"]' )->length, 'no failed jobs hides stale reason evidence' );
+
 $html = overview_render( [ 'worker' => [ 'state' => 'ready', 'last_seen' => time() - 301, 'node' => 'v22.0.0' ] ] );
 overview_check( str_contains( $html, 'Environment check recorded' ) && str_contains( $html, 'Older than 5 min' ) && str_contains( $html, 'does not show a running or scheduled worker' ), 'historical ready report cannot imply current worker activity' );
 overview_check( 1 === overview_document( $html )->query( '//details[contains(@class,"noobrocket-worker-details")]//dl/div[dt="Node.js" and dd="v22.0.0"]' )->length, 'runtime versions remain labeled in the worker disclosure' );

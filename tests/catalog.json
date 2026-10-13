@@ -1787,6 +1787,19 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-preload-failure-reasons",
+      "path": "tests/wordpress-preload-failure-reasons.php",
+      "purpose": "Native additive failure-reason migration, preserved legacy queue, retry/success clearing, bounded diagnostics and aggregate cost.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [ "php", "wordpress-core", "disposable-site", "installed-plugin-copy", "mysql-or-mariadb" ],
+      "mutation": "Owns one new suffixed table/version option and request-local temporary cache/config files; mocked HTTP and duration boundary; no registered queue rows, settings or external requests.",
+      "args": [ "{wordpress}" ],
+      "default": true,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-preload-outcomes",
       "path": "tests/wordpress-preload-outcomes.php",
       "purpose": "Preload outcomes, staged refresh and exact discovery; native owners with in-memory boundaries.",

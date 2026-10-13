@@ -25,7 +25,7 @@ class Cache extends AbstractTable {
 	 *
 	 * @var int
 	 */
-	protected $version = 20261010;
+	protected $version = 20261013;
 
 	/**
 	 * Key => value array of versions => methods.
@@ -36,6 +36,7 @@ class Cache extends AbstractTable {
 		20220927 => 'add_is_locked_column',
 		20261009 => 'add_status_locked_modified_index',
 		20261010 => 'add_discovery_key',
+		20261013 => 'add_failure_reason',
 	];
 
 	/**
@@ -59,6 +60,7 @@ class Cache extends AbstractTable {
 			url              varchar(2000)       NOT NULL default '',
 			url_hash         char(64) CHARACTER SET ascii COLLATE ascii_bin NULL default NULL,
 			status           varchar(255)        NOT NULL default '',
+			failure_reason   varchar(32)         NOT NULL default '',
 			modified         timestamp           NOT NULL default '0000-00-00 00:00:00',
 			last_accessed    timestamp           NOT NULL default '0000-00-00 00:00:00',
 			is_locked        tinyint(1)          NOT NULL default 0,
@@ -156,6 +158,19 @@ class Cache extends AbstractTable {
 		return 0 === (int) $index->Non_unique
 			&& 'url_hash' === $index->Column_name
 			&& null === $index->Sub_part;
+	}
+
+	/** Add bounded diagnostics without rewriting existing jobs. */
+	public function add_failure_reason(): bool {
+		if ( $this->column_exists( 'failure_reason' ) ) {
+			return true;
+		}
+		$db = $this->get_db();
+		if ( ! $db ) {
+			return false;
+		}
+		$db->query( "ALTER TABLE {$this->table_name} ADD COLUMN failure_reason varchar(32) NOT NULL default ''" );
+		return $this->column_exists( 'failure_reason' );
 	}
 
 	/**
