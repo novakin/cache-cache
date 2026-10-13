@@ -150,6 +150,7 @@ apache2 -f "$proof/apache.conf" -k start
 verify_http_origin
 "$php_bin" "$workspace/tests/linux-production.php" "$wordpress" http
 "$php_bin" "$workspace/tests/wordpress-beacon-nonce-http.php" "$wordpress" http://127.0.0.1:8875
+"$php_bin" "$workspace/tests/wordpress-cache-csp-http.php" "$wordpress" http://127.0.0.1:8875
 "$node" "$workspace/tools/production-check.mjs" --wordpress "$wordpress" --php "$php_bin" --browser "$browser" --dependencies "$dependencies" --require-linux yes --require-mysql yes --require-multisite no --out "$proof/apache-preflight.json"
 apache2 -f "$proof/apache.conf" -k stop
 rm "$proof/verified-http-origin.txt"

@@ -372,9 +372,14 @@ class Tests {
 		return true;
 	}
 
-	/** Privacy directives prohibit publication, without disabling HTML optimization. */
+	/** Response policies prohibit publication, without disabling HTML optimization. */
 	public function can_cache_response(): bool {
 		foreach ( headers_list() as $header ) {
+			if ( preg_match( '/^Content-Security-Policy(?:-Report-Only)?\s*:/i', $header ) ) {
+				// Static cache files cannot replay a policy emitted by WordPress.
+				$this->set_error( 'Response Content-Security-Policy prohibits page caching.' );
+				return false;
+			}
 			if ( preg_match( '/^Cache-Control\s*:/i', $header )
 				&& preg_match( '/(?:^|,)\s*(?:private|no-store)(?:\s*(?:=|,|$))/i', substr( $header, strpos( $header, ':' ) + 1 ) ) ) {
 				$this->set_error( 'Response privacy policy prohibits page caching.' );
@@ -487,7 +492,7 @@ class Tests {
 	 * @return bool
 	 */
 	public function is_admin() {
-		return is_admin() || ( defined( 'DOING_AJAX' ) && DOING_AJAX );
+		return is_admin() || ( defined( 'DOING_AJAX' ) && constant( 'DOING_AJAX' ) );
 	}
 
 	/**
