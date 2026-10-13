@@ -2,8 +2,9 @@
 /** Native URL purge on a marked copied-plugin site; all files belong to this fixture. */
 $wordpress = isset( $argv[1] ) ? realpath( $argv[1] ) : false;
 if ( PHP_SAPI !== 'cli' || ! $wordpress || ! is_file( $wordpress . '/.noobrocket-acceptance-site' ) ) { throw new RuntimeException( 'Provide a marked disposable WordPress installation.' ); }
-$owner = 'noobrocket/inc/functions/files.php';
-if ( hash_file( 'sha256', dirname( __DIR__ ) . '/' . $owner ) !== hash_file( 'sha256', $wordpress . '/wp-content/plugins/' . $owner ) ) { throw new RuntimeException( 'Installed purge owner differs from candidate.' ); }
+foreach ( [ 'inc/functions/files.php', 'inc/common/purge.php', 'inc/Engine/Cache/Purge.php' ] as $owner ) {
+	if ( hash_file( 'sha256', dirname( __DIR__ ) . '/noobrocket/' . $owner ) !== hash_file( 'sha256', $wordpress . '/wp-content/plugins/noobrocket/' . $owner ) ) { throw new RuntimeException( 'Installed purge owner differs from candidate.' ); }
+}
 $_SERVER['HTTP_HOST'] = '127.0.0.1';
 $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['REQUEST_METHOD'] = 'POST';
@@ -36,6 +37,8 @@ $host = get_noobrocket_parse_url( home_url() )['host'];
 $bucket = untrailingslashit( NOOBROCKET_CACHE_PATH ) . '/' . $host;
 $bucket_created = ! is_dir( $bucket );
 $owned = [ $bucket . '/' . $name, untrailingslashit( NOOBROCKET_CACHE_PATH ) . '/' . $name . '-foreign' ];
+$post_id = null;
+$post_link = null;
 foreach ( $owned as $directory ) { wp_mkdir_p( $directory ); }
 _noobrocket_get_cache_dirs( '', '', true );
 class NativePurgeRefusingFilesystem extends WP_Filesystem_Direct {
@@ -62,6 +65,30 @@ try {
 	native_purge_check( is_file( $file ) && ! $result[ $url ], 'native filesystem refusal reports failure and retains bytes' );
 	$result = noobrocket_clean_files( $url );
 	native_purge_check( ! is_file( $file ) && $result[ $url ], 'native filesystem removes selected device cache' );
+	// Initial creation shares this process; preserve the purge owner's once-per-post request guard for the edit.
+	add_filter( 'noobrocket_is_importing', '__return_true' );
+	try { $post_id = wp_insert_post( [ 'post_type' => 'post', 'post_status' => 'publish', 'post_title' => $name, 'post_content' => 'Native query-cache original.' ], true ); }
+	finally { remove_filter( 'noobrocket_is_importing', '__return_true' ); }
+	if ( is_wp_error( $post_id ) ) { throw new RuntimeException( 'Native query-cache post creation failed.' ); }
+	$post_link = static function ( $permalink, $post ) use ( $post_id, $name ) { return $post_id === $post->ID ? home_url( '/' . $name ) : $permalink; };
+	add_filter( 'post_link', $post_link, 10, 2 );
+	$query_files = [];
+	foreach ( [ '#test=1', '#test=2', '-neighbor#test=1' ] as $suffix ) {
+		$directory = $bucket . '/' . $name . $suffix;
+		$owned[] = $directory;
+		wp_mkdir_p( $directory );
+		$query_files[] = $directory . '/index-mobile-https.html_gzip';
+		file_put_contents( end( $query_files ), 'Native query-cache original.' );
+	}
+	wp_mkdir_p( $owned[0] );
+	file_put_contents( $file, 'Native canonical original.' );
+	$edited = wp_update_post( [ 'ID' => $post_id, 'post_content' => 'Native query-cache updated.' ], true );
+	native_purge_check( ! is_wp_error( $edited ) && ! is_file( $file ) && ! is_file( $query_files[0] ) && ! is_file( $query_files[1] ) && is_file( $query_files[2] ) && is_file( $sentinel ), 'native post update purges nontrailing query siblings while preserving adjacent slugs and foreign buckets' );
+	remove_filter( 'post_link', $post_link, 10 );
+	$post_link = null;
+	wp_delete_post( $post_id, true );
+	$post_id = null;
+	wp_mkdir_p( $owned[0] );
 
 	$assets = $owned[0] . '/file1.css-parent/assets';
 	wp_mkdir_p( $assets );
@@ -93,6 +120,8 @@ try {
 	native_purge_check( true === noobrocket_clean_domain() && ! is_file( $domain_file ) && is_file( $sentinel ), 'native ready domain purge removes selected cache and preserves sibling' );
 	remove_filter( 'noobrocket_clean_domain_urls', $domain_urls );
 } finally {
+	if ( $post_link ) { remove_filter( 'post_link', $post_link, 10 ); }
+	if ( $post_id ) { wp_delete_post( $post_id, true ); }
 	foreach ( $owned as $directory ) {
 		if ( ! is_dir( $directory ) ) { continue; }
 		$resolved = realpath( $directory );

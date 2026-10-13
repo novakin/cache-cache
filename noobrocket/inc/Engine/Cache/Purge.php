@@ -69,6 +69,10 @@ class Purge {
 			}
 			$path = $dir . $parsed_url['path'];
 
+			foreach ( _noobrocket_get_query_cache_dirs( $path, $dir ) as $query_path ) {
+				noobrocket_rrmdir( $query_path, [], $this->filesystem );
+			}
+
 			if ( ! $this->filesystem->exists( $path ) || is_link( $path ) || ! noobrocket_cache_path_is_within( $path, $dir ) ) {
 				continue;
 			}
