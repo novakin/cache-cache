@@ -7,6 +7,7 @@ if ( 'cli-server' === PHP_SAPI && '1' === getenv( 'NOOBROCKET_CACHE_HEADER_FIXTU
 	require dirname( __DIR__ ) . '/noobrocket/inc/classes/Buffer/class-config.php';
 	require dirname( __DIR__ ) . '/noobrocket/inc/classes/Buffer/class-tests.php';
 	function noobrocket_mkdir_p( $path ) { return true; }
+	function is_admin() { return 'admin' === ( $_GET['case'] ?? '' ); }
 	class HeaderGate extends NoobRocket\Buffer\Tests {
 		public function is_404() { return false; }
 		public function is_search() { return false; }
@@ -14,6 +15,8 @@ if ( 'cli-server' === PHP_SAPI && '1' === getenv( 'NOOBROCKET_CACHE_HEADER_FIXTU
 	}
 	http_response_code( 200 );
 	$case = $_GET['case'] ?? '';
+	if ( 'ajax-true' === $case ) { define( 'DOING_AJAX', true ); }
+	if ( 'ajax-false' === $case ) { define( 'DOING_AJAX', false ); }
 	if ( 'public' === $case ) { header( 'Cache-Control: public, max-age=300' ); }
 	if ( 'private' === $case ) { header( 'Cache-Control: private' ); }
 	if ( 'no-store' === $case ) { header( 'Cache-Control: max-age=0, no-store' ); }
@@ -24,14 +27,26 @@ if ( 'cli-server' === PHP_SAPI && '1' === getenv( 'NOOBROCKET_CACHE_HEADER_FIXTU
 	if ( 'late' === $case ) { header( 'Cache-Control: public' ); }
 	if ( 'cookie' === $case ) { header( 'Set-Cookie: harmless=fixture; SameSite=Lax' ); }
 	if ( 'prefix' === $case ) { header( 'Cache-Control: no-store-extra=1' ); }
+	if ( 'csp' === $case ) { header( "Content-Security-Policy: default-src 'self'" ); }
+	if ( 'csp-mixed' === $case ) { header( "cOnTeNt-SeCuRiTy-PoLiCy: default-src 'self'" ); }
+	if ( 'csp-space' === $case ) { header( "Content-Security-Policy:   default-src 'self' " ); }
+	if ( 'csp-report' === $case ) { header( "Content-Security-Policy-Report-Only: default-src 'self'" ); }
+	if ( 'csp-prefix' === $case ) { header( "Content-Security-Policy-Extra: default-src 'self'" ); }
+	if ( 'csp-value' === $case ) { header( 'X-Fixture: Content-Security-Policy: fixture' ); }
+	if ( 'csp-late' === $case ) { header( "Content-Security-Policy: default-src 'self'" ); }
+	if ( 'csp-removed' === $case ) {
+		header( "Content-Security-Policy: default-src 'self'" );
+		header_remove( 'Content-Security-Policy' );
+	}
 	$config = new NoobRocket\Buffer\Config( [ 'config_dir_path' => sys_get_temp_dir() ] );
 	$gate = new HeaderGate( $config );
 	// Models a late response hook, immediately before the outer publication gate.
 	if ( 'late' === $case ) { header( 'Cache-Control: no-store' ); }
+	if ( 'csp-late' === $case ) { header( "Content-Security-Policy-Report-Only: default-src 'none'", false ); }
 	$optimizable = $gate->can_process_buffer( '<html>' . str_repeat( 'public content ', 30 ) . '</html>' );
 	$allowed = $gate->can_cache_response();
 	header( 'Content-Type: application/json' );
-	echo json_encode( [ 'allowed' => $allowed, 'optimizable' => $optimizable ] );
+	echo json_encode( [ 'allowed' => $allowed, 'optimizable' => $optimizable, 'admin' => $gate->is_admin() ] );
 	return;
 }
 
@@ -51,20 +66,21 @@ $checks = 0;
 try {
 	$started = false;
 	for ( $attempt = 0; $attempt < 50; ++$attempt ) {
-		$socket = @stream_socket_client( 'tcp://' . $address, $error, $message, 0.1 );
-		if ( $socket ) { fclose( $socket ); $started = true; break; }
+		$ready = @file_get_contents( 'http://' . $address . '/?case=absent', false, stream_context_create( [ 'http' => [ 'timeout' => 1 ] ] ) );
+		if ( '{"allowed":true,"optimizable":true,"admin":false}' === $ready ) { $started = true; break; }
 		usleep( 50000 );
 	}
 	if ( ! $started ) { throw new RuntimeException( 'Header fixture did not start.' ); }
-	foreach ( [ 'absent' => true, 'public' => true, 'private' => false, 'no-store' => false, 'mixed' => false, 'late' => false, 'cookie' => true, 'prefix' => true ] as $case => $expected ) {
+	foreach ( [ 'absent' => true, 'public' => true, 'private' => false, 'no-store' => false, 'mixed' => false, 'late' => false, 'cookie' => true, 'prefix' => true, 'csp' => false, 'csp-mixed' => false, 'csp-space' => false, 'csp-report' => false, 'csp-prefix' => true, 'csp-value' => true, 'csp-late' => false, 'csp-removed' => true, 'admin' => true, 'ajax-true' => true, 'ajax-false' => true ] as $case => $expected ) {
 		$body = file_get_contents( 'http://' . $address . '/?case=' . $case );
 		$result = json_decode( $body, true );
-		if ( ! is_array( $result ) || $expected !== ( $result['allowed'] ?? null ) || true !== ( $result['optimizable'] ?? null ) ) {
-			throw new RuntimeException( 'FAIL: native Cache-Control gate for ' . $case . ': ' . substr( $body, 0, 200 ) );
+		$admin = in_array( $case, [ 'admin', 'ajax-true' ], true );
+		if ( ! is_array( $result ) || $expected !== ( $result['allowed'] ?? null ) || true !== ( $result['optimizable'] ?? null ) || $admin !== ( $result['admin'] ?? null ) ) {
+			throw new RuntimeException( 'FAIL: native response-header gate for ' . $case . ': ' . substr( $body, 0, 200 ) );
 		}
 		++$checks;
 	}
-	echo 'PASS: ', $checks, ' native response privacy assertions.', PHP_EOL;
+	echo 'PASS: ', $checks, ' native response-policy assertions.', PHP_EOL;
 } finally {
 	proc_terminate( $process );
 	foreach ( [ 1, 2 ] as $index ) { fclose( $pipes[ $index ] ); }

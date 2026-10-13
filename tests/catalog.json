@@ -1058,6 +1058,27 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "wordpress-cache-csp-http",
+      "path": "tests/wordpress-cache-csp-http.php",
+      "purpose": "Native enforcing/report-only CSP retention without page publication; ordinary public HTTP cache reuse.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": [
+        "php",
+        "wordpress-core",
+        "disposable-site",
+        "installed-plugin-copy",
+        "http-server-8765"
+      ],
+      "mutation": "Three owned pages and an exact-page CSP MU callback; copied cache owners and loopback listener verified; serial native HTTP requests; owned cleanup.",
+      "args": [
+        "{wordpress}"
+      ],
+      "default": false,
+      "minimum_wordpress": "5.8",
+      "minimum_php": "7.4"
+    },
+    {
       "name": "wordpress-cache-http",
       "path": "tests/wordpress-cache-http.php",
       "purpose": "Real HTTP cache delivery checks. Requires the disposable site server on port 8765.",
