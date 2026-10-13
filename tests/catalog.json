@@ -2655,6 +2655,32 @@
       "default": true,
       "minimum_php": "7.4",
       "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "performance-hints-theme-update",
+      "path": "tests/performance-hints-theme-update.php",
+      "purpose": "Registered hint updater clears active/parent themes once while unrelated upgrades, imports and malformed details preserve data.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": ["php", "wordpress-core"],
+      "mutation": "Native core hook dispatch with modeled theme/controller boundaries; no site bootstrap, database or HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "wordpress-theme-update-hints",
+      "path": "tests/wordpress-theme-update-hints.php",
+      "purpose": "Native active child/parent upgrades clear collected hints while pending jobs and unrelated upgrades retain data.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Creates/removes owned parent/child themes and temporary cache/config roots, seeds native hint rows, restores exact prior rows/theme, preserves blog context and blocks HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
     }
   ]
 }
