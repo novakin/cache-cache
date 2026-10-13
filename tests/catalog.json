@@ -609,6 +609,24 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "delay-consent-browser",
+      "path": "tests/delay-consent-browser.mjs",
+      "purpose": "Actual Firefox and Chromium DelayJS execution, consent-owned inert script recovery, later consent and network failure.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "firefox",
+        "tools-dependencies"
+      ],
+      "mutation": "Owned loopback listener and temporary browser profiles; synthetic consent hooks, no WordPress or provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true
+    },
+    {
       "name": "linux-multisite",
       "path": "tests/linux-multisite.php",
       "purpose": "Dedicated network proof. The runner owns and discards its entire site/database.",
@@ -1230,7 +1248,7 @@
     {
       "name": "wordpress-cache-purge-boundaries",
       "path": "tests/wordpress-cache-purge-boundaries.php",
-      "purpose": "Native authorized URL purge preserves sibling/link targets and reports filesystem refusal on a marked copied-plugin site.",
+      "purpose": "Native authorized URL purge preserves sibling/link targets, reports filesystem refusal and removes nontrailing query variants after a post edit.",
       "profile": "wordpress",
       "environment": "native-wordpress",
       "prerequisites": [
@@ -1239,7 +1257,7 @@
         "disposable-site",
         "installed-plugin-copy"
       ],
-      "mutation": "Creates and removes uniquely owned temporary cache entries and sibling sentinel only; no production data or provider requests.",
+      "mutation": "Creates, edits and removes one native post plus uniquely owned temporary cache entries and a sibling sentinel; no production data or provider requests.",
       "args": [
         "{wordpress}"
       ],
@@ -2626,6 +2644,32 @@
       "args": [
         "{wordpress}"
       ],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "performance-hints-theme-update",
+      "path": "tests/performance-hints-theme-update.php",
+      "purpose": "Registered hint updater clears active/parent themes once while unrelated upgrades, imports and malformed details preserve data.",
+      "profile": "wordpress",
+      "environment": "modeled-core",
+      "prerequisites": ["php", "wordpress-core"],
+      "mutation": "Native core hook dispatch with modeled theme/controller boundaries; no site bootstrap, database or HTTP.",
+      "args": ["{wordpress}"],
+      "default": true,
+      "minimum_php": "7.4",
+      "minimum_wordpress": "5.8"
+    },
+    {
+      "name": "wordpress-theme-update-hints",
+      "path": "tests/wordpress-theme-update-hints.php",
+      "purpose": "Native active child/parent upgrades clear collected hints while pending jobs and unrelated upgrades retain data.",
+      "profile": "wordpress",
+      "environment": "native-wordpress",
+      "prerequisites": ["php", "wordpress-core", "disposable-site", "installed-plugin-copy"],
+      "mutation": "Creates/removes owned parent/child themes and temporary cache/config roots, seeds native hint rows, restores exact prior rows/theme, preserves blog context and blocks HTTP.",
+      "args": ["{wordpress}"],
       "default": true,
       "minimum_php": "7.4",
       "minimum_wordpress": "5.8"

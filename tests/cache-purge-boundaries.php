@@ -63,6 +63,13 @@ function purge_url( string $path, $filesystem = null, bool $actions = false ): b
 
 try {
 	$sentinel = purge_file( 'outside-owned/sentinel.txt' );
+	$canonical = purge_file( 'pages/example.test/query-refusal/index.html' );
+	$query = purge_file( 'pages/example.test/query-refusal#test=1/index.html' );
+	$filesystem->refused = [ $query ];
+	purge_check( ! purge_url( 'query-refusal' ) && ! is_file( $canonical ) && is_file( $query ), 'a query-variant deletion refusal prevents successful public purge feedback' );
+	$filesystem->refused = [];
+	purge_check( purge_url( 'query-refusal' ) && ! is_file( $query ), 'retry removes the query-only cache after canonical deletion' );
+	$actions = [];
 	purge_check( false === noobrocket_clean_domain( '', $filesystem ) && is_file( $sentinel ) && [] === $actions, 'early domain purge declines without helpers, hooks or deletion' );
 	function noobrocket_is_importing() { return ! empty( $GLOBALS['domain_importing'] ); }
 	purge_check( false === noobrocket_clean_domain( '', $filesystem ), 'partial API initialization still declines until i18n loads' );

@@ -196,7 +196,9 @@ namespace {
 	do_action( 'noobrocket_after_activation' );
 	settings_preload_check( 2 === count( $fixture['actions'] ), 'repeated activation homepage preparation uses native unique admission' );
 	$frontend = ( new ReflectionClass( NoobRocket\Engine\Preload\Frontend\Subscriber::class ) )->newInstanceWithoutConstructor();
-	( new ReflectionProperty( $frontend, 'preload_controller' ) )->setValue( $frontend, $worker );
+	$preload_controller = new ReflectionProperty( $frontend, 'preload_controller' );
+	$preload_controller->setAccessible( true );
+	$preload_controller->setValue( $frontend, $worker );
 	$events->add_subscriber( $frontend );
 	do_action( $fixture['actions'][1]['hook'], ...$fixture['actions'][1]['args'] );
 	settings_preload_check( [ [ home_url(), 'noobrocket_preload_job_preload_url' ] ] === $worker->started, 'queued action dispatch reaches the native frontend worker owner outside activation' );
