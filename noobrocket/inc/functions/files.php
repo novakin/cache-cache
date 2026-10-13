@@ -670,27 +670,33 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 					$urls[ $url_key ] = $url;
 				}
 
-				// Skip if the dir/file does not exist.
-				if ( ! $filesystem->exists( $entry ) ) {
-					continue;
+				$entries = [ $entry ];
+				if ( ! str_contains( $entry, '*' ) ) {
+					$entries = array_merge( $entries, _noobrocket_get_query_cache_dirs( $entry, $dir ) );
 				}
-				if ( ! noobrocket_cache_path_is_within( $entry, $dir ) ) {
-					$failed = true;
-					continue;
-				}
+				foreach ( $entries as $entry ) {
+					// Skip if the dir/file does not exist.
+					if ( ! $filesystem->exists( $entry ) ) {
+						continue;
+					}
+					if ( ! noobrocket_cache_path_is_within( $entry, $dir ) ) {
+						$failed = true;
+						continue;
+					}
 
-				if ( $filesystem->is_dir( $entry ) ) {
-					noobrocket_rrmdir( $entry, [], $filesystem );
-					clearstatcache( true, $entry );
-					$deleted = ! $filesystem->exists( $entry );
-				} else {
-					$deleted = $filesystem->delete( $entry );
-				}
+					if ( $filesystem->is_dir( $entry ) ) {
+						noobrocket_rrmdir( $entry, [], $filesystem );
+						clearstatcache( true, $entry );
+						$deleted = ! $filesystem->exists( $entry );
+					} else {
+						$deleted = $filesystem->delete( $entry );
+					}
 
-				if ( $deleted ) {
-					$cleared = true;
-				} else {
-					$failed = true;
+					if ( $deleted ) {
+						$cleared = true;
+					} else {
+						$failed = true;
+					}
 				}
 			}
 		}
@@ -722,6 +728,37 @@ function noobrocket_clean_files( $urls, $filesystem = null, $run_actions = true 
 	do_action( 'after_noobrocket_clean_files', $urls ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals
 
 	return $results;
+}
+
+/**
+ * Finds query directories beside a nontrailing URL's canonical cache directory.
+ *
+ * @param string $path Canonical cache path, preserving its trailing slash.
+ * @param string $root Selected host/user cache bucket.
+ * @return array
+ */
+function _noobrocket_get_query_cache_dirs( string $path, string $root ): array { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	if ( '/' === substr( $path, -1 ) ) {
+		return [];
+	}
+	$parent = dirname( $path );
+	if ( ! noobrocket_cache_path_is_within( $parent, $root ) ) {
+		return [];
+	}
+	// Scanning an alias could select another URL's query directories in this bucket.
+	for ( $ancestor = wp_normalize_path( $parent ); $ancestor !== untrailingslashit( wp_normalize_path( $root ) ); $ancestor = dirname( $ancestor ) ) {
+		if ( is_link( $ancestor ) || dirname( $ancestor ) === $ancestor ) {
+			return [];
+		}
+	}
+	$directories = [];
+	$pattern     = '#\A' . preg_quote( basename( $path ) . '#', '#' ) . '.*\z#';
+	foreach ( _noobrocket_get_dir_files_by_regex( $parent, $pattern ) as $entry ) {
+		if ( $entry->isDir() && ! $entry->isLink() && noobrocket_cache_path_is_within( $entry->getPathname(), $root ) ) {
+			$directories[] = $entry->getPathname();
+		}
+	}
+	return $directories;
 }
 
 /**

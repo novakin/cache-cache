@@ -1269,7 +1269,7 @@
     {
       "name": "wordpress-cache-purge-boundaries",
       "path": "tests/wordpress-cache-purge-boundaries.php",
-      "purpose": "Native authorized URL purge preserves sibling/link targets and reports filesystem refusal on a marked copied-plugin site.",
+      "purpose": "Native authorized URL purge preserves sibling/link targets, reports filesystem refusal and removes nontrailing query variants after a post edit.",
       "profile": "wordpress",
       "environment": "native-wordpress",
       "prerequisites": [
@@ -1278,7 +1278,7 @@
         "disposable-site",
         "installed-plugin-copy"
       ],
-      "mutation": "Creates and removes uniquely owned temporary cache entries and sibling sentinel only; no production data or provider requests.",
+      "mutation": "Creates, edits and removes one native post plus uniquely owned temporary cache entries and a sibling sentinel; no production data or provider requests.",
       "args": [
         "{wordpress}"
       ],

@@ -108,6 +108,29 @@ try {
 		$result = noobrocket_clean_files( $url, $actual, false );
 		secondary_purge_check( $result[ $url ] && ! is_file( $target ) && is_file( $sentinel ), $request . ': public purge follows the same native writer path' );
 	}
+	foreach ( [ 'public', 'content' ] as $owner ) {
+		if ( $public_only && 'content' === $owner ) { continue; }
+		foreach ( [ false, true ] as $canonical_present ) {
+			$slug = '/query-' . $owner . ( $canonical_present ? '-canonical' : '-only' );
+			$variants = [];
+			if ( $canonical_present ) { $variants[] = secondary_purge_file( secondary_purge_writer_path( $slug ) ); }
+			foreach ( [ '?test=1', '?test=2', '?test=two%20words' ] as $query ) {
+				$variants[] = secondary_purge_file( secondary_purge_writer_path( $slug . $query ) );
+			}
+			$variants[] = secondary_purge_file( $root . '/pages/example.test-alice-owned-secret' . $slug . '#test=1/index-mobile-https.html_gzip' );
+			$neighbor = secondary_purge_file( secondary_purge_writer_path( $slug . '-neighbor?test=1' ) );
+			$child = secondary_purge_file( secondary_purge_writer_path( $slug . '/child?test=1' ) );
+			$foreign = secondary_purge_file( $root . '/pages/example.test-alice-foreign-secret' . $slug . '#test=1/index.html' );
+			_noobrocket_get_cache_dirs( '', '', true );
+			$url = 'https://example.test' . $slug;
+			if ( 'public' === $owner ) {
+				$result = noobrocket_clean_files( $url, $actual, false );
+				secondary_purge_check( $result[ $url ], 'public query-only and canonical purges report actual removal' );
+			} else { $actual_purge->purge_url( $url ); }
+			secondary_purge_check( [] === array_filter( $variants, 'is_file' ) && is_file( $neighbor ) && is_file( $foreign ) && is_file( $sentinel ), $owner . ': nontrailing query siblings purge without selecting slug prefixes or foreign buckets' );
+			if ( 'content' === $owner ) { secondary_purge_check( is_file( $child ), 'content query purge preserves descendant pages' ); }
+		}
+	}
 	if ( $public_only ) {
 		echo 'PASS: ', $checks, ' public purge/native writer assertions.', PHP_EOL;
 		return;
@@ -150,6 +173,15 @@ try {
 		$actual_purge->purge_url( 'https://example.test/internal-alias/', true );
 		secondary_purge_check( is_file( $alias_target ), 'a root directory alias does not invalidate a different URL inside its bucket' );
 		secondary_purge_check( is_file( $sentinel ), 'root/pagination/nested-query directory links never visit their targets' );
+		$query_target = secondary_purge_file( $root . '/pages/example.test/alias-target/query#test=1/index.html' );
+		$link = $root . '/pages/example.test/linked-query#test=1';
+		secondary_purge_check( symlink( dirname( $query_target ), $link ), 'create sibling-query directory alias' );
+		$actual_purge->purge_url( 'https://example.test/linked-query' );
+		noobrocket_clean_files( 'https://example.test/linked-query', $actual, false );
+		secondary_purge_check( is_link( $link ) && is_file( $query_target ), 'sibling-query aliases are not followed or selected' );
+		$actual_purge->purge_url( 'https://example.test/internal-alias/query' );
+		noobrocket_clean_files( 'https://example.test/internal-alias/query', $actual, false );
+		secondary_purge_check( is_file( $query_target ), 'query scans through a parent alias never select another URL' );
 	} else {
 		echo "SKIP: directory-link proof requires Linux filesystem.\n";
 	}
