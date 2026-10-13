@@ -1,7 +1,8 @@
 /** Native disposable WordPress flows. Functional routing disables browser cache; this is not a benchmark. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -429,33 +430,71 @@ async function responseBoundaries() {
     return { receipts };
   } finally { await target.close(); }
 }
-let originalCspBackground;
+const originalCspBackgrounds = new Map();
+async function backgroundCssArtifacts() {
+  const root = join(site, 'wp-content/cache/background-css');
+  let entries;
+  try { entries = await readdir(root, { recursive: true, withFileTypes: true }); }
+  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  const files = [];
+  for (const entry of entries) {
+    assert.ok(!entry.isSymbolicLink(), 'Background CSS artifact snapshot stays inside the plain owned site.');
+    if (entry.isFile()) {
+      const path = join(entry.parentPath, entry.name);
+      files.push([path, createHash('sha256').update(await readFile(path)).digest('hex')]);
+    }
+  }
+  return files.sort(([left], [right]) => left.localeCompare(right));
+}
 async function cspBackground(profile) {
   await nativePhase(`profile-${profile}`);
-  const target = await context();
-  try {
-    await target.addInitScript(() => {
-      window.richCspViolations = [];
-      document.addEventListener('securitypolicyviolation', event => window.richCspViolations.push({ directive: event.effectiveDirective, blocked: event.blockedURI === 'inline' ? 'inline' : 'resource' }));
-    });
-    const page = await target.newPage();
-    const response = await page.goto(pageByName('CSP').url, { waitUntil: 'networkidle' });
-    const policy = response.headers()['content-security-policy'] || '';
-    check(/style-src 'self'/.test(policy) && /script-src 'self'/.test(policy), 'Actual native response enforces self-only style/script CSP.');
-    await page.locator('#rich-late-background').scrollIntoViewIfNeeded();
-    const background = await page.locator('#rich-late-background').evaluate(node => getComputedStyle(node).backgroundImage);
-    const rewrittenLazyStylesheet = await page.locator('link[rel~="stylesheet"]').evaluateAll(links => links.some(link => new URL(link.href).pathname.includes('/background-css/')));
-    const observation = { profile, backgroundVisible: background !== 'none', violations: await page.evaluate(() => window.richCspViolations), rewrittenLazyStylesheet };
-    (report.cspObservations ||= []).push(observation);
-    if (profile === 'baseline') {
-      check(background !== 'none', 'Original external stylesheet displays its background under enforcing CSP.');
-      originalCspBackground = background;
-    } else {
-      check(background === originalCspBackground && background !== 'none', 'Optimization retains the functional external background under enforcing CSP.');
-    }
-    check(!rewrittenLazyStylesheet, 'Enforcing CSP retains ordinary stylesheets before background rewriting.');
-    return observation;
-  } finally { await target.close(); }
+  const artifactsBefore = await backgroundCssArtifacts();
+  const samples = [];
+  for (const javaScriptEnabled of [true, false]) for (const width of [1365, 390]) {
+    // The header is emitted by WordPress; admission is exercised on a cold page response.
+    await nativePhase('purge');
+    const target = await context({ javaScriptEnabled, viewport: { width, height: width === 390 ? 844 : 900 } });
+    const label = `${profile}/${width}/JavaScript-${javaScriptEnabled ? 'on' : 'off'}`;
+    try {
+      if (javaScriptEnabled) await target.addInitScript(() => {
+        window.richCspViolations = [];
+        document.addEventListener('securitypolicyviolation', event => window.richCspViolations.push({ directive: event.effectiveDirective, blocked: event.blockedURI === 'inline' ? 'inline' : 'resource' }));
+      });
+      const page = await target.newPage();
+      const response = await page.goto(pageByName('CSP').url, { waitUntil: 'networkidle' });
+      const policy = response.headers()['content-security-policy'] || '';
+      check(/style-src 'self'/.test(policy) && /script-src 'self'/.test(policy), `${label}: actual native response enforces self-only style/script CSP.`);
+      await page.locator('#rich-late-background').scrollIntoViewIfNeeded();
+      const background = await page.locator('#rich-late-background').evaluate(node => getComputedStyle(node).backgroundImage);
+      const element = page.locator('#rich-late-background');
+      const rendered = await element.screenshot({ animations: 'disabled' });
+      const originalStyle = await element.getAttribute('style');
+      let withoutBackground;
+      try {
+        await element.evaluate(node => node.style.setProperty('background-image', 'none', 'important'));
+        check(await element.evaluate(node => getComputedStyle(node).backgroundImage) === 'none', `${label}: screenshot control removes only the background image.`);
+        withoutBackground = await element.screenshot({ animations: 'disabled' });
+      } finally {
+        await element.evaluate((node, style) => style === null ? node.removeAttribute('style') : node.setAttribute('style', style), originalStyle);
+      }
+      check(!rendered.equals(withoutBackground), `${label}: rendered background differs from its image-free control.`);
+      check(rendered.equals(await element.screenshot({ animations: 'disabled' })), `${label}: restoring the original background reproduces its rendered output.`);
+      const rewrittenLazyStylesheet = await page.locator('link[rel~="stylesheet"]').evaluateAll(links => links.some(link => new URL(link.href).pathname.includes('/background-css/')));
+      const observation = { profile, width, javaScriptEnabled, computedBackgroundPreserved: background !== 'none', violations: javaScriptEnabled ? await page.evaluate(() => window.richCspViolations) : [], rewrittenLazyStylesheet };
+      (report.cspObservations ||= []).push(observation);
+      samples.push(observation);
+      const key = `${width}/${javaScriptEnabled}`;
+      if (profile === 'baseline') {
+        check(background !== 'none', `${label}: original external stylesheet declares its computed background under enforcing CSP.`);
+        originalCspBackgrounds.set(key, background);
+      } else {
+        check(background === originalCspBackgrounds.get(key) && background !== 'none', `${label}: optimization preserves the computed external background under enforcing CSP.`);
+      }
+      check(!rewrittenLazyStylesheet, `${label}: enforcing CSP retains ordinary stylesheets before background rewriting.`);
+    } finally { await target.close(); }
+  }
+  check(JSON.stringify(await backgroundCssArtifacts()) === JSON.stringify(artifactsBefore), `${profile}: CSP requests publish no background stylesheet or mapping changes.`);
+  return { samples, backgroundArtifactsUnchanged: true };
 }
 async function documentEagerness() {
   await nativePhase('profile-eager');
