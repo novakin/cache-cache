@@ -6,7 +6,7 @@ define( 'ABSPATH', rtrim( getenv( 'NOOBROCKET_WORDPRESS_SOURCE' ) ?: dirname( __
 define( 'WPINC', 'wp-includes' );
 define( 'NOOBROCKET_SLUG', 'noobrocket_settings' );
 define( 'MINUTE_IN_SECONDS', 60 );
-require ABSPATH . 'wp-includes/class-wp-http.php';
+require ABSPATH . 'wp-includes/' . ( is_file( ABSPATH . 'wp-includes/class-wp-http.php' ) ? 'class-wp-http.php' : 'class-http.php' );
 require ABSPATH . 'wp-includes/class-wp-error.php';
 require dirname( __DIR__ ) . '/noobrocket/vendor/autoload.php';
 
@@ -16,6 +16,7 @@ function get_transient( $name ) { return 'noobrocket_preload_previous_requests_d
 function set_transient( $name, $value, $expiration ) {}
 function current_time( $type, $gmt = false ) { return $GLOBALS['fixture']['now'] ?? gmdate( 'Y-m-d H:i:s' ); }
 function apply_filters( $name, $value, ...$args ) {
+	if ( 'noobrocket_preload_before_preload_url' === $name && ! empty( $GLOBALS['fixture']['omit_requests'] ) ) { return [ [], [ 'url' => false ] ]; }
 	if ( 'noobrocket_preload_delay_between_requests' === $name ) { return 1; }
 	if ( 'noobrocket_preload_cache_pending_jobs_cron_rows_count' === $name && isset( $GLOBALS['fixture']['preload_cap'] ) ) { return $GLOBALS['fixture']['preload_cap']; }
 	if ( 'noobrocket_preload_url_request_args' === $name && $GLOBALS['fixture']['request_filter'] ) {
@@ -176,7 +177,14 @@ try {
 		$fixture['status'] = $status; $fixture['publish'] = []; $query->row->status = 'in-progress';
 		$controller->preload_url( $url );
 		outcome_check( 'failed' === $query->row->status, $case . ' response cannot claim a warm cache' );
+		$expected = [ 'uncacheable' => 'cache_desktop', 'redirect' => 'http_302', 'server-error' => 'http_503', 'transport-error' => 'transport' ];
+		outcome_check( $expected[ $case ] === $query->row->failure_reason, $case . ' stores bounded responsible failure evidence' );
 	}
+	$fixture['omit_requests'] = true;
+	$before = count( $fixture['requests'] );
+	$controller->preload_url( $url );
+	outcome_check( 'no_requests' === $query->row->failure_reason && $before === count( $fixture['requests'] ), 'filtered or malformed request list fails without fabricating HTTP evidence' );
+	unset( $fixture['omit_requests'] );
 	$query->missing_rows = true;
 	$query->row->status = 'in-progress';
 	$before = count( $fixture['requests'] );
@@ -191,6 +199,7 @@ try {
 	$fixture['status'] = 200; $fixture['publish'] = [ $desktop ]; $fixture['request_filter'] = true;
 	$controller->preload_url( $url );
 	outcome_check( 'failed' === $query->row->status, 'desktop publication alone does not complete required mobile coverage' );
+	outcome_check( 'cache_mobile' === $query->row->failure_reason, 'mobile-only missing publication has its own bounded reason' );
 	$last_request = end( $fixture['requests'] );
 	outcome_check( true === $last_request[1]['blocking'] && 0 === $last_request[1]['redirection'] && 20 === $last_request[1]['timeout'], 'filter cannot turn verified publication into unbounded or fire-and-forget traffic' );
 	$fixture['publish'] = [ $desktop, $mobile ];

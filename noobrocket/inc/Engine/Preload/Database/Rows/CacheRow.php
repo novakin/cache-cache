@@ -33,6 +33,9 @@ class CacheRow extends Row {
 	 */
 	public $status;
 
+	/** @var string Bounded reason, or empty when unavailable. */
+	public $failure_reason = '';
+
 	/**
 	 * Last modified time
 	 *
@@ -71,6 +74,7 @@ class CacheRow extends Row {
 		$this->id            = (int) $this->id;
 		$this->url           = (string) $this->url;
 		$this->status        = (string) $this->status;
+		$this->failure_reason = (string) $this->failure_reason;
 		$this->modified      = empty( $this->modified ) ? 0 : strtotime( $this->modified );
 		$this->last_accessed = empty( $this->last_accessed ) ? 0 : strtotime( $this->last_accessed );
 		$this->is_locked     = (bool) $this->is_locked;

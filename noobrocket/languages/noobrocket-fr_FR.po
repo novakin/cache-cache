@@ -12533,3 +12533,30 @@ msgid ""
 msgstr ""
 "Une requête anonyme vers la page d’accueil vérifie l’en-tête du cache PHP "
 "Cache-Cache. Les autres pages et la vitesse du site ne sont pas testées."
+
+#: views/settings/partials/local-css-diagnostics.php:151
+msgid "Recorded failure reasons"
+msgstr "Raisons des échecs enregistrés"
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Request failed"
+msgstr "Échec de la requête"
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "No preload requests"
+msgstr "Aucune requête de préchargement"
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Desktop cache unavailable"
+msgstr "Cache pour ordinateur indisponible"
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Mobile cache unavailable"
+msgstr "Cache mobile indisponible"
+
+#: views/settings/partials/local-css-diagnostics.php:153
+msgid "Reason unavailable"
+msgstr "Raison indisponible"
+
+msgid "Other HTTP responses"
+msgstr "Autres réponses HTTP"

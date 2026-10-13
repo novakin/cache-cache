@@ -79,6 +79,7 @@ class PreloadUrl {
 		$refresh = noobrocket_is_stale_refresh_enabled( $this->options->get_options() );
 		$requests_succeeded = true;
 		$requests_sent = 0;
+		$failure_reason = '';
 
 		$requests = [
 			[
@@ -156,8 +157,12 @@ class PreloadUrl {
 				user_trailingslashit( $request['url'] ),
 				$headers
 			);
-			if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			$code = is_wp_error( $response ) ? '' : wp_remote_retrieve_response_code( $response );
+			if ( is_wp_error( $response ) || 200 !== $code ) {
 				$requests_succeeded = false;
+				if ( '' === $failure_reason ) {
+					$failure_reason = ( is_int( $code ) || is_string( $code ) ) && preg_match( '/^[1-5][0-9]{2}$/D', (string) $code ) ? 'http_' . $code : 'transport';
+				}
 			}
 
 			if ( $check_duration ) {
@@ -195,15 +200,19 @@ class PreloadUrl {
 			set_transient( 'noobrocket_preload_check_duration', $duration, MINUTE_IN_SECONDS ); // Don't check request duration for 1 minute.
 			$check_duration = false;
 		}
-		if ( $requests_sent > 0 && $requests_succeeded && $this->is_already_cached( $url ) && ( ! $is_mobile || $this->is_already_cached( $url, true ) ) ) {
+		$desktop_ready = $requests_sent > 0 && $requests_succeeded && $this->is_already_cached( $url );
+		if ( $desktop_ready && ( ! $is_mobile || $this->is_already_cached( $url, true ) ) ) {
 			$this->query->make_status_complete( $url );
 		} else {
+			if ( '' === $failure_reason ) {
+				$failure_reason = 0 === $requests_sent ? 'no_requests' : ( $desktop_ready ? 'cache_mobile' : 'cache_desktop' );
+			}
 			$rows = $this->query->get_rows_by_url( $url );
 			if ( ! $rows ) {
 				return;
 			}
 			foreach ( $rows as $row ) {
-				$this->query->make_status_failed_by_id( (int) $row->id );
+				$this->query->make_status_failed_by_id( (int) $row->id, $failure_reason );
 			}
 		}
 	}

@@ -73,6 +73,9 @@ class Cache extends AbstractQuery {
 	 */
 	protected $item_shape = CacheRow::class;
 
+	/** @var bool The constructor's schema is ready for failure diagnostics. */
+	private $failure_reasons_available = false;
+
 	/**
 	 * Instantiate query.
 	 *
@@ -108,8 +111,49 @@ class Cache extends AbstractQuery {
 	 * }
 	 */
 	public function __construct( Logger $logger, $query = [] ) {
-		parent::__construct( $query );
+		parent::__construct();
 		$this->logger = $logger;
+		$this->failure_reasons_available = (int) get_option( $this->table_name . '_version', 0 ) >= 20261013;
+		if ( ! $this->failure_reasons_available ) {
+			// BerlinDB inserts schema defaults. Omit the new field after an
+			// unfinished upgrade so the existing queue remains usable.
+			foreach ( $this->columns as $key => $column ) {
+				if ( 'failure_reason' === $column->name ) {
+					unset( $this->columns[ $key ] );
+				}
+			}
+		}
+		if ( $query ) {
+			$this->query( $query );
+		}
+	}
+
+	/** Accept only codes owned by the preload pipeline, never request details. */
+	public static function normalize_failure_reason( $reason ): string {
+		return is_string( $reason ) && ( in_array( $reason, [ 'transport', 'no_requests', 'cache_desktop', 'cache_mobile' ], true )
+			|| preg_match( '/^http_[1-5][0-9]{2}$/D', $reason ) ) ? $reason : '';
+	}
+
+	/** Preserve old schema writes and keep direct integration writes bounded. */
+	public function add_item( $data = [] ) {
+		$data['failure_reason'] = 'failed' === ( $data['status'] ?? 'pending' ) ? self::normalize_failure_reason( $data['failure_reason'] ?? '' ) : '';
+		if ( ! $this->failure_reasons_available ) {
+			unset( $data['failure_reason'] );
+		}
+		return parent::add_item( $data );
+	}
+
+	/** Clear obsolete evidence for every status writer, including integrations. */
+	public function update_item( $item_id = 0, $data = [] ) {
+		if ( isset( $data['status'] ) ) {
+			$data['failure_reason'] = 'failed' === $data['status'] ? self::normalize_failure_reason( $data['failure_reason'] ?? '' ) : '';
+		} else {
+			unset( $data['failure_reason'] );
+		}
+		if ( ! $this->failure_reasons_available ) {
+			unset( $data['failure_reason'] );
+		}
+		return parent::update_item( $item_id, $data );
 	}
 
 	/**
@@ -437,15 +481,11 @@ class Cache extends AbstractQuery {
 			}
 
 			// Identical writes return false; verify current storage without cached items.
-			$matching = $this->query(
-				[
-					'id'       => $task->id,
-					'status'   => 'completed',
-					'modified' => $modified,
-					'count'    => true,
-				],
-				false
-			);
+			$check = [ 'id' => $task->id, 'status' => 'completed', 'modified' => $modified, 'count' => true ];
+			if ( $this->failure_reasons_available ) {
+				$check['failure_reason'] = '';
+			}
+			$matching = $this->query( $check, false );
 
 			if ( 0 === (int) $matching ) {
 				$completed = false;
@@ -483,6 +523,32 @@ class Cache extends AbstractQuery {
 			);
 		}
 
+		return $counts;
+	}
+
+	/** Fixed reasons and three HTTP statuses, with remaining HTTP failures counted. */
+	public function get_failure_reason_counts( int $failed ): array {
+		if ( ! $failed ) {
+			return [];
+		}
+		if ( ! $this->failure_reasons_available || ! $this->get_db() ) {
+			return [ 'unavailable' => $failed ];
+		}
+		$db = $this->get_db();
+		$table = $db->prefix . $this->table_name;
+		$rows = $db->get_results( "SELECT CASE WHEN BINARY failure_reason IN ('transport','no_requests','cache_desktop','cache_mobile') OR BINARY failure_reason REGEXP '^http_[1-5][0-9]{2}$' THEN failure_reason ELSE 'unavailable' END AS reason, COUNT(*) AS total FROM `$table` WHERE status = 'failed' GROUP BY reason ORDER BY total DESC, reason ASC" );
+		if ( ! is_array( $rows ) ) {
+			return [ 'unavailable' => $failed ];
+		}
+		$counts = [];
+		$http_statuses = 0;
+		foreach ( $rows as $row ) {
+			$reason = self::normalize_failure_reason( $row->reason ) ?: 'unavailable';
+			if ( preg_match( '/^http_[1-5][0-9]{2}$/D', $reason ) && ++$http_statuses > 3 ) {
+				$reason = 'http_other';
+			}
+			$counts[ $reason ] = ( $counts[ $reason ] ?? 0 ) + (int) $row->total;
+		}
 		return $counts;
 	}
 
@@ -538,7 +604,8 @@ class Cache extends AbstractQuery {
 		}
 
 		$prefixed_table_name = $db->prefix . $this->table_name;
-		$db->query( "UPDATE `$prefixed_table_name` SET status = 'pending', modified = '" . current_time( 'mysql', true ) . "' WHERE status = 'in-progress' AND `modified` <= date_sub(now(), interval 12 hour)" );
+		$reason = $this->failure_reasons_available ? ", failure_reason = ''" : '';
+		$db->query( "UPDATE `$prefixed_table_name` SET status = 'pending'$reason, modified = '" . current_time( 'mysql', true ) . "' WHERE status = 'in-progress' AND `modified` <= date_sub(now(), interval 12 hour)" );
 	}
 
 	/**
@@ -554,7 +621,8 @@ class Cache extends AbstractQuery {
 		}
 
 		$prefixed_table_name = $db->prefix . $this->table_name;
-		return $db->query( "UPDATE `$prefixed_table_name` SET status = 'pending', modified = '" . current_time( 'mysql', true ) . "' WHERE status = 'failed' AND `modified` <= date_sub(now(), interval 12 hour)" );
+		$reason = $this->failure_reasons_available ? ", failure_reason = ''" : '';
+		return $db->query( "UPDATE `$prefixed_table_name` SET status = 'pending'$reason, modified = '" . current_time( 'mysql', true ) . "' WHERE status = 'failed' AND `modified` <= date_sub(now(), interval 12 hour)" );
 	}
 
 	/**
@@ -579,7 +647,8 @@ class Cache extends AbstractQuery {
 		 */
 		$condition = apply_filters( 'noobrocket_preload_all_to_pending_condition', ' WHERE 1 = 1' );
 
-		$db->query( "UPDATE `$prefixed_table_name` SET status = 'pending', modified = '" . current_time( 'mysql', true ) . "'$condition" );
+		$reason = $this->failure_reasons_available ? ", failure_reason = ''" : '';
+		$db->query( "UPDATE `$prefixed_table_name` SET status = 'pending'$reason, modified = '" . current_time( 'mysql', true ) . "'$condition" );
 	}
 
 	/**
@@ -710,14 +779,16 @@ class Cache extends AbstractQuery {
 	/**
 	 * Make the status from the task to failed.
 	 *
-	 * @param int $id id from the task.
+	 * @param int    $id id from the task.
+	 * @param string $reason Bounded failure reason; empty for unavailable evidence.
 	 * @return bool
 	 */
-	public function make_status_failed_by_id( int $id ) {
+	public function make_status_failed_by_id( int $id, string $reason = '' ) {
 		return $this->update_item(
 			$id,
 			[
 				'status'   => 'failed',
+				'failure_reason' => self::normalize_failure_reason( $reason ),
 				'modified' => current_time( 'mysql', true ),
 			]
 		);

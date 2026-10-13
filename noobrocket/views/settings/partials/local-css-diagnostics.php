@@ -147,6 +147,24 @@ $button = static function ( $operation, $label, $disabled = false ) {
 			<details class="noobrocket-status-evidence"><summary><?php esc_html_e( 'Preload queue counts', 'noobrocket' ); ?></summary><div class="noobrocket-status-detail">
 				<?php foreach ( [ 'completed' => __( 'Completed', 'noobrocket' ), 'pending' => __( 'Pending', 'noobrocket' ), 'in-progress' => __( 'In progress', 'noobrocket' ), 'failed' => __( 'Failed', 'noobrocket' ) ] as $key => $label ) : ?><span><b><?php echo esc_html( number_format_i18n( (int) ( $data['preload_counts'][ $key ] ?? 0 ) ) ); ?></b><?php echo esc_html( $label ); ?></span><?php endforeach; ?>
 			</div><p class="noobrocket-helper"><?php esc_html_e( 'Completed counts describe recorded jobs, not current coverage of every page.', 'noobrocket' ); ?></p>
+			<?php if ( $preload_failed ) : ?>
+			<p class="noobrocket-helper"><?php esc_html_e( 'Recorded failure reasons', 'noobrocket' ); ?></p>
+			<div class="noobrocket-status-detail">
+			<?php
+			$reason_labels = [ 'transport' => __( 'Request failed', 'noobrocket' ) ];
+			$http_statuses = 0;
+			foreach ( ( $data['preload_failures'] ?? [] ) as $key => $count ) {
+				if ( preg_match( '/^http_[1-5][0-9]{2}$/D', (string) $key ) && ++$http_statuses <= 3 ) {
+					/* translators: %d: validated HTTP response status. */
+					$reason_labels[ $key ] = sprintf( __( 'HTTP %d', 'noobrocket' ), (int) substr( $key, 5 ) );
+				}
+			}
+			$reason_labels += [ 'http_other' => __( 'Other HTTP responses', 'noobrocket' ), 'no_requests' => __( 'No preload requests', 'noobrocket' ), 'cache_desktop' => __( 'Desktop cache unavailable', 'noobrocket' ), 'cache_mobile' => __( 'Mobile cache unavailable', 'noobrocket' ), 'unavailable' => __( 'Reason unavailable', 'noobrocket' ) ];
+			foreach ( $reason_labels as $key => $label ) : ?>
+				<?php if ( ! empty( $data['preload_failures'][ $key ] ) ) : ?><span><b><?php echo esc_html( number_format_i18n( (int) $data['preload_failures'][ $key ] ) ); ?></b><?php echo esc_html( $label ); ?></span><?php endif; ?>
+			<?php endforeach; ?>
+			</div>
+			<?php endif; ?>
 			<?php if ( $data['preload_enabled'] && ! $data['preload_paused'] ) : ?><div class="noobrocket-status-actions"><?php $button( 'pause_preload', __( 'Pause preloading', 'noobrocket' ) ); ?></div><?php endif; ?>
 			</details>
 			</div>

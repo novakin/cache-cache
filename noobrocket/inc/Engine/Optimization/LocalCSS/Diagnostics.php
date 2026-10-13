@@ -62,6 +62,7 @@ class Diagnostics implements Subscriber_Interface {
 
 		$data                    = $this->jobs->diagnostics();
 		$data['preload_counts']  = $this->preload->get_status_counts();
+		$data['preload_failures'] = $this->preload->get_failure_reason_counts( $data['preload_counts']['failed'] );
 		$data['preload_enabled'] = (bool) get_noobrocket_option( 'manual_preload', 0 );
 		$data['preload_paused']  = (bool) get_option( 'noobrocket_preload_paused', false );
 		$data['probe']           = get_transient( 'noobrocket_cache_delivery_probe' );

@@ -56,6 +56,14 @@ class Cache extends Schema {
 			'sortable'   => false,
 		],
 
+		// Failure diagnostics; empty for legacy rows or jobs without a reason.
+		[
+			'name'    => 'failure_reason',
+			'type'    => 'varchar',
+			'length'  => '32',
+			'default' => '',
+		],
+
 		// MODIFIED column.
 		[
 			'name'       => 'modified',
