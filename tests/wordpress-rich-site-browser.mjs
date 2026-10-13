@@ -466,6 +466,19 @@ async function cspBackground(profile) {
       check(/style-src 'self'/.test(policy) && /script-src 'self'/.test(policy), `${label}: actual native response enforces self-only style/script CSP.`);
       await page.locator('#rich-late-background').scrollIntoViewIfNeeded();
       const background = await page.locator('#rich-late-background').evaluate(node => getComputedStyle(node).backgroundImage);
+      const element = page.locator('#rich-late-background');
+      const rendered = await element.screenshot({ animations: 'disabled' });
+      const originalStyle = await element.getAttribute('style');
+      let withoutBackground;
+      try {
+        await element.evaluate(node => node.style.setProperty('background-image', 'none', 'important'));
+        check(await element.evaluate(node => getComputedStyle(node).backgroundImage) === 'none', `${label}: screenshot control removes only the background image.`);
+        withoutBackground = await element.screenshot({ animations: 'disabled' });
+      } finally {
+        await element.evaluate((node, style) => style === null ? node.removeAttribute('style') : node.setAttribute('style', style), originalStyle);
+      }
+      check(!rendered.equals(withoutBackground), `${label}: rendered background differs from its image-free control.`);
+      check(rendered.equals(await element.screenshot({ animations: 'disabled' })), `${label}: restoring the original background reproduces its rendered output.`);
       const rewrittenLazyStylesheet = await page.locator('link[rel~="stylesheet"]').evaluateAll(links => links.some(link => new URL(link.href).pathname.includes('/background-css/')));
       const observation = { profile, width, javaScriptEnabled, computedBackgroundPreserved: background !== 'none', violations: javaScriptEnabled ? await page.evaluate(() => window.richCspViolations) : [], rewrittenLazyStylesheet };
       (report.cspObservations ||= []).push(observation);
