@@ -344,6 +344,8 @@ def fixtures(root, args):
         print(f'Environment Node {node_version}; Chromium {variables.get("chromium", "not selected")}')
     if 'worker-dependencies' in prerequisites and not (root / 'noobrocket/local-css/node_modules/playwright-core').is_dir():
         raise CheckFailure('Browser checks need: npm ci --prefix noobrocket/local-css')
+    if 'tools-dependencies' in prerequisites and not (root / 'tools/node_modules/puppeteer-core').is_dir():
+        raise CheckFailure('Browser checks need: npm ci --prefix tools')
     native = any(entry['environment'] == 'native-wordpress' for entry in selected)
     wordpress = None
     if 'wordpress-core' in prerequisites or native:

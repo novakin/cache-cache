@@ -86,6 +86,8 @@ Catalog text and the generated settings bundle use LF on every platform. The tra
 
 The WordPress matrix uses PHP 7.4/WordPress 5.8 for selected native acceptance/lifecycle proof, and PHP 8.3/WordPress 7.1.3 for the broader catalog. Full source/dependency syntax runs in the PHP 8.3 fast job. The floor job executes native plugin paths and their loaded dependencies; it does not parse every bundled library or run every modeled fixture on old core. Browser fixtures verify actual maintained script/style bytes with synthetic/native-class boundaries; affected real WordPress page sizes/themes/locales remain part of UI review. Linux server proof covers its owned MariaDB/Apache/Nginx/PHP-FPM/worker/multisite installation. Workflow configuration alone does not prove these jobs executed or that GitHub enforces a merge gate; see [current acceptance](workflow-acceptance.md).
 
+Both WordPress pairs select `wordpress-settings-preload` to check settings and activation queue ownership through native hook classes with modeled storage. This fixture does not bootstrap a site; the PHP 7.4 selection checks its declared compatibility without raising the product floor or weakening its assertions.
+
 ## Optional roles
 
 Use roles where another context improves the task, without a mandatory pipeline or fixed agent count.
