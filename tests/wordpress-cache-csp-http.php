@@ -56,6 +56,13 @@ $mu_path = $wordpress . '/wp-content/mu-plugins/cache-cache-csp-proof-' . $suffi
 $post_ids = [];
 $urls = [];
 $mu_source = '';
+$settings_before = get_option( 'noobrocket_settings' );
+$queue_table = $wpdb->prefix . 'nbr_noobrocket_cache';
+$queue_before = $wpdb->get_results( "SELECT * FROM $queue_table ORDER BY id", ARRAY_A );
+$check( ! $wpdb->last_error && is_array( $queue_before ), 'Native preload rows can be preserved.' );
+$post_ids_before = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} ORDER BY ID" );
+// Fixture post hooks and HTTP visits must not enqueue unrelated archive URLs.
+add_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
 try {
 	$policies = [];
 	foreach ( [ 'enforcing' => 'Content-Security-Policy', 'report-only' => 'Content-Security-Policy-Report-Only', 'public' => '' ] as $case => $header ) {
@@ -67,7 +74,7 @@ try {
 		$urls[ $case ] = $url;
 		$policies[ $id ] = $header;
 	}
-	$mu_source = '<?php $policies = ' . var_export( $policies, true ) . '; add_action("template_redirect", static function () use ($policies) { $id = get_queried_object_id(); if (!array_key_exists($id, $policies)) { return; } header("X-Cache-Cache-Csp-Proof: ' . $suffix . '-" . bin2hex(random_bytes(8))); if ($policies[$id]) { header($policies[$id] . ": default-src \'self\'; object-src \'none\'"); } }, 0);';
+	$mu_source = '<?php add_filter("pre_get_noobrocket_option_manual_preload", "__return_false"); $policies = ' . var_export( $policies, true ) . '; add_action("template_redirect", static function () use ($policies) { $id = get_queried_object_id(); if (!array_key_exists($id, $policies)) { return; } header("X-Cache-Cache-Csp-Proof: ' . $suffix . '-" . bin2hex(random_bytes(8))); if ($policies[$id]) { header($policies[$id] . ": default-src \'self\'; object-src \'none\'"); } }, 0);';
 	wp_mkdir_p( dirname( $mu_path ) );
 	$check( ! file_exists( $mu_path ) && strlen( $mu_source ) === file_put_contents( $mu_path, $mu_source ), 'Owned exact-page CSP callback installed.' );
 	foreach ( $urls as $case => $url ) {
@@ -101,5 +108,9 @@ try {
 	}
 	if ( $urls ) { noobrocket_clean_files( array_values( $urls ) ); }
 	foreach ( $post_ids as $id ) { wp_delete_post( $id, true ); }
+	remove_filter( 'pre_get_noobrocket_option_manual_preload', '__return_false' );
+	$check( $settings_before === get_option( 'noobrocket_settings' ), 'Saved settings are preserved.' );
+	$check( $queue_before === $wpdb->get_results( "SELECT * FROM $queue_table ORDER BY id", ARRAY_A ), 'Every original preload row is preserved.' );
+	$check( $post_ids_before === $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} ORDER BY ID" ), 'Original authored records are preserved.' );
 }
 echo "PASS: $checks native WordPress CSP/public-cache HTTP checks; owned pages/callback removed.\n";
