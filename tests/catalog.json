@@ -609,6 +609,24 @@
       "minimum_php": "7.4"
     },
     {
+      "name": "delay-consent-browser",
+      "path": "tests/delay-consent-browser.mjs",
+      "purpose": "Actual Firefox and Chromium DelayJS execution, consent-owned inert script recovery, later consent and network failure.",
+      "profile": "browser",
+      "environment": "synthetic-browser",
+      "prerequisites": [
+        "node22",
+        "chromium",
+        "firefox",
+        "tools-dependencies"
+      ],
+      "mutation": "Owned loopback listener and temporary browser profiles; synthetic consent hooks, no WordPress or provider requests.",
+      "args": [
+        "{chromium}"
+      ],
+      "default": true
+    },
+    {
       "name": "linux-multisite",
       "path": "tests/linux-multisite.php",
       "purpose": "Dedicated network proof. The runner owns and discards its entire site/database.",
