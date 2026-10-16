@@ -100,6 +100,7 @@ class NoobRocketPreloadLinks {
 			let url;
 			try { url = new URL( link.href ); } catch ( error ) { return; }
 			if ( ! this._isLinkOk( url ) ) return;
+			if ( urls.has( url.href ) ) return;
 			// URLPattern syntax belongs to literal destinations, never to the site's
 			// regular-expression exclusions. All components, including empty ones, are exact.
 			const escape = value => value.replace( /[:*+?(){}\\]/g, '\\$&' );

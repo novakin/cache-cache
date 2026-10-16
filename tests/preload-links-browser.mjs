@@ -42,6 +42,14 @@ const render = url => {
     ${capabilities.unsupported ? "HTMLScriptElement.supports = () => false;" : ''}
     ${capabilities.noUrlPattern ? "window.URLPattern = undefined;" : ''}
     ${capabilities.noPrefetch ? "NoobRocketBrowserCompatibilityChecker.prototype.supportsLinkPrefetch = () => false;" : ''}
+    ${capabilities.countDocumentPatterns ? `const NativeURLPattern = window.URLPattern;
+      window.runtimeLiteralPatterns = [];
+      window.URLPattern = class extends NativeURLPattern {
+        constructor(...args) {
+          super(...args);
+          if (args[0] && typeof args[0] === 'object' && Object.hasOwn(args[0], 'protocol')) window.runtimeLiteralPatterns.push({ ...args[0] });
+        }
+      };` : ''}
     ${capabilities.saveData || capabilities.slow ? `Object.defineProperty(navigator, 'connection', { value: { saveData: ${!!capabilities.saveData}, effectiveType: '${capabilities.slow ? '2g' : '4g'}' }, configurable: true });` : ''}`;
   const automation = scenario !== 'native' ? '' : `${config.mode === 'document' ? 'document.querySelector("#second").classList.remove("no-prerender");document.querySelector("#second").href="/wordpress/private/account";' : ''}
     fetch('/qa/report?run=${run}&stage=rules&data='+encodeURIComponent(document.querySelector('#noobrocket-document-speculation-rules')?.textContent || 'intent'));
@@ -56,6 +64,7 @@ const render = url => {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Link intent fixture</title></head><body>
     <a id="first" href="/wordpress/article-one"><span>First article</span></a>
     <a id="second" ${native && config.mode === 'document' ? 'class="no-prerender"' : ''} href="/wordpress/article-two">Second article</a><button id="other">Other control</button>
+    ${capabilities.countDocumentPatterns ? `<a id="duplicate-relative" href="./article-one">Relative duplicate</a><a id="duplicate-absolute" href="${origin}/wordpress/article-one">Absolute duplicate</a><a href="./article-two">Second duplicate</a><a href="/wordpress/private/account">Excluded</a><a href="${origin}/wordpress/private/account">Excluded duplicate</a>` : ''}
     ${native ? '<a href="/wordpress/private/account">Private route</a><a href="/wordpress/never-cache/account">Cache exclusion</a><a href="/outside/article">Outside site</a><a href="/wordpress/download.png">Image</a><a href="/wordpress/article-download" download>Download</a><a href="/wordpress/article-tab" target="_blank">New tab</a><div class="no-prerender"><a href="/wordpress/article-parent">Parent exclusion</a></div>' : ''}
     ${documentRules}${script(checker)}${script(configure)}${script(scripts[variant])}${script(automation)}</body></html>`;
 };
@@ -136,6 +145,42 @@ try {
       return page;
     };
     try {
+      // Count genuine native constructions made by the runtime. These assertions
+      // inspect serialized rules only and never construct their own URLPatterns.
+      const dedupPage = await newPage({ mode: 'document', eagerness: 'eager' }, { countDocumentPatterns: true }, { csp: '1' });
+      const dedupState = () => dedupPage.evaluate(() => {
+        const json = document.querySelector('#noobrocket-document-speculation-rules').textContent;
+        const rule = JSON.parse(json).prerender[0];
+        return { json, paths: rule.where.and[0].href_matches.map(pattern => pattern.pathname), constructed: window.runtimeLiteralPatterns.map(pattern => pattern.pathname) };
+      });
+      let dedup = await dedupState();
+      const originalDocumentRules = dedup.json;
+      check(dedup.paths.join() === '/wordpress/article-one,/wordpress/article-two', `${variant}: duplicate canonical hrefs retain unique ordered eligible candidates`);
+      check(dedup.constructed.join() === dedup.paths.join(), `${variant}: native document patterns are constructed once per unique eligible URL (${dedup.constructed.length} constructions for ${dedup.paths.length} destinations)`);
+      await dedupPage.evaluate(async () => {
+        window.runtimeLiteralPatterns.length = 0;
+        document.querySelector('#duplicate-absolute').remove();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      });
+      dedup = await dedupState();
+      check(dedup.json === originalDocumentRules && dedup.constructed.join() === dedup.paths.join(), `${variant}: removing a duplicate preserves exact rules and deduplicates the fresh scan`);
+      await dedupPage.evaluate(async () => {
+        window.runtimeLiteralPatterns.length = 0;
+        document.querySelector('#duplicate-relative').href = '/wordpress/article-three';
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      });
+      dedup = await dedupState();
+      check(dedup.paths.join() === '/wordpress/article-one,/wordpress/article-two,/wordpress/article-three' && dedup.constructed.join() === dedup.paths.join(), `${variant}: href mutation rebuilds unique candidates in document order`);
+      await dedupPage.evaluate(async () => {
+        window.runtimeLiteralPatterns.length = 0;
+        document.querySelector('#first').remove();
+        document.querySelector('#duplicate-relative').href = '/wordpress/private/account';
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      });
+      dedup = await dedupState();
+      check(dedup.paths.join() === '/wordpress/article-two' && dedup.constructed.join() === dedup.paths.join(), `${variant}: last-link removal and excluded href mutation remove stale candidates`);
+      await dedupPage.close();
+
       const page = await newPage();
       await dispatch(page, '#first span', 'mouseover');
       check((await prepared(page)).rules.length === 0, `${variant}: hover waits for intent delay`);
