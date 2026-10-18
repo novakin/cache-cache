@@ -81,7 +81,7 @@ class Subscriber implements Subscriber_Interface {
 			&& ! noobrocket_bypass()
 			&& ! ( defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE )
 			&& ! ( defined( 'REST_REQUEST' ) && REST_REQUEST )
-			&& ! ( defined( 'DOING_AJAX' ) && DOING_AJAX );
+			&& ! wp_doing_ajax();
 	}
 
 	/**
@@ -153,7 +153,7 @@ class Subscriber implements Subscriber_Interface {
 		$this->is_enqueued = true;
 	}
 
-	/** Emit source-visible document rules that remain inert until browser eligibility is validated. */
+	/** Emit inert document-rule data until browser eligibility is validated. */
 	public function print_document_rules() {
 		if ( ! $this->is_enqueued || ! $this->can_prepare_links()
 			|| true !== ( $this->configuration['prerender'] ?? false )
@@ -165,7 +165,7 @@ class Subscriber implements Subscriber_Interface {
 			'where' => [ 'and' => [ [ 'selector_matches' => 'a' ], [ 'not' => [ 'selector_matches' => 'a' ] ] ] ],
 			'eagerness' => $this->configuration['eagerness'],
 		] ] ];
-		echo wp_get_inline_script_tag( wp_json_encode( $rules, JSON_HEX_TAG ), [ 'id' => 'noobrocket-document-speculation-rules', 'type' => 'speculationrules' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core script helper escapes attributes; JSON has no executable markup.
+		echo wp_get_inline_script_tag( wp_json_encode( $rules, JSON_HEX_TAG ), [ 'id' => 'noobrocket-document-speculation-rules', 'type' => 'application/json' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core script helper escapes attributes; JSON has no executable markup.
 	}
 
 	/**
