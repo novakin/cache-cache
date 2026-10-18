@@ -34,6 +34,7 @@ function is_embed() { return $GLOBALS['state']['embed']; }
 function is_preview() { return $GLOBALS['state']['preview']; }
 function is_search() { return $GLOBALS['state']['search']; }
 function is_404() { return $GLOBALS['state']['404']; }
+function wp_doing_ajax() { return apply_filters( 'wp_doing_ajax', defined( 'DOING_AJAX' ) && DOING_AJAX ); }
 function is_singular() { return $GLOBALS['state']['singular']; }
 function post_password_required() { return $GLOBALS['state']['password']; }
 function noobrocket_bypass() { return $GLOBALS['state']['bypass']; }
@@ -134,7 +135,15 @@ if ( isset( $argv[2] ) ) {
 	link_prerender_check( [] === $scripts, $guard . ' emits no preparation script' );
 	$core = [ 'mode' => 'prerender', 'eagerness' => 'conservative' ];
 	link_prerender_check( $core === $subscriber->coordinate_core_speculation( $core ), $guard . ' preserves core ownership' );
-	echo 'PASS: ', $guard, " (2 assertions; isolated process)\n";
+	if ( 'DOING_AJAX' === $guard ) {
+		$ajax_filter = static function () { return false; };
+		add_filter( 'wp_doing_ajax', $ajax_filter );
+		$subscriber->add_preload_script();
+		link_prerender_check( isset( $scripts['noobrocket-preload-links'] ), 'native AJAX filter can classify a constant-marked request as ordinary' );
+		link_prerender_check( null === $subscriber->coordinate_core_speculation( $core ), 'native AJAX override applies consistently to core coordination' );
+		remove_filter( 'wp_doing_ajax', $ajax_filter );
+	}
+	echo 'PASS: ', $guard, ' (', $checks, " assertions; isolated process)\n";
 	exit;
 }
 
@@ -239,6 +248,16 @@ foreach ( [ 'logged_in', 'admin', 'feed', 'embed', 'preview', 'search', '404', '
 	$state[ $guard ] = false;
 }
 $scripts = [];
+$ajax_filter = static function () { return true; };
+add_filter( 'wp_doing_ajax', $ajax_filter );
+$ajax_subscriber = link_subscriber( [ 'preload_links' => 1, 'prerender_links' => 1 ] );
+$ajax_subscriber->add_preload_script();
+link_prerender_check( [] === $scripts, 'native AJAX filter excludes an otherwise public request' );
+link_prerender_check( $core === $ajax_subscriber->coordinate_core_speculation( $core ), 'native AJAX filter preserves core ownership' );
+remove_filter( 'wp_doing_ajax', $ajax_filter );
+$ajax_subscriber->add_preload_script();
+link_prerender_check( isset( $scripts['noobrocket-preload-links'] ), 'ordinary request remains eligible after the AJAX override is removed' );
+$scripts = [];
 link_subscriber()->add_preload_script();
 link_prerender_check( [] === $scripts, 'both options off emit no scripts' );
 link_subscriber( [ 'preload_links' => 1, 'prerender_links' => 'on' ] )->add_preload_script();
@@ -254,7 +273,7 @@ ob_start();
 $document_subscriber->print_document_rules();
 $document_source = ob_get_clean();
 remove_filter( 'wp_inline_script_attributes', $attributes_filter );
-link_prerender_check( false !== strpos( $document_source, 'id="noobrocket-document-speculation-rules"' ) && false !== strpos( $document_source, 'type="speculationrules"' ), 'document mode emits source-visible native rules' );
+link_prerender_check( false !== strpos( $document_source, 'id="noobrocket-document-speculation-rules"' ) && false !== strpos( $document_source, 'type="application/json"' ) && false === strpos( $document_source, 'type="speculationrules"' ), 'document mode emits source-visible data without registering native rules before browser checks' );
 link_prerender_check( false !== strpos( $document_source, 'nonce="fixture-document-nonce"' ) && false !== strpos( $document_source, 'data-fixture-hook="preserved"' ), 'document output uses core inline attribute hooks' );
 preg_match( '#<script[^>]*>(.*)</script>#s', $document_source, $source_match );
 $document_rules = json_decode( $source_match[1], true, 512, JSON_THROW_ON_ERROR );
@@ -350,4 +369,4 @@ if ( is_file( ABSPATH . 'wp-includes/speculative-loading.php' ) ) {
 	remove_filter( 'wp_speculation_rules_configuration', $core_callback );
 	link_prerender_check( null !== wp_get_speculation_rules_configuration(), 'native ownership resumes after plugin callback removal' );
 }
-echo 'PASS: link prerender PHP contracts (', $checks, " assertions plus 6 isolated context assertions; no site writes)\n";
+echo 'PASS: link prerender PHP contracts (', $checks, " assertions plus 8 isolated context assertions; no site writes)\n";

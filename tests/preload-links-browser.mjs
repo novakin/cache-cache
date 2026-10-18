@@ -37,10 +37,14 @@ const render = url => {
   const config = { ...defaults(), ...JSON.parse(url.searchParams.get('config') || '{}') };
   const capabilities = JSON.parse(url.searchParams.get('capabilities') || '{}');
   const run = url.searchParams.get('run') || variant;
-  const documentRules = config.mode === 'document' ? `<script id="noobrocket-document-speculation-rules" type="speculationrules" nonce="${nonce}" data-fixture-hook="preserved">${JSON.stringify({ prerender: [{ source: 'document', where: { and: [{ selector_matches: 'a' }, { not: { selector_matches: 'a' } }] }, eagerness: config.eagerness || 'conservative' }] })}</script>` : '';
+  const documentRules = config.mode === 'document' ? `<script id="noobrocket-document-speculation-rules" type="${capabilities.legacyRules ? 'speculationrules' : 'application/json'}" nonce="${nonce}" data-fixture-hook="preserved">${JSON.stringify({ prerender: [{ source: 'document', where: { and: [{ selector_matches: 'a' }, { not: { selector_matches: 'a' } }] }, eagerness: config.eagerness || 'conservative' }] })}</script>` : '';
   const configure = `window.NoobRocketPreloadLinksConfig = ${JSON.stringify(config)};
+    window.bootstrapNativeRuleCount = document.querySelectorAll('script[type="speculationrules"]').length;
+    window.bootstrapDocumentRule = document.querySelector('#noobrocket-document-speculation-rules');
     ${capabilities.unsupported ? "HTMLScriptElement.supports = () => false;" : ''}
     ${capabilities.noUrlPattern ? "window.URLPattern = undefined;" : ''}
+    ${capabilities.noMutationObserver ? "window.MutationObserver = undefined;" : ''}
+    ${capabilities.noEligibleLinks ? "document.querySelectorAll('a').forEach(anchor => anchor.href = '/wordpress/private/account');" : ''}
     ${capabilities.noPrefetch ? "NoobRocketBrowserCompatibilityChecker.prototype.supportsLinkPrefetch = () => false;" : ''}
     ${capabilities.countDocumentPatterns ? `const NativeURLPattern = window.URLPattern;
       window.runtimeLiteralPatterns = [];
@@ -149,9 +153,11 @@ try {
       // inspect serialized rules only and never construct their own URLPatterns.
       const dedupPage = await newPage({ mode: 'document', eagerness: 'eager' }, { countDocumentPatterns: true }, { csp: '1' });
       const dedupState = () => dedupPage.evaluate(() => {
-        const json = document.querySelector('#noobrocket-document-speculation-rules').textContent;
+        const node = document.querySelector('#noobrocket-document-speculation-rules');
+        window.firstActiveDocumentRule ||= node;
+        const json = node.textContent;
         const rule = JSON.parse(json).prerender[0];
-        return { json, paths: rule.where.and[0].href_matches.map(pattern => pattern.pathname), constructed: window.runtimeLiteralPatterns.map(pattern => pattern.pathname) };
+        return { json, sameNode: node === window.firstActiveDocumentRule, paths: rule.where.and[0].href_matches.map(pattern => pattern.pathname), constructed: window.runtimeLiteralPatterns.map(pattern => pattern.pathname) };
       });
       let dedup = await dedupState();
       const originalDocumentRules = dedup.json;
@@ -163,7 +169,7 @@ try {
         await new Promise(resolve => requestAnimationFrame(resolve));
       });
       dedup = await dedupState();
-      check(dedup.json === originalDocumentRules && dedup.constructed.join() === dedup.paths.join(), `${variant}: removing a duplicate preserves exact rules and deduplicates the fresh scan`);
+      check(dedup.sameNode && dedup.json === originalDocumentRules && dedup.constructed.join() === dedup.paths.join(), `${variant}: removing a duplicate preserves the native rule node and deduplicates the fresh scan`);
       await dedupPage.evaluate(async () => {
         window.runtimeLiteralPatterns.length = 0;
         document.querySelector('#duplicate-relative').href = '/wordpress/article-three';
@@ -363,6 +369,7 @@ try {
         const documentPage = await newPage({ mode: 'document', eagerness }, {}, { csp: '1' });
         let documentState = await prepared(documentPage);
         const rule = documentState.rules[0]?.rules.prerender[0];
+        check(await documentPage.evaluate(() => window.bootstrapNativeRuleCount === 0 && !window.bootstrapDocumentRule.isConnected && document.querySelectorAll('#noobrocket-document-speculation-rules').length === 1), `${variant}: inert bootstrap activates one replacement without a native placeholder`);
         check(rule?.source === 'document' && rule.eagerness === eagerness && documentState.prefetch.length === 0, `${variant}: native document mode exposes ${eagerness} without duplicate prefetch`);
         check(documentState.rules[0].nonce === nonce && await documentPage.locator('#noobrocket-document-speculation-rules').getAttribute('data-fixture-hook') === 'preserved', `${variant}: document-rule replacement preserves nonce and inline tag hooks`);
         const allowed = await documentPage.evaluate(() => {
@@ -405,13 +412,32 @@ try {
       for (const capabilities of [{ saveData: true }, { slow: true }]) {
         const inert = await newPage({ mode: 'document', eagerness: 'eager' }, capabilities);
         const state = await prepared(inert);
-        check(!state.rules[0].rules.prerender[0].where.and[0].href_matches && state.prefetch.length === 0, `${variant}: constrained connection leaves initial source document JSON inert`);
+        check(state.rules.length === 0 && state.prefetch.length === 0 && await inert.evaluate(() => window.bootstrapDocumentRule.isConnected && window.bootstrapDocumentRule.type === 'application/json'), `${variant}: constrained connection never registers native document rules`);
         await inert.close();
       }
       const documentFallback = await newPage({ mode: 'document', eagerness: 'eager' }, { unsupported: true });
       await dispatch(documentFallback, '#first', 'mousedown');
-      check((await prepared(documentFallback)).prefetch.length === 1, `${variant}: unsupported document API retains legacy intent preloading`);
+      const fallbackState = await prepared(documentFallback);
+      check(fallbackState.prefetch.length === 1 && fallbackState.rules.length === 0, `${variant}: unsupported document API retains legacy intent preloading without native bootstrap rules`);
       await documentFallback.close();
+      for (const capabilities of [{ noUrlPattern: true }, { noMutationObserver: true }]) {
+        const fallback = await newPage({ mode: 'document', eagerness: 'eager' }, capabilities);
+        await dispatch(fallback, '#first', 'mousedown');
+        const fallbackState = await prepared(fallback);
+        check(fallbackState.rules.length === 1 && fallbackState.rules[0].id === 'noobrocket-speculation-rules' && fallbackState.rules[0].rules.prerender[0].source === 'list', `${variant}: unavailable document prerequisites preserve guarded intent fallback`);
+        await fallback.close();
+      }
+      const legacy = await newPage({ mode: 'document', eagerness: 'eager' }, { legacyRules: true }, { csp: '1' });
+      const legacyState = await prepared(legacy);
+      check(legacyState.rules.length === 1 && legacyState.rules[0].rules.prerender[0].where.and[0].href_matches.length === 2 && legacyState.rules[0].nonce === nonce, `${variant}: cached legacy native bootstrap still activates eligible document rules with CSP nonce`);
+      await legacy.close();
+      const empty = await newPage({ mode: 'document', eagerness: 'eager' }, { noEligibleLinks: true }, { csp: '1' });
+      const emptyState = await prepared(empty);
+      check(emptyState.rules.length === 1 && !emptyState.rules[0].rules.prerender[0].where.and[0].href_matches && await empty.evaluate(() => !window.bootstrapDocumentRule.isConnected), `${variant}: equal no-match JSON still activates the initially inert rule`);
+      await empty.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<a href="/wordpress/article-later">Later article</a>'));
+      await empty.waitForFunction(() => JSON.parse(document.querySelector('#noobrocket-document-speculation-rules').textContent).prerender[0].where.and[0].href_matches?.length === 1);
+      check((await prepared(empty)).rules.length === 1, `${variant}: initially empty document rules admit a later eligible link with one native owner`);
+      await empty.close();
       check(errors.length === 0, `${variant}: no uncaught browser errors (${errors.join('; ')})`);
     } finally { await context.close(); }
   }
@@ -424,6 +450,7 @@ try {
     const page = await context.newPage();
     const client = await context.newCDPSession(page);
     const ruleSets = [];
+    const removedRuleSets = [];
     const statuses = [];
     let candidates = [];
     const waitForNative = async (predicate, message) => {
@@ -434,6 +461,7 @@ try {
       throw new Error(`${variant}: ${message}; candidates=${JSON.stringify(candidates)} statuses=${JSON.stringify(statuses)}`);
     };
     client.on('Preload.ruleSetUpdated', event => ruleSets.push(event.ruleSet));
+    client.on('Preload.ruleSetRemoved', event => removedRuleSets.push(event.id));
     client.on('Preload.preloadingAttemptSourcesUpdated', event => {
       candidates = event.preloadingAttemptSources.filter(item => item.key.action === 'Prerender').map(item => item.key.url).sort();
     });
@@ -446,7 +474,7 @@ try {
     try {
       await page.goto(urlFor(variant, { mode: 'document', eagerness: 'eager' }, {}, { scenario: 'document-candidates', csp: '1', run }));
       await waitForNative(() => candidates.join() === firstUrl, 'native document candidates exclude private/resource/new-tab/download/ancestor destinations');
-      check(ruleSets.length >= 2 && ruleSets.every(ruleSet => !ruleSet.errorMessage && !ruleSet.errorType), `${variant}: native browser parses initial and replacement document rules under CSP`);
+      check(ruleSets.length === 1 && removedRuleSets.length === 0 && ruleSets.every(ruleSet => !ruleSet.errorMessage && !ruleSet.errorType), `${variant}: native browser registers one validated rule set under CSP without removing a bootstrap rule set`);
       check(candidates.join() === firstUrl, `${variant}: native candidates enforce URL and CSS exclusions`);
       await page.evaluate(() => {
         document.querySelector('#second').classList.remove('no-prerender');
@@ -455,6 +483,7 @@ try {
       });
       const dynamicUrl = await page.locator('#native-dynamic').evaluate(anchor => anchor.href);
       await waitForNative(() => candidates.join() === [firstUrl, dynamicUrl].sort().join(), 'native document rules admit a literal dynamic URL without admitting private links');
+      check(ruleSets.length === 2 && removedRuleSets.length === 1, `${variant}: a changed destination set still replaces the existing native rule set once`);
       check(candidates.join() === [firstUrl, dynamicUrl].sort().join(), `${variant}: native URLPattern predicates preserve literal syntax for dynamic links`);
       const beforeTargetChange = (await prepared(page)).rules[0].rules;
       await page.locator('#native-dynamic').evaluate(anchor => anchor.target = '_blank');

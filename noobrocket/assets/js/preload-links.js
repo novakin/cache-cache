@@ -60,7 +60,7 @@ class NoobRocketPreloadLinks {
 	_initDocumentRules() {
 		if ( typeof URLPattern !== 'function' || typeof MutationObserver !== 'function' ) return false;
 		this.documentRulesScript = document.getElementById( 'noobrocket-document-speculation-rules' );
-		if ( ! this.documentRulesScript || this.documentRulesScript.type !== 'speculationrules' ) return false;
+		if ( ! this.documentRulesScript || ! [ 'application/json', 'speculationrules' ].includes( this.documentRulesScript.type ) ) return false;
 		try {
 			this.documentExclusions = [
 				'a[download]', 'a[target]:not([target="_self" i], [target=""])', 'a[rel~="nofollow" i]',
@@ -118,13 +118,14 @@ class NoobRocketPreloadLinks {
 		] } : { and: [ { selector_matches: 'a' }, { not: { selector_matches: 'a' } } ] };
 		const eagerness = [ 'conservative', 'moderate', 'eager' ].includes( this.config.eagerness ) ? this.config.eagerness : 'conservative';
 		const rules = JSON.stringify( { prerender: [ { source: 'document', where, eagerness } ] } );
-		if ( this.documentRulesScript.textContent === rules ) return;
+		if ( this.documentRulesScript.type === 'speculationrules' && this.documentRulesScript.textContent === rules ) return;
 		// A parsed script clone keeps its already-started flag. Create a fresh script
-		// while retaining the core inline-tag attributes and hidden CSP nonce.
+		// to activate inert data, retaining core inline-tag attributes and hidden CSP nonce.
 		const replacement = document.createElement( 'script' );
 		for ( const attribute of this.documentRulesScript.attributes ) {
 			replacement.setAttribute( attribute.name, attribute.value );
 		}
+		replacement.type = 'speculationrules';
 		if ( this.documentRulesScript.nonce ) replacement.nonce = this.documentRulesScript.nonce;
 		replacement.textContent = rules;
 		this.documentRulesScript.replaceWith( replacement );
